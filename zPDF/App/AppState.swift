@@ -132,6 +132,8 @@ final class AppState {
 
     var documentPanel: DocumentPanel?
     let readingPresentation = ReadingPresentationState()
+    /// Viewing/navigation/search/print/help feature state (FeatureState.swift).
+    let features = FeatureState()
     var railSelection: RailDestination = .home
     var tabs: [DocumentTab] = []
     var activeTabID: UUID?

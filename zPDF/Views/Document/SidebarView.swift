@@ -24,13 +24,13 @@ enum DocumentPanel: String, CaseIterable, Identifiable {
         case .bookmarks: true
         case .attachments: true
 
-        case .layers: false
+        case .layers: true
 
-        case .destinations: false
+        case .destinations: true
 
         case .signatures: false
 
-        case .articles: false
+        case .articles: true
         }
     }
     var title: String {
@@ -133,8 +133,10 @@ struct SidebarView: View {
                             .padding(12)
                     }
                 case .pages: pagesContent
-                case .bookmarks: bookmarksContent
-                case .attachments: attachmentsContent
+                case .bookmarks:
+                    if usesEngine { BookmarksSidebar(tab: tab) } else { bookmarksContent }
+                case .attachments:
+                    if usesEngine { AttachmentsSidebar(tab: tab) } else { attachmentsContent }
                 case .layers: LayersSidebar(tab: tab)
                 case .destinations: DestinationsSidebar(tab: tab)
                 case .signatures: SignaturesSidebar(tab: tab)
@@ -145,6 +147,10 @@ struct SidebarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(.bar)
     }
+
+    /// Encrypted files have no engine revision; they keep the read-only
+    /// PDFKit/CoreGraphics views below.
+    private var usesEngine: Bool { !(tab.pdfDocument?.isEncrypted == true && tab.editSource == nil) }
 
     // MARK: - Pages (real PDFKit thumbnails)
 
@@ -247,26 +253,5 @@ struct OutlineNode: Identifiable {
         return OutlineNode(title: outline.label ?? "Untitled",
                            pageIndex: pageIndex,
                            children: children)
-    }
-}
-
-// MARK: - Shared sidebar bits
-
-private struct SidebarEmptyState: View {
-    let symbolName: String
-    let message: String
-
-    var body: some View {
-        VStack(spacing: DesignTokens.Spacing.small) {
-            Image(systemName: symbolName)
-                .font(.system(size: 22, weight: .light))
-                .foregroundStyle(DesignTokens.Colors.mutedText)
-            Text(message)
-                .font(.system(size: 11))
-                .foregroundStyle(DesignTokens.Colors.mutedText)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(DesignTokens.Spacing.large)
     }
 }

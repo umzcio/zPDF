@@ -22,6 +22,7 @@ struct RootView: View {
         activeView
         .background(Color(nsColor: .windowBackgroundColor))
         .background(ReadingPresentationHost(appState: appState).frame(width: 0, height: 0))
+        .modifier(FeatureHost())
         .task { await appState.startRecovery() }
         .onAppear {
             lifecycle?.showMainWindow = { openWindow(id: "main") }

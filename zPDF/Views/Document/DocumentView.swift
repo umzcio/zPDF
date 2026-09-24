@@ -103,6 +103,7 @@ struct DocumentView: View {
                             tab.currentPage = newPage
                         }
                     )
+                    CanvasFeatureLayer(tab: tab)
                     if appState.signatureService.armedSignature != nil {
                         SignaturePlacementOverlay(viewStore: appState.pdfViewStore,
                                                   signatureService: appState.signatureService)

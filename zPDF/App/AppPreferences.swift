@@ -97,6 +97,104 @@ final class AppPreferences {
     var openCommentsAutomatically: Bool { didSet { persist("openCommentsAutomatically", openCommentsAutomatically) } }
     var highlightFormFields: Bool { didSet { persist("highlightFormFields", highlightFormFields) } }
 
+    // General & documents
+    var useDocumentInitialView: Bool { didSet { persist("useDocumentInitialView", useDocumentInitialView) } }
+    var hasCompletedOnboarding: Bool { didSet { persist("hasCompletedOnboarding", hasCompletedOnboarding) } }
+    var lastSeenWhatsNew: String { didSet { persist("lastSeenWhatsNew", lastSeenWhatsNew) } }
+    var showWhatsNewAfterUpdates: Bool { didSet { persist("showWhatsNewAfterUpdates", showWhatsNewAfterUpdates) } }
+    var showXFANotice: Bool { didSet { persist("showXFANotice", showXFANotice) } }
+
+    // Identity (the name is shared with comment authoring)
+    var identityEmail: String { didSet { persist("identityEmail", identityEmail) } }
+    var identityOrganization: String { didSet { persist("identityOrganization", identityOrganization) } }
+    var identityTitle: String { didSet { persist("identityTitle", identityTitle) } }
+
+    // Page display
+    var smoothImages: Bool { didSet { persist("smoothImages", smoothImages) } }
+    var pageShadows: Bool { didSet { persist("pageShadows", pageShadows) } }
+    var showPageLabels: Bool { didSet { persist("showPageLabels", showPageLabels) } }
+    /// Zoom In/Out stops as fractions (1 = 100%), sorted and clamped.
+    var zoomSteps: [Double] {
+        didSet {
+            let valid = Self.normalizedZoomSteps(zoomSteps)
+            if valid != zoomSteps { zoomSteps = valid; return }
+            persist("zoomSteps", valid)
+        }
+    }
+
+    // Accessibility: document colors
+    var documentColorMode: DocumentColorMode { didSet { persist("documentColorMode", documentColorMode.rawValue) } }
+    var customPageTextColor: UInt32 { didSet { persist("customPageTextColor", Int(customPageTextColor)) } }
+    var customPageBackgroundColor: UInt32 { didSet { persist("customPageBackgroundColor", Int(customPageBackgroundColor)) } }
+
+    // Reading
+    var readAloudVoice: String { didSet { persist("readAloudVoice", readAloudVoice) } }
+    var readAloudRate: Double { didSet { persist("readAloudRate", readAloudRate) } }
+    var readAloudHighlight: Bool { didSet { persist("readAloudHighlight", readAloudHighlight) } }
+    var autoScrollSpeed: Double { didSet { persist("autoScrollSpeed", autoScrollSpeed) } }
+
+    // Full screen
+    var fullScreenAdvance: Bool { didSet { persist("fullScreenAdvance", fullScreenAdvance) } }
+    var fullScreenAdvanceSeconds: Double { didSet { persist("fullScreenAdvanceSeconds", fullScreenAdvanceSeconds) } }
+    var fullScreenLoop: Bool { didSet { persist("fullScreenLoop", fullScreenLoop) } }
+    var fullScreenClickAdvances: Bool { didSet { persist("fullScreenClickAdvances", fullScreenClickAdvances) } }
+    var fullScreenBackground: FullScreenBackground { didSet { persist("fullScreenBackground", fullScreenBackground.rawValue) } }
+    var fullScreenTransition: PageTransitionStyle { didSet { persist("fullScreenTransition", fullScreenTransition.rawValue) } }
+    var fullScreenUseDocumentTransitions: Bool { didSet { persist("fullScreenUseDocumentTransitions", fullScreenUseDocumentTransitions) } }
+    var fullScreenShowNavigation: Bool { didSet { persist("fullScreenShowNavigation", fullScreenShowNavigation) } }
+
+    // Units & guides
+    var pageUnits: PageUnit { didSet { persist("pageUnits", pageUnits.rawValue) } }
+    var showRulers: Bool { didSet { persist("showRulers", showRulers) } }
+    var showGrid: Bool { didSet { persist("showGrid", showGrid) } }
+    var showGuides: Bool { didSet { persist("showGuides", showGuides) } }
+    var gridSpacing: Double { didSet { persist("gridSpacing", gridSpacing) } }
+    var gridSubdivisions: Int { didSet { persist("gridSubdivisions", gridSubdivisions) } }
+    var gridColor: OverlayColor { didSet { persist("gridColor", gridColor.rawValue) } }
+    var guideColor: OverlayColor { didSet { persist("guideColor", guideColor.rawValue) } }
+    var snapToGrid: Bool { didSet { persist("snapToGrid", snapToGrid) } }
+
+    // Measuring
+    var measureScalePage: Double { didSet { persist("measureScalePage", measureScalePage) } }
+    var measureScalePageUnit: MeasureUnit { didSet { persist("measureScalePageUnit", measureScalePageUnit.rawValue) } }
+    var measureScaleReal: Double { didSet { persist("measureScaleReal", measureScaleReal) } }
+    var measureScaleRealUnit: MeasureUnit { didSet { persist("measureScaleRealUnit", measureScaleRealUnit.rawValue) } }
+    var measurePrecision: Int { didSet { persist("measurePrecision", measurePrecision) } }
+    var measureSnapEndpoints: Bool { didSet { persist("measureSnapEndpoints", measureSnapEndpoints) } }
+    var measureSnapMidpoints: Bool { didSet { persist("measureSnapMidpoints", measureSnapMidpoints) } }
+    var measureSnapIntersections: Bool { didSet { persist("measureSnapIntersections", measureSnapIntersections) } }
+    var measureSnapPaths: Bool { didSet { persist("measureSnapPaths", measureSnapPaths) } }
+    var measureAddAnnotations: Bool { didSet { persist("measureAddAnnotations", measureAddAnnotations) } }
+    var measureColor: AnnotationPreferenceColor { didSet { persist("measureColor", measureColor.rawValue) } }
+    var measureUseDocumentScale: Bool { didSet { persist("measureUseDocumentScale", measureUseDocumentScale) } }
+
+    // Search
+    var searchIncludeBookmarks: Bool { didSet { persist("searchIncludeBookmarks", searchIncludeBookmarks) } }
+    var searchIncludeComments: Bool { didSet { persist("searchIncludeComments", searchIncludeComments) } }
+    var searchIncludeAttachments: Bool { didSet { persist("searchIncludeAttachments", searchIncludeAttachments) } }
+    var searchIgnoreDiacritics: Bool { didSet { persist("searchIgnoreDiacritics", searchIgnoreDiacritics) } }
+    var searchMaxResults: Int { didSet { persist("searchMaxResults", searchMaxResults) } }
+    var searchContextWords: Int { didSet { persist("searchContextWords", searchContextWords) } }
+
+    // Spelling
+    var checkSpellingWhileTyping: Bool { didSet { persist("checkSpellingWhileTyping", checkSpellingWhileTyping) } }
+    var correctSpellingAutomatically: Bool { didSet { persist("correctSpellingAutomatically", correctSpellingAutomatically) } }
+    var spellingLanguage: String { didSet { persist("spellingLanguage", spellingLanguage) } }
+
+    // Security
+    var linkPolicy: LinkOpeningPolicy { didSet { persist("linkPolicy", linkPolicy.rawValue) } }
+
+    // Tools
+    var favoriteTools: [String] { didSet { persist("favoriteTools", favoriteTools) } }
+
+    static let defaultZoomSteps: [Double] = [0.50, 0.67, 0.75, 0.90, 1.00, 1.10, 1.25, 1.50, 1.75, 2.00]
+
+    static func normalizedZoomSteps(_ steps: [Double]) -> [Double] {
+        let clamped = steps.filter(\.isFinite).map { min(max($0, Constants.Limits.minZoom), Constants.Limits.maxZoom) }
+        let unique = Array(Set(clamped.map { ($0 * 100).rounded() / 100 })).sorted()
+        return unique.count >= 2 ? unique : defaultZoomSteps
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         func raw(_ key: String) -> String { defaults.string(forKey: Self.keyPrefix + key) ?? "" }
@@ -123,6 +221,72 @@ final class AppPreferences {
         keepAnnotationToolSelected = bool("keepAnnotationToolSelected", false)
         openCommentsAutomatically = bool("openCommentsAutomatically", false)
         highlightFormFields = bool("highlightFormFields", true)
+        func double(_ key: String, _ fallback: Double) -> Double {
+            (defaults.object(forKey: Self.keyPrefix + key) as? NSNumber)?.doubleValue ?? fallback
+        }
+        func int(_ key: String, _ fallback: Int) -> Int {
+            (defaults.object(forKey: Self.keyPrefix + key) as? NSNumber)?.intValue ?? fallback
+        }
+        func string(_ key: String, _ fallback: String) -> String { defaults.string(forKey: Self.keyPrefix + key) ?? fallback }
+        useDocumentInitialView = bool("useDocumentInitialView", true)
+        hasCompletedOnboarding = bool("hasCompletedOnboarding", false)
+        lastSeenWhatsNew = string("lastSeenWhatsNew", "")
+        showWhatsNewAfterUpdates = bool("showWhatsNewAfterUpdates", true)
+        showXFANotice = bool("showXFANotice", true)
+        identityEmail = string("identityEmail", "")
+        identityOrganization = string("identityOrganization", "")
+        identityTitle = string("identityTitle", "")
+        smoothImages = bool("smoothImages", true)
+        pageShadows = bool("pageShadows", true)
+        showPageLabels = bool("showPageLabels", true)
+        zoomSteps = Self.normalizedZoomSteps((defaults.array(forKey: Self.keyPrefix + "zoomSteps") as? [Double]) ?? Self.defaultZoomSteps)
+        documentColorMode = DocumentColorMode(rawValue: raw("documentColorMode")) ?? .original
+        customPageTextColor = UInt32(clamping: int("customPageTextColor", 0x1E1E1E))
+        customPageBackgroundColor = UInt32(clamping: int("customPageBackgroundColor", 0xF4ECD8))
+        readAloudVoice = string("readAloudVoice", "")
+        readAloudRate = double("readAloudRate", 0.5)
+        readAloudHighlight = bool("readAloudHighlight", true)
+        autoScrollSpeed = double("autoScrollSpeed", 40)
+        fullScreenAdvance = bool("fullScreenAdvance", false)
+        fullScreenAdvanceSeconds = double("fullScreenAdvanceSeconds", 5)
+        fullScreenLoop = bool("fullScreenLoop", false)
+        fullScreenClickAdvances = bool("fullScreenClickAdvances", true)
+        fullScreenBackground = FullScreenBackground(rawValue: raw("fullScreenBackground")) ?? .black
+        fullScreenTransition = PageTransitionStyle(rawValue: raw("fullScreenTransition")) ?? .none
+        fullScreenUseDocumentTransitions = bool("fullScreenUseDocumentTransitions", true)
+        fullScreenShowNavigation = bool("fullScreenShowNavigation", true)
+        pageUnits = PageUnit(rawValue: raw("pageUnits")) ?? (Locale.current.measurementSystem == .metric ? .millimeters : .inches)
+        showRulers = bool("showRulers", false)
+        showGrid = bool("showGrid", false)
+        showGuides = bool("showGuides", true)
+        gridSpacing = double("gridSpacing", 1)
+        gridSubdivisions = int("gridSubdivisions", 4)
+        gridColor = OverlayColor(rawValue: raw("gridColor")) ?? .cyan
+        guideColor = OverlayColor(rawValue: raw("guideColor")) ?? .magenta
+        snapToGrid = bool("snapToGrid", false)
+        measureScalePage = double("measureScalePage", 1)
+        measureScalePageUnit = MeasureUnit(rawValue: raw("measureScalePageUnit")) ?? .inch
+        measureScaleReal = double("measureScaleReal", 1)
+        measureScaleRealUnit = MeasureUnit(rawValue: raw("measureScaleRealUnit")) ?? .inch
+        measurePrecision = int("measurePrecision", 2)
+        measureSnapEndpoints = bool("measureSnapEndpoints", true)
+        measureSnapMidpoints = bool("measureSnapMidpoints", true)
+        measureSnapIntersections = bool("measureSnapIntersections", true)
+        measureSnapPaths = bool("measureSnapPaths", true)
+        measureAddAnnotations = bool("measureAddAnnotations", true)
+        measureColor = AnnotationPreferenceColor(rawValue: raw("measureColor")) ?? .red
+        measureUseDocumentScale = bool("measureUseDocumentScale", true)
+        searchIncludeBookmarks = bool("searchIncludeBookmarks", true)
+        searchIncludeComments = bool("searchIncludeComments", true)
+        searchIncludeAttachments = bool("searchIncludeAttachments", false)
+        searchIgnoreDiacritics = bool("searchIgnoreDiacritics", true)
+        searchMaxResults = int("searchMaxResults", 500)
+        searchContextWords = int("searchContextWords", 8)
+        checkSpellingWhileTyping = bool("checkSpellingWhileTyping", true)
+        correctSpellingAutomatically = bool("correctSpellingAutomatically", false)
+        spellingLanguage = string("spellingLanguage", "")
+        linkPolicy = LinkOpeningPolicy(rawValue: raw("linkPolicy")) ?? .ask
+        favoriteTools = (defaults.array(forKey: Self.keyPrefix + "favoriteTools") as? [String]) ?? []
     }
 
     /// Does not clear recents, bookmarks or any document/recovery state.
@@ -134,6 +298,24 @@ final class AppPreferences {
         rememberSidebar = true; sidebarVisible = true; commentAuthor = NSFullUserName()
         highlightColor = .yellow; underlineColor = .red; noteColor = .yellow
         keepAnnotationToolSelected = false; openCommentsAutomatically = false; highlightFormFields = true
+        // Onboarding/What's New history and the identity details are kept.
+        useDocumentInitialView = true; showWhatsNewAfterUpdates = true; showXFANotice = true
+        smoothImages = true; pageShadows = true; showPageLabels = true; zoomSteps = Self.defaultZoomSteps
+        documentColorMode = .original; customPageTextColor = 0x1E1E1E; customPageBackgroundColor = 0xF4ECD8
+        readAloudVoice = ""; readAloudRate = 0.5; readAloudHighlight = true; autoScrollSpeed = 40
+        fullScreenAdvance = false; fullScreenAdvanceSeconds = 5; fullScreenLoop = false; fullScreenClickAdvances = true
+        fullScreenBackground = .black; fullScreenTransition = .none; fullScreenUseDocumentTransitions = true
+        fullScreenShowNavigation = true
+        pageUnits = Locale.current.measurementSystem == .metric ? .millimeters : .inches
+        showRulers = false; showGrid = false; showGuides = true; gridSpacing = 1; gridSubdivisions = 4
+        gridColor = .cyan; guideColor = .magenta; snapToGrid = false
+        measureScalePage = 1; measureScalePageUnit = .inch; measureScaleReal = 1; measureScaleRealUnit = .inch
+        measurePrecision = 2; measureSnapEndpoints = true; measureSnapMidpoints = true; measureSnapIntersections = true
+        measureSnapPaths = true; measureAddAnnotations = true; measureColor = .red; measureUseDocumentScale = true
+        searchIncludeBookmarks = true; searchIncludeComments = true; searchIncludeAttachments = false
+        searchIgnoreDiacritics = true; searchMaxResults = 500; searchContextWords = 8
+        checkSpellingWhileTyping = true; correctSpellingAutomatically = false; spellingLanguage = ""
+        linkPolicy = .ask
     }
 
     func accessibilityOptions(system: AccessibilityOptions) -> AccessibilityOptions {
