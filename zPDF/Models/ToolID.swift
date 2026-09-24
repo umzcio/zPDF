@@ -65,8 +65,61 @@ enum ToolID: String, CaseIterable, Identifiable {
     case archivePDFA
     case batesNumbering
 
-    /// Only workflows supported by the app’s native Save path.
+    /// Only workflows supported by the app’s native Save path, in the order
+    /// the quick toolbar lists them.
     static let available: [ToolID] = [.comment, .fillAndSign, .organizePages, .combineFiles, .compressPDF, .exportPDF]
+        + allCases.filter { $0.isImplemented && ![.comment, .fillAndSign, .organizePages, .combineFiles, .compressPDF, .exportPDF].contains($0) }
+
+    /// Flip a tool to `true` only when its whole workflow saves natively.
+    /// One case per line so independent features never edit the same line.
+    var isImplemented: Bool {
+        switch self {
+        case .comment: true
+        case .fillAndSign: true
+        case .organizePages: true
+        case .combineFiles: true
+        case .compressPDF: true
+        case .exportPDF: true
+
+        case .createPDF: false
+
+        case .editPDF: false
+
+        case .sendForComments: false
+
+        case .share: false
+
+        case .sendForSignature: false
+
+        case .protect: false
+
+        case .redact: false
+
+        case .optimizePDF: false
+
+        case .certificates: false
+
+        case .prepareForm: false
+
+        case .signWithCertificate: false
+
+        case .compareFiles: false
+
+        case .scanAndOCR: false
+
+        case .measureObjects: false
+
+        case .printProduction: false
+
+        case .actionWizard: false
+
+        case .accessibilityCheck: false
+
+        case .archivePDFA: false
+
+        case .batesNumbering: false
+        }
+    }
 
     var id: String { rawValue }
 
@@ -189,6 +242,17 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .fillAndSign: .fillSign
         case .protect: .protect
         case .prepareForm: .prepareForm
+        case .redact: .redact
+        case .certificates, .signWithCertificate: .sign
+        case .createPDF: .createPDF
+        case .scanAndOCR: .scanOCR
+        case .optimizePDF: .optimize
+        case .compareFiles: .compare
+        case .measureObjects: .measure
+        case .accessibilityCheck: .accessibility
+        case .archivePDFA, .printProduction: .standards
+        case .actionWizard: .automation
+        case .batesNumbering: .edit
         default: nil
         }
     }

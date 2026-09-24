@@ -62,9 +62,8 @@ final class ToolIDTests: XCTestCase {
         XCTAssertEqual(ToolID.organizePages.inspectorPanel, .organize)
         XCTAssertEqual(ToolID.prepareForm.inspectorPanel, .prepareForm)
         // Tools without a panel in the prototype map to nil.
-        XCTAssertNil(ToolID.createPDF.inspectorPanel)
-        XCTAssertNil(ToolID.compareFiles.inspectorPanel)
-        XCTAssertNil(ToolID.redact.inspectorPanel)
+        XCTAssertEqual(ToolID.redact.inspectorPanel, .redact)
+        XCTAssertNil(ToolID.share.inspectorPanel)
     }
 
     func testToolbarShowsSupportedWorkflows() {

@@ -29,6 +29,16 @@ enum InspectorPanel: String, CaseIterable, Identifiable {
     case protect
     case organize
     case prepareForm
+    case redact
+    case sign
+    case createPDF
+    case scanOCR
+    case optimize
+    case compare
+    case measure
+    case accessibility
+    case standards
+    case automation
 
     var id: String { rawValue }
 
@@ -41,6 +51,16 @@ enum InspectorPanel: String, CaseIterable, Identifiable {
         case .protect: "Protect"
         case .organize: "Organize Pages"
         case .prepareForm: "Prepare Form"
+        case .redact: "Redact"
+        case .sign: "Certificates"
+        case .createPDF: "Create PDF"
+        case .scanOCR: "Scan & OCR"
+        case .optimize: "Optimize PDF"
+        case .compare: "Compare Files"
+        case .measure: "Measure"
+        case .accessibility: "Accessibility"
+        case .standards: "Standards & Print Production"
+        case .automation: "Action Wizard"
         }
     }
 
@@ -53,6 +73,16 @@ enum InspectorPanel: String, CaseIterable, Identifiable {
         case .protect: "lock.shield"
         case .organize: "rectangle.on.rectangle"
         case .prepareForm: "list.bullet.rectangle"
+        case .redact: "eye.slash"
+        case .sign: "checkmark.seal"
+        case .createPDF: "doc.badge.plus"
+        case .scanOCR: "doc.viewfinder"
+        case .optimize: "speedometer"
+        case .compare: "rectangle.split.2x1"
+        case .measure: "ruler"
+        case .accessibility: "accessibility"
+        case .standards: "archivebox"
+        case .automation: "wand.and.stars"
         }
     }
 

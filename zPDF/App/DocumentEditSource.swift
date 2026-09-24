@@ -31,6 +31,26 @@ final class DocumentEditSource: Sendable {
         }.value
     }
 
+    /// Takes ownership of a validated native transform output as a new revision.
+    static func adopt(_ output: NativeTransformOutput, name: String) async throws -> DocumentEditSource {
+        try await Task.detached {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("zpdf-edit-\(UUID())", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                                                    attributes: [.posixPermissions: 0o700])
+            do {
+                let target = directory.appendingPathComponent(name)
+                try FileManager.default.moveItem(at: output.url, to: target)
+                guard try NativeSourceGuard.digest(target) == output.hash else {
+                    throw NativeSaveError(code: "VALIDATION_FAILED", message: "The edited revision changed before it could be opened.")
+                }
+                return DocumentEditSource(url: target, hash: output.hash, directory: directory)
+            } catch {
+                try? FileManager.default.removeItem(at: directory)
+                throw error
+            }
+        }.value
+    }
+
     deinit { try? FileManager.default.removeItem(at: directory) }
 }
 

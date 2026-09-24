@@ -55,6 +55,43 @@ struct NativeCommentEdit: Sendable {
     let contents: String?
 }
 
+/// One generic annotation edit, in source page/annotation terms.
+struct NativeAnnotationItem: Sendable, Equatable {
+    let action: String
+    let page: Int
+    let index: Int?
+    let subtype: String?
+    var scratchPage: Int?
+    var scratchKey: String?
+    var replyTo: [Int]?
+
+    var json: [String: Any] {
+        var value: [String: Any] = ["action": action, "page": page]
+        if let index { value["index"] = index }
+        if let subtype { value["subtype"] = subtype }
+        if let scratchPage { value["scratch_page"] = scratchPage }
+        if let scratchKey { value["scratch_key"] = scratchKey }
+        if let replyTo { value["reply_to"] = replyTo }
+        return value
+    }
+}
+
+/// Private PDFKit-written file holding annotation dictionaries for one Save.
+/// Retained by the changes that reference it (Save, export, recovery).
+final class AnnotationScratch: Sendable {
+    let url: URL
+    private let directory: URL
+
+    init() throws {
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("zpdf-annotations-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                                                attributes: [.posixPermissions: 0o700])
+        url = directory.appendingPathComponent("annotations.pdf")
+    }
+
+    deinit { try? FileManager.default.removeItem(at: directory) }
+}
+
 struct NativeSaveChanges: Sendable {
     var comments: [NativeCommentEdit] = []
     var fields: [NativeFieldEdit] = []
@@ -63,6 +100,20 @@ struct NativeSaveChanges: Sendable {
     /// nil means unchanged; entries refer to source pages before any edits.
     var pages: [NativePageSelection]?
     var compress = false
+    /// Generic annotation edits applied natively before the facade runs.
+    var annotationItems: [NativeAnnotationItem] = []
+    var annotationScratch: AnnotationScratch?
+
+    var hasFacadeEdits: Bool {
+        !comments.isEmpty || !fields.isEmpty || !newFields.isEmpty || !notes.isEmpty || pages != nil || compress
+    }
+    var isEmpty: Bool { !hasFacadeEdits && annotationItems.isEmpty }
+}
+
+/// Plain JSON results crossing from the helper; only read on the receiving side.
+struct NativeJSON: @unchecked Sendable {
+    let value: [String: Any]
+    subscript(key: String) -> Any? { value[key] }
 }
 
 /// All process/native work runs away from AppKit. Each save gets an isolated
@@ -111,7 +162,8 @@ enum NativeSaveBridge {
                 try sourceGuard?.validate()
                 let helper = try SaveHelper(runtime: runtime)
                 defer { helper.dispose() }
-                let doc = try helper.prepare(source, expectedHash: expectedHash, changes: changes)
+                let work = try NativeWorkDirectory()
+                let doc = try helper.prepared(source, expectedHash: expectedHash, changes: changes, in: work.url)
                 try sourceGuard?.validate()
                 let saved = try helper.result(helper.call("save", ["ref": doc["ref"]!, "destination": target.path,
                                                                    "overwrite": destination == nil || overwrite]))
@@ -159,9 +211,10 @@ enum NativeSaveBridge {
                 result = Result {
                     let helper = try SaveHelper(runtime: runtime)
                     defer { helper.dispose() }
+                    let work = try NativeWorkDirectory()
                     let docs = try inputs.map {
                         try $0.sourceGuard?.validate()
-                        return try helper.prepare($0.url, expectedHash: $0.hash, changes: $0.changes)
+                        return try helper.prepared($0.url, expectedHash: $0.hash, changes: $0.changes, in: work.url)
                     }
                     let pages: [[String: Any]] = docs.flatMap { doc in
                         (doc["pages"] as! [[String: Any]]).map {
@@ -182,10 +235,21 @@ enum NativeSaveBridge {
 
 }
 
-private final class SaveHelper {
+/// Private per-operation directory for intermediate native candidates.
+final class NativeWorkDirectory: Sendable {
+    let url: URL
+    init() throws {
+        url = FileManager.default.temporaryDirectory.appendingPathComponent("zpdf-work-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false,
+                                                attributes: [.posixPermissions: 0o700])
+    }
+    deinit { try? FileManager.default.removeItem(at: url) }
+}
+
+final class SaveHelper {
     private let transport: NativeHelperTransport
 
-    init(runtime: URL?) throws {
+    init(runtime: URL? = nil) throws {
         guard let runtime = runtime ?? Bundle.main.resourceURL?.appendingPathComponent("EngineRuntime"),
               FileManager.default.isExecutableFile(atPath: runtime.appendingPathComponent("python/bin/python3.13").path) else {
             throw NativeSaveError(code: "ENGINE_UNAVAILABLE", message: "The Save engine is missing from this app build.")
@@ -295,6 +359,62 @@ private final class SaveHelper {
     }
 
     func dispose() { transport.dispose() }
+
+    /// file -> file native operations (transforms package). Output must not exist.
+    func transform(_ source: URL, hash: String, ops: [[String: Any]], to output: URL,
+                   password: String? = nil) throws -> (hash: String, result: [String: Any]) {
+        var args: [String: Any] = ["path": source.path, "sha256": hash, "destination": output.path, "ops": ops]
+        if let password { args["password"] = password }
+        let result = try self.result(self.call("transform", args))
+        guard let sha = result["sha256"] as? String else { throw invalidReply() }
+        return (sha, result)
+    }
+
+    func query(_ source: URL, hash: String?, name: String, params: [String: Any], password: String? = nil) throws -> [String: Any] {
+        var args: [String: Any] = ["path": source.path, "name": name, "params": params]
+        if let hash { args["sha256"] = hash }
+        if let password { args["password"] = password }
+        return try self.result(self.call("query", args))
+    }
+
+    /// Applies pending edits: generic annotations first (index-stable), then
+    /// the facade, then removal of annotations marked for deletion.
+    func materialize(_ source: URL, expectedHash: String, changes: NativeSaveChanges,
+                     in directory: URL) throws -> (url: URL, hash: String) {
+        var url = source, hash = expectedHash
+        let tag = UUID().uuidString.prefix(8)
+        if !changes.annotationItems.isEmpty {
+            var op: [String: Any] = ["op": "annotations", "items": changes.annotationItems.map(\.json)]
+            op["scratch"] = changes.annotationScratch?.url.path ?? ""
+            let output = directory.appendingPathComponent("annotations-\(tag).pdf")
+            hash = try transform(url, hash: hash, ops: [op], to: output).hash
+            url = output
+        }
+        if changes.hasFacadeEdits {
+            var facade = changes
+            facade.annotationItems = []
+            let doc = try prepare(url, expectedHash: hash, changes: facade)
+            let output = directory.appendingPathComponent("facade-\(tag).pdf")
+            let saved = try result(call("save", ["ref": doc["ref"]!, "destination": output.path, "overwrite": false]))
+            guard let sha = saved["sha256"] as? String else { throw invalidReply() }
+            url = output; hash = sha
+        }
+        if !changes.annotationItems.isEmpty {
+            let output = directory.appendingPathComponent("final-\(tag).pdf")
+            hash = try transform(url, hash: hash, ops: [["op": "finalize"]], to: output).hash
+            url = output
+        }
+        return (url, hash)
+    }
+
+    /// An open facade session containing every pending edit.
+    func prepared(_ source: URL, expectedHash: String, changes: NativeSaveChanges, in directory: URL) throws -> [String: Any] {
+        guard !changes.annotationItems.isEmpty else {
+            return try prepare(source, expectedHash: expectedHash, changes: changes)
+        }
+        let (url, hash) = try materialize(source, expectedHash: expectedHash, changes: changes, in: directory)
+        return try prepare(url, expectedHash: hash, changes: NativeSaveChanges())
+    }
 
     func invalidReply() -> NativeSaveError { transport.invalidReply() }
 

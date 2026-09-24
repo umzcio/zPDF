@@ -9,7 +9,7 @@ extension AppState {
         guard let document = tab.pdfDocument, let baseline = tab.saveBaseline else { return }
         if !tab.hasUncommittedFieldEdit && !tab.isSaving { tab.undoHistory?.record() }
         do {
-            let changes = try baseline.changes(in: document)
+            let changes = try baseline.changes(in: document, materialize: false)
             let changed = tab.undoHistory?.hasChangesSinceSave
                 ?? (!changes.fields.isEmpty || !changes.comments.isEmpty || !changes.notes.isEmpty || !changes.newFields.isEmpty || changes.pages != nil)
             tab.hasUnsavedChanges = tab.requiresSaveAs || tab.hasUncommittedFieldEdit || changed

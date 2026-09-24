@@ -15,6 +15,9 @@ final class SaveBaseline {
         let quads: [CGPoint]
         let value: String
         let checked: Bool
+        /// Appearance properties PDFKit can change that only the generic
+        /// annotation path carries (border, fill, font, line ends, ink...).
+        let detail: String
 
         init(_ annotation: PDFAnnotation) {
             type = annotation.type ?? ""
@@ -27,6 +30,37 @@ final class SaveBaseline {
             quads = annotation.quadrilateralPoints?.map(\.pointValue) ?? []
             value = annotation.widgetStringValue ?? ""
             checked = annotation.buttonWidgetState == .onState
+            detail = annotation.type == "Widget" ? "" : Self.detail(of: annotation)
+        }
+
+        private static func rgb(_ color: NSColor?) -> String {
+            guard let color = color?.usingColorSpace(.deviceRGB) else { return "-" }
+            return [color.redComponent, color.greenComponent, color.blueComponent, color.alphaComponent]
+                .map { String(Int(($0 * 255).rounded())) }.joined(separator: ",")
+        }
+
+        private static func detail(of annotation: PDFAnnotation) -> String {
+            var parts: [String] = []
+            if let border = annotation.border {
+                parts.append("b\(border.lineWidth)/\(border.style.rawValue)/\(border.dashPattern.map { "\($0)" } ?? "")")
+            }
+            parts.append("ic" + rgb(annotation.interiorColor))
+            if let font = annotation.font { parts.append("f\(font.fontName)/\(font.pointSize)") }
+            parts.append("fc" + rgb(annotation.fontColor))
+            parts.append("al\(annotation.alignment.rawValue)")
+            if annotation.type == "Line" {
+                parts.append("l\(annotation.startPoint)\(annotation.endPoint)\(annotation.startLineStyle.rawValue)\(annotation.endLineStyle.rawValue)")
+            }
+            if let paths = annotation.paths {
+                parts.append("p" + paths.map { "\($0.elementCount):\($0.bounds):\($0.lineWidth)" }.joined(separator: ";"))
+            }
+            if annotation.type == "Stamp" { parts.append("s" + (annotation.stampName ?? "")) }
+            if annotation.type == "Text" { parts.append("i\(annotation.iconType.rawValue)") }
+            parts.append("h\(annotation.shouldDisplay)\(annotation.shouldPrint)")
+            if let extra = annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/ZPDFRevision")) as? String {
+                parts.append("r" + extra)
+            }
+            return parts.joined(separator: "|")
         }
 
         func sameStructure(as other: Item, allowCommentText: Bool = false) -> Bool {
@@ -99,7 +133,9 @@ final class SaveBaseline {
 
     func sourceIndex(for page: PDFPage) -> Int? { pages.firstIndex { $0.page === page } }
 
-    func changes(in document: PDFDocument) throws -> NativeSaveChanges {
+    /// `materialize: false` only classifies edits (dirty tracking); Save,
+    /// transforms, exports and recovery need the scratch annotation file.
+    func changes(in document: PDFDocument, materialize: Bool = true) throws -> NativeSaveChanges {
         func unsupported() -> NativeSaveError {
             NativeSaveError(code: "UNSUPPORTED_EDIT", message: "Save supports form values, new text fields/checkboxes, notes/highlights/underlines, and page rotation, reorder or deletion. Inserted pages, content changes cannot be saved yet; the original file has not been replaced.")
         }
@@ -108,6 +144,7 @@ final class SaveBaseline {
             throw NativeSaveError(code: "EMPTY_DOCUMENT", message: "A PDF must keep at least one page. No file was replaced.")
         }
         var changes = NativeSaveChanges()
+        var generic = GenericAnnotations()
         var selections: [NativePageSelection] = []
         var seen: Set<Int> = []
         for outputIndex in 0..<document.pageCount {
@@ -123,36 +160,36 @@ final class SaveBaseline {
             for (annotationIndex, entry) in baseline.annotations.enumerated() {
                 let supportsComment = ["Text", "Highlight", "Underline"].contains(entry.1.type)
                 guard let annotation = current[ObjectIdentifier(entry.0)] else {
-                    if supportsComment {
-                        changes.comments.append(.init(page: index, annotationIndex: annotationIndex, type: entry.1.type,
-                                                       originalContents: entry.1.contents, contents: nil))
-                        continue
-                    }
-                    throw unsupported()
-                }
-                let value = Item(annotation)
-                guard entry.1.sameStructure(as: value, allowCommentText: supportsComment) else { throw unsupported() }
-                if supportsComment, value.contents != entry.1.contents {
-                    changes.comments.append(.init(page: index, annotationIndex: annotationIndex, type: entry.1.type,
-                                                   originalContents: entry.1.contents, contents: value.contents))
+                    // Widgets belong to the form tree; removing one is a form edit.
+                    guard entry.1.type != "Widget" else { throw unsupported() }
+                    generic.delete(page: index, index: annotationIndex, subtype: entry.1.type)
                     continue
                 }
+                let value = Item(annotation)
                 if value.type == "Widget" {
+                    guard entry.1.sameStructure(as: value) else { throw unsupported() }
                     if value.value != entry.1.value || value.checked != entry.1.checked {
                         changes.fields.append(NativeFieldEdit(page: index, annotationIndex: annotationIndex,
                                                              name: entry.1.name, value: value.value, checked: value.checked))
                     }
-                } else if value != entry.1 { throw unsupported() }
+                    continue
+                }
+                guard value != entry.1 else { continue }
+                if supportsComment, value.detail == entry.1.detail,
+                   entry.1.sameStructure(as: value, allowCommentText: true) {
+                    changes.comments.append(.init(page: index, annotationIndex: annotationIndex, type: entry.1.type,
+                                                   originalContents: entry.1.contents, contents: value.contents))
+                    continue
+                }
+                generic.update(annotation, page: index, index: annotationIndex, subtype: entry.1.type)
             }
             let existing = Set(baseline.annotations.map { ObjectIdentifier($0.0) })
             for annotation in page.annotations where !existing.contains(ObjectIdentifier(annotation)) {
                 // PDFKit creates a companion popup for a new note. Its contents
                 // belong to the parent; the native annotate command creates the
                 // comment itself, not this PDFKit presentation object.
-                if annotation.type == "Popup",
-                   let parent = annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/Parent")) as? PDFAnnotation,
-                   !existing.contains(ObjectIdentifier(parent)),
-                   ["Text", "Highlight", "Underline"].contains(parent.type ?? "") { continue }
+                // Generic additions never carry a PDFKit popup either.
+                if annotation.type == "Popup" { continue }
                 let item = Item(annotation)
                 if item.type == "Widget", annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/ZPDFNewField")) as? String == "1" {
                     let type: String
@@ -164,16 +201,21 @@ final class SaveBaseline {
                         rect: [r.minX, r.minY, r.maxX, r.maxY], value: item.value, checked: item.checked))
                     continue
                 }
+                guard item.type != "Widget" else { throw unsupported() }
                 let kind: String
                 switch item.type {
                 case "Text": kind = "sticky_note"
                 case "Highlight": kind = "highlight"
                 case "Underline": kind = "underline"
-                default: throw unsupported()
+                default: kind = ""
                 }
-                // The existing annotation UI creates rectangular markup; don't
-                // silently change geometry from an unsupported quad editor.
-                guard item.quads.isEmpty else { throw unsupported() }
+                // Rectangular notes/markup keep the facade path; everything
+                // else (quads, replies, other subtypes) is a generic addition.
+                let isReply = annotation.value(forAnnotationKey: GenericAnnotations.replyKey) != nil
+                guard !kind.isEmpty, item.quads.isEmpty, !isReply else {
+                    generic.add(annotation, page: index)
+                    continue
+                }
                 let rect = item.bounds
                 changes.notes.append(NativeNote(page: index, type: kind, contents: item.contents, author: item.author,
                                                 color: item.color, rect: [rect.minX, rect.minY, rect.maxX, rect.maxY]))
@@ -182,6 +224,76 @@ final class SaveBaseline {
         if selections != pages.indices.map({ NativePageSelection(sourceIndex: $0, rotationDelta: 0) }) {
             changes.pages = selections
         }
+        if materialize, generic.needsScratch {
+            changes.annotationScratch = try generic.writeScratch(pages: pages.map { ($0.page, $0.rotation) })
+        }
+        changes.annotationItems = generic.items
         return changes
+    }
+}
+
+/// Collects annotation edits for the generic native path. Additions and
+/// updates are serialized by PDFKit (appearance streams included) into a
+/// private scratch PDF, one scratch page per edited source page.
+@MainActor
+struct GenericAnnotations {
+    static let scratchKey = PDFAnnotationKey(rawValue: "/ZPDFScratchKey")
+    /// Set on a new note that replies to an existing annotation: "page:index" in source terms,
+    /// or "new:<ZPDFCommentID>" for a reply to another new annotation.
+    static let replyKey = PDFAnnotationKey(rawValue: "/ZPDFReplyTo")
+    private(set) var items: [NativeAnnotationItem] = []
+    private var pending: [(item: Int, page: Int, annotation: PDFAnnotation)] = []
+    var needsScratch: Bool { !pending.isEmpty }
+
+    mutating func delete(page: Int, index: Int, subtype: String) {
+        items.append(NativeAnnotationItem(action: "delete", page: page, index: index, subtype: subtype))
+    }
+
+    mutating func update(_ annotation: PDFAnnotation, page: Int, index: Int, subtype: String) {
+        pending.append((items.count, page, annotation))
+        items.append(NativeAnnotationItem(action: "update", page: page, index: index, subtype: subtype))
+    }
+
+    mutating func add(_ annotation: PDFAnnotation, page: Int) {
+        var item = NativeAnnotationItem(action: "add", page: page, index: nil, subtype: annotation.type)
+        if let reply = annotation.value(forAnnotationKey: Self.replyKey) as? String {
+            let parts = reply.split(separator: ":").compactMap { Int($0) }
+            if parts.count == 2 { item.replyTo = parts }
+        }
+        pending.append((items.count, page, annotation))
+        items.append(item)
+    }
+
+    mutating func writeScratch(pages: [(PDFPage, Int)]) throws -> AnnotationScratch {
+        let lease = try AnnotationScratch()
+        let document = PDFDocument()
+        var scratchPages: [Int: Int] = [:]
+        for (n, entry) in pending.enumerated() {
+            let scratchIndex: Int
+            if let existing = scratchPages[entry.page] { scratchIndex = existing }
+            else {
+                let source = pages[entry.page].0
+                let page = PDFPage()
+                page.setBounds(source.bounds(for: .mediaBox), for: .mediaBox)
+                page.setBounds(source.bounds(for: .cropBox), for: .cropBox)
+                page.rotation = pages[entry.page].1
+                scratchIndex = document.pageCount
+                document.insert(page, at: scratchIndex)
+                scratchPages[entry.page] = scratchIndex
+            }
+            guard let copy = entry.annotation.copy() as? PDFAnnotation, let page = document.page(at: scratchIndex) else {
+                throw NativeSaveError(code: "ANNOTATION_COPY_FAILED", message: "An annotation could not be prepared for saving.")
+            }
+            let key = "k\(n)"
+            copy.setValue(key, forAnnotationKey: Self.scratchKey)
+            copy.setValue(nil as String?, forAnnotationKey: Self.replyKey)
+            page.addAnnotation(copy)
+            items[entry.item].scratchPage = scratchIndex
+            items[entry.item].scratchKey = key
+        }
+        guard document.write(to: lease.url) else {
+            throw NativeSaveError(code: "ANNOTATION_WRITE_FAILED", message: "Annotations could not be prepared for saving.")
+        }
+        return lease
     }
 }

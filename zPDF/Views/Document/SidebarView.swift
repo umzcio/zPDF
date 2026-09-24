@@ -13,14 +13,36 @@ import SwiftUI
 
 /// Document navigation and review panels in the right-hand rail.
 enum DocumentPanel: String, CaseIterable, Identifiable {
-    case comments, pages, bookmarks, attachments
+    case comments, pages, bookmarks, attachments, layers, destinations, signatures, articles
     var id: String { rawValue }
+    /// Panels whose content is implemented; the rail shows only these.
+    static var visible: [DocumentPanel] { allCases.filter(\.isImplemented) }
+    var isImplemented: Bool {
+        switch self {
+        case .comments: true
+        case .pages: true
+        case .bookmarks: true
+        case .attachments: true
+
+        case .layers: false
+
+        case .destinations: false
+
+        case .signatures: false
+
+        case .articles: false
+        }
+    }
     var title: String {
         switch self {
         case .comments: "Comments"
         case .pages: "Pages"
         case .bookmarks: "Bookmarks"
         case .attachments: "Attachments"
+        case .layers: "Layers"
+        case .destinations: "Destinations"
+        case .signatures: "Signatures"
+        case .articles: "Content"
         }
     }
     var symbolName: String {
@@ -29,6 +51,10 @@ enum DocumentPanel: String, CaseIterable, Identifiable {
         case .pages: "doc.on.doc"
         case .bookmarks: "bookmark"
         case .attachments: "paperclip"
+        case .layers: "square.3.layers.3d"
+        case .destinations: "mappin.and.ellipse"
+        case .signatures: "signature"
+        case .articles: "list.bullet.indent"
         }
     }
 }
@@ -40,7 +66,7 @@ struct DocumentPanelRail: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            ForEach(DocumentPanel.allCases) { panel in
+            ForEach(DocumentPanel.visible) { panel in
                 Button { appState.toggleDocumentPanel(panel) } label: {
                     Image(systemName: panel.symbolName)
                         .font(.system(size: 16))
@@ -109,6 +135,10 @@ struct SidebarView: View {
                 case .pages: pagesContent
                 case .bookmarks: bookmarksContent
                 case .attachments: attachmentsContent
+                case .layers: LayersSidebar(tab: tab)
+                case .destinations: DestinationsSidebar(tab: tab)
+                case .signatures: SignaturesSidebar(tab: tab)
+                case .articles: ArticlesSidebar(tab: tab)
                 }
             }
         }

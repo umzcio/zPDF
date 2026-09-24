@@ -76,6 +76,26 @@ struct InspectorHost: View {
             OrganizePagesPanel()
         case .prepareForm:
             PrepareFormPanel()
+        case .redact:
+            RedactPanel()
+        case .sign:
+            SignPanel()
+        case .createPDF:
+            CreatePDFPanel()
+        case .scanOCR:
+            ScanOCRPanel()
+        case .optimize:
+            OptimizePanel()
+        case .compare:
+            ComparePanel()
+        case .measure:
+            MeasurePanel()
+        case .accessibility:
+            AccessibilityPanel()
+        case .standards:
+            StandardsPanel()
+        case .automation:
+            AutomationPanel()
         }
     }
 }

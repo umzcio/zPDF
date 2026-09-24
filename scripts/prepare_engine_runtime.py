@@ -40,7 +40,11 @@ def main():
     export_lock = ROOT / "EngineSupport/exporter/wheels.json"
     export_stamp = RUNTIME / ".export-prepared"
     lock_hash = hashlib.sha256(export_lock.read_bytes()).hexdigest()
-    if not stamp.exists() or (export_stamp.exists() and export_stamp.read_text() != lock_hash):
+    transform_lock = ROOT / "EngineSupport/transform-wheels.json"
+    transform_stamp = RUNTIME / ".transform-prepared"
+    transform_hash = hashlib.sha256(transform_lock.read_bytes()).hexdigest()
+    stale = lambda path, expected: path.exists() and path.read_text() != expected
+    if not stamp.exists() or stale(export_stamp, lock_hash) or stale(transform_stamp, transform_hash):
         archive = download("save-python.tar.gz", PYTHON_URL, PYTHON_SHA)
         wheel = download("save-pdfium.whl", WHEEL_URL, WHEEL_SHA)
         if RUNTIME.exists():
@@ -59,6 +63,13 @@ def main():
             with zipfile.ZipFile(wheel) as archive:
                 archive.extractall(RUNTIME / "python/lib/python3.13/site-packages")
         export_stamp.write_text(lock_hash)
+    # Pinned document-transform dependencies (pikepdf bundles its own libqpdf).
+    if not transform_stamp.exists() or transform_stamp.read_text() != transform_hash:
+        for item in json.loads(transform_lock.read_text()):
+            wheel = download("transform-" + item["url"].rsplit("/", 1)[1], item["url"], item["sha256"])
+            with zipfile.ZipFile(wheel) as archive:
+                archive.extractall(RUNTIME / "python/lib/python3.13/site-packages")
+        transform_stamp.write_text(transform_hash)
     provenance = json.loads((ROOT / "EngineSupport/exporter/provenance.json").read_text())
     for name, expected in provenance["files"].items():
         if hashlib.sha256((ROOT / "EngineSupport/exporter" / name).read_bytes()).hexdigest() != expected:

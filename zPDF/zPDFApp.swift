@@ -34,6 +34,11 @@ struct zPDFApp: App {
         }
         .defaultSize(width: 1280, height: 800)
         .commands {
+            EditCommands(appState: appState)
+            CommentCommands(appState: appState)
+            FormsCommands(appState: appState)
+            DocumentCommands(appState: appState)
+            ViewCommands(appState: appState)
             // Close the focused document tab, or the key window when Settings
             // (or an empty main window) owns focus. performClose respects the
             // main window's existing unsaved-changes delegate.
