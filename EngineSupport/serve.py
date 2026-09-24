@@ -26,7 +26,19 @@ def digest(path):
             h.update(block)
     return h.hexdigest()
 
-DOCUMENT_COMMANDS = {"transform", "query", "publish"}
+DOCUMENT_COMMANDS = {"transform", "query", "publish", "crypto"}
+
+
+def crypto_command(args):
+    """Digital-ID helpers that involve no document (app transport only)."""
+    import transforms  # noqa: F401  (package path setup)
+    from transforms import cms
+    commands = {"create_identity": cms.create_identity, "inspect_identity": cms.inspect_identity,
+                "describe_certificate": cms.describe_certificate}
+    name = args["name"]
+    if name not in commands:
+        raise EngineError("UNSUPPORTED_OPERATION", "Unknown digital ID command.")
+    return commands[name](**(args.get("params") or {}))
 
 
 def document_command(command, args):
@@ -34,6 +46,8 @@ def document_command(command, args):
     import transforms
     from pathlib import Path
     try:
+        if command == "crypto":
+            return {"ok": True, "result": crypto_command(args)}
         source = Path(args["path"])
         expected = args.get("sha256")
         if expected is not None and digest(source) != expected:
