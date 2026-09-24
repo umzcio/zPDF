@@ -1,0 +1,4 @@
+*.pdf binary
+*.png binary
+*.dylib binary
+EngineSupport/engine/native/qpdf binary

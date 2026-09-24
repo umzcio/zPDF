@@ -1,0 +1,74 @@
+{
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_128x128.png": {
+    "sha256": "ac7ced6af4618f909a006d394360286f95309620e75649f6579f372925d40391",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png": {
+    "sha256": "4905ffe3134467964b2daecb9b364ad12bdd1c5b7e6efb590149a94269245d84",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_16x16.png": {
+    "sha256": "2c250d46fd9c29681002d328c4df05009a1a1950558921c609f38286a40ed823",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_16x16@2x.png": {
+    "sha256": "1583898f38cc3a2d2191c3b53945be38f26357096795a3b2c5d706b31ab08215",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_256x256.png": {
+    "sha256": "4905ffe3134467964b2daecb9b364ad12bdd1c5b7e6efb590149a94269245d84",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png": {
+    "sha256": "ef0d2594e95554b7158c99552ec2561fe3b34cd60ca709ca337055a4f992642e",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_32x32.png": {
+    "sha256": "1583898f38cc3a2d2191c3b53945be38f26357096795a3b2c5d706b31ab08215",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_32x32@2x.png": {
+    "sha256": "2a96426ccdbace30b067f35a7157ec3476496ec96eddcc98469f4564f7d306d8",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_512x512.png": {
+    "sha256": "ef0d2594e95554b7158c99552ec2561fe3b34cd60ca709ca337055a4f992642e",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDF/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png": {
+    "sha256": "966302c827019fc379aa31694d77af08cd70bccf693b8e819f1533dce9e596a4",
+    "provenance": "Reviewed shipping zPDF app icon; no document content."
+  },
+  "zPDFTests/Fixtures/export-numeric-table.pdf": {
+    "sha256": "45277c16b365a1d5f5e2640fe5c6a14d08978e8ca018794b17c7722bb3b8c5ea",
+    "provenance": "Owned synthetic numeric report, fictional values; see adjacent provenance note."
+  },
+  "zPDFTests/Fixtures/irs-1040-worksheet-b.pdf": {
+    "sha256": "1d0dd7b2d428ea250983631b3fc49f1165dab6514c5ba8ce352d1788543d63e7",
+    "provenance": "Public IRS 2025 Form 1040 instructions, extracted page 47; see adjacent provenance note."
+  },
+  "zPDFTests/Fixtures/irs-w9.pdf": {
+    "sha256": "2d420cbb4123dcf1fb82595b2359cfbb5d81f00b9df9d359fcc7af361d093f53",
+    "provenance": "Blank public IRS form, https://www.irs.gov/pub/irs-pdf/fw9.pdf; matches recorded source hash."
+  },
+  "zPDFTests/Fixtures/uscis-i9.pdf": {
+    "sha256": "780f348c34df694bb0b4dbbfaf9f22b99b9757b80d16a37ba89aadf069597281",
+    "provenance": "Blank public USCIS form, https://www.uscis.gov/sites/default/files/document/forms/i-9.pdf; matches recorded source hash."
+  },
+  "zPDFTests/Fixtures/ordinary-edge.pdf": {
+    "sha256": "b55154d393ae0e69e77eeee8160b3bd31755ab6a6b253c7a1b3a104ee910f219",
+    "provenance": "Owned synthetic AcroForm fixture from engine spike make_edge_fixtures.py; matches source manifest hash."
+  },
+  "EngineSupport/engine/native/qpdf": {
+    "sha256": "b38c1125a05dfe5a9aa83933f9fc9b7e883d91d435ddee3f62cd2ee9c4c0aabe",
+    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
+  },
+  "EngineSupport/engine/native/libqpdf.30.dylib": {
+    "sha256": "52e13419c79f301e082377948c0773b0ce7b40affe8366da156f46a3d7596829",
+    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
+  },
+  "EngineSupport/engine/native/libjpeg.8.dylib": {
+    "sha256": "e5ef9dd7bd672d09e0241e20b4f5c12286d2dfab3c9e36e874097569c746fd7c",
+    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
+  }
+}

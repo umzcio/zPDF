@@ -1,0 +1,127 @@
+%PDF-1.7
+%fixture
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /AcroForm 8 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 4 /Kids [3 0 R 4 0 R 5 0 R 6 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /Helv 7 0 R >> >> /Contents 19 0 R /Annots [11 0 R 13 0 R 14 0 R 15 0 R 17 0 R] >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /Helv 7 0 R >> >> /Contents 20 0 R /Annots [18 0 R] >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /Helv 7 0 R >> >> /Contents 21 0 R /Annots [] >>
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /Helv 7 0 R >> >> /Contents 22 0 R /Annots [] >>
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+8 0 obj
+<< /Fields [11 0 R 12 0 R 15 0 R 16 0 R] /DR << /Font << /Helv 7 0 R >> >> /DA (/Helv 12 Tf 0 g) /NeedAppearances false >>
+endobj
+9 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 18 18] /Resources << >> /Length 50 >>
+stream
+q 1 g 0 0 18 18 re f 0 G 1 w 0.5 0.5 17 17 re S  Q
+endstream
+endobj
+10 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 18 18] /Resources << >> /Length 79 >>
+stream
+q 1 g 0 0 18 18 re f 0 G 1 w 0.5 0.5 17 17 re S 0 G 2 w 3 9 m 7 4 l 15 15 l S Q
+endstream
+endobj
+11 0 obj
+<< /Type /Annot /Subtype /Widget /F 4 /P 3 0 R /Rect [50 610 68 628] /FT /Btn /T (approval) /V /Off /AS /Off /AP << /N << /Off 9 0 R /Approved 10 0 R >> >> >>
+endobj
+12 0 obj
+<< /FT /Btn /T (delivery) /Ff 32768 /Kids [13 0 R 14 0 R] >>
+endobj
+13 0 obj
+<< /Type /Annot /Subtype /Widget /F 4 /P 3 0 R /Rect [50 555 68 573] /Parent 12 0 R /AS /Off /AP << /N << /Off 9 0 R /Postal 10 0 R >> >> >>
+endobj
+14 0 obj
+<< /Type /Annot /Subtype /Widget /F 4 /P 3 0 R /Rect [180 555 198 573] /Parent 12 0 R /AS /Off /AP << /N << /Off 9 0 R /Email 10 0 R >> >> >>
+endobj
+15 0 obj
+<< /Type /Annot /Subtype /Widget /F 4 /P 3 0 R /Rect [50 495 220 520] /FT /Ch /T (region) /Ff 131072 /Opt [(AL) (CO) (NY)] /V (AL) /DA (/Helv 12 Tf 0 g) >>
+endobj
+16 0 obj
+<< /FT /Tx /T (shared) /V () /DA (/Helv 12 Tf 0 g) /Kids [17 0 R 18 0 R] >>
+endobj
+17 0 obj
+<< /Type /Annot /Subtype /Widget /F 4 /P 3 0 R /Rect [50 410 350 435] /Parent 16 0 R >>
+endobj
+18 0 obj
+<< /Type /Annot /Subtype /Widget /F 4 /P 4 0 R /Rect [50 410 350 435] /Parent 16 0 R >>
+endobj
+19 0 obj
+<< /Length 492 >>
+stream
+BT /Helv 16 Tf 50 755 Td (Synthetic ordinary AcroForm edge fixture) Tj ET
+BT /Helv 11 Tf 50 725 Td (Page 1; generated only for engine qualification.) Tj ET
+BT /Helv 12 Tf 50 650 Td (Checkbox export Approved) Tj ET
+BT /Helv 12 Tf 50 595 Td (Radio delivery Postal or Email) Tj ET
+BT /Helv 12 Tf 75 560 Td (Postal) Tj ET
+BT /Helv 12 Tf 205 560 Td (Email) Tj ET
+BT /Helv 12 Tf 50 540 Td (Dropdown region AL CO NY) Tj ET
+BT /Helv 12 Tf 50 455 Td (Text shared; intentionally linked to page 2) Tj ET
+endstream
+endobj
+20 0 obj
+<< /Length 247 >>
+stream
+BT /Helv 16 Tf 50 755 Td (Synthetic ordinary AcroForm edge fixture) Tj ET
+BT /Helv 11 Tf 50 725 Td (Page 2; generated only for engine qualification.) Tj ET
+BT /Helv 12 Tf 50 455 Td (Second widget of same shared field; both must synchronize.) Tj ET
+endstream
+endobj
+21 0 obj
+<< /Length 155 >>
+stream
+BT /Helv 16 Tf 50 755 Td (Synthetic ordinary AcroForm edge fixture) Tj ET
+BT /Helv 11 Tf 50 725 Td (Page 3; generated only for engine qualification.) Tj ET
+endstream
+endobj
+22 0 obj
+<< /Length 155 >>
+stream
+BT /Helv 16 Tf 50 755 Td (Synthetic ordinary AcroForm edge fixture) Tj ET
+BT /Helv 11 Tf 50 725 Td (Page 4; generated only for engine qualification.) Tj ET
+endstream
+endobj
+xref
+0 23
+0000000000 65535 f 
+0000000018 00000 n 
+0000000083 00000 n 
+0000000158 00000 n 
+0000000332 00000 n 
+0000000478 00000 n 
+0000000618 00000 n 
+0000000758 00000 n 
+0000000828 00000 n 
+0000000966 00000 n 
+0000001131 00000 n 
+0000001326 00000 n 
+0000001501 00000 n 
+0000001578 00000 n 
+0000001735 00000 n 
+0000001893 00000 n 
+0000002065 00000 n 
+0000002157 00000 n 
+0000002261 00000 n 
+0000002365 00000 n 
+0000002909 00000 n 
+0000003208 00000 n 
+0000003415 00000 n 
+trailer
+<< /Size 23 /Root 1 0 R >>
+startxref
+3622
+%%EOF

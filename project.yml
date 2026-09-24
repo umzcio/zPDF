@@ -1,0 +1,73 @@
+# ============================================================
+#  project.yml — XcodeGen spec for zPDF (SOURCE OF TRUTH)
+#
+#  Never hand-write or hand-edit zPDF.xcodeproj. After changing
+#  this file or adding/removing sources, regenerate:
+#
+#      brew install xcodegen
+#      xcodegen
+#      open zPDF.xcodeproj
+#
+#  Targets:
+#    - zPDF       : sandboxed macOS 15.0 app (Swift 6, SwiftUI)
+#    - zPDFTests  : unit test bundle
+# ============================================================
+
+name: zPDF
+
+options:
+  bundleIdPrefix: app.zpdf
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    # Strict concurrency stays at the default (minimal) level for the
+    # scaffold; PDFView/NotificationCenter interop code is main-thread
+    # affine but not yet fully Sendable-annotated. Raise to `complete`
+    # once phase 2 lands.
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  zPDF:
+    type: application
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: zPDF
+        excludes:
+          - AppIcon.icon
+    scheme:
+      testTargets: [zPDFTests]
+    preBuildScripts:
+      - name: Bundle Save engine runtime
+        script: /usr/bin/python3 "$SRCROOT/scripts/prepare_engine_runtime.py"
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.zpdf.zPDF
+        PRODUCT_NAME: zPDF
+        INFOPLIST_FILE: zPDF/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: zPDF/zPDF.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+
+  zPDFTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: zPDFTests
+    dependencies:
+      - target: zPDF
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.zpdf.zPDFTests
+        GENERATE_INFOPLIST_FILE: YES

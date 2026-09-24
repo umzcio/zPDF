@@ -1,0 +1,13 @@
+{
+  "source": "PDFium + QPDF spike frozen v0; facade run dcc82f1d2765",
+  "python_sources_sha256": {
+    "policy.py": "fe3fc3bc7214415036e5a077a50f7effee588518b06f41dd33bffac30bd540da",
+    "session.py": "496044273484d061813ac8b37e7f10fc8db39cffbf4f54efcdaab0e8beb58542",
+    "__init__.py": "e41e16bedeb7bf79681b5d2015b46c8c1127936580b0d757edfe3c139a950e17",
+    "runtime.py": "85431c88ae3ef6a234d68ac11e28daf110dd1340b936456aa8cd65c30fad6bca",
+    "pdfium_adapter.py": "73eedd4fa300c3ed17f912fb801f233c22ec4788b6380bb9ba633e15b7b31883",
+    "errors.py": "0191d1fc15b75858407c70d74f035fce52c058e1df28423b24a5bf8d29843d49",
+    "qpdf_adapter.py": "cedaa1c5eb3139042169ce4edec3818b27a26eace1fe4e2542a6e342b27068ba"
+  },
+  "platform": "macOS arm64; Windows UNVERIFIED"
+}
