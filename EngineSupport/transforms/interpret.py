@@ -176,7 +176,7 @@ class GState:
 class Glyph:
     __slots__ = ("id", "code", "nbytes", "text", "quad", "origin", "end", "advance", "size", "font", "font_name",
                  "unit", "render", "fill", "trm", "tm", "ctm", "tfs", "scale", "rise", "char_spacing",
-                 "word_spacing", "object", "top_level", "width", "stroke", "font_res", "marked")
+                 "word_spacing", "object", "top_level", "width", "stroke", "font_res", "marked", "op")
 
     def center(self):
         q = self.quad
@@ -274,6 +274,8 @@ class Walker:
                  exclude_kinds=()):
         self.pdf = pdf
         self.plan = plan or Plan()
+        self.plan.walker = self
+        self.current_op = None
         self.rewrite = rewrite
         self.fonts = font_cache if font_cache is not None else {}
         self.include_forms = include_forms
@@ -314,6 +316,8 @@ class Walker:
         except pikepdf.PdfError:
             parsed = [pikepdf.parse_content_stream(page)]
             self.joined = True
+        self.parsed = parsed
+        self.streams = streams
         text = TextState()
         for index, instructions in enumerate(parsed):
             out = self._run(instructions, unit, state, stack, text, stream_index=index, top_level=True)
@@ -374,7 +378,7 @@ class Walker:
                 item.unit = unit
                 item.top_level = top_level and self.form_depth == 0
                 item.stream, item.start, item.end = stream_index, path_start if path_start is not None else index, index
-                item.state = state
+                item.state = state.copy()
                 clip_ops = list(path_ops)
                 action = None
                 if op != "n" and item.bbox is not None:
@@ -385,7 +389,7 @@ class Walker:
                 if path_clip:
                     state.clips = state.clips + [(state.ctm, clip_ops, path_clip)]
                 if rewrite:
-                    if action == "remove" and not path_clip:
+                    if action in ("remove", "omit") and not path_clip:
                         changed = True
                     elif action == "remove" and path_clip:
                         # Keep the clip, drop the painting.
@@ -589,6 +593,7 @@ class Walker:
                 else:
                     items = list(operands[0]) if operands and isinstance(operands[0], pikepdf.Array) else []
                 remove_all = text_action == "remove"
+                self.current_op = (unit.path, id(unit), stream_index, index)
                 result = self._show(items, state, text, unit, top_level, text_item, remove_all)
                 if rewrite:
                     if result is None:
@@ -628,13 +633,13 @@ class Walker:
                 item.name = operands[0]
                 item.bbox = clip_bbox(state) or self.page_box
                 item.quad = rect_quad(item.bbox)
-                item.state = state
+                item.state = state.copy()
                 item.top_level = top_level and self.form_depth == 0
                 item.stream, item.start, item.end = stream_index, index, index
                 self.items.append(item)
                 action = plan.path(item)
                 if rewrite:
-                    if action == "remove":
+                    if action in ("remove", "omit"):
                         changed = True
                     elif isinstance(action, tuple) and action[0] == "exclude":
                         clip = exclusion_clip(action[1], state.ctm, self.page_box)
@@ -736,6 +741,7 @@ class Walker:
                     g.stroke = state.stroke
                     g.object = text_item.id if text_item is not None else None
                     g.marked = tuple(self.marked_stack)
+                    g.op = self.current_op
                     g.top_level = top_level and self.form_depth == 0
                     self.glyphs.append(g)
                     if text_item is not None:
@@ -786,7 +792,7 @@ class Walker:
             item.unit = unit
             item.name = name
             item.xobject = xobj
-            item.state = state
+            item.state = state.copy()
             item.top_level = top_level and self.form_depth == 0
             item.stream, item.start, item.end = stream_index, index, index
             self.items.append(item)
@@ -796,6 +802,8 @@ class Walker:
             if action == "remove":
                 self.own(unit)
                 unit.dropped.add(str(name))
+                return []
+            if action == "omit":
                 return []
             if action[0] == "replace":
                 new_name = self._add_resource(unit, "/XObject", action[1], str(name).lstrip("/") + "r")
@@ -822,7 +830,7 @@ class Walker:
         item.unit = unit
         item.name = name
         item.xobject = xobj
-        item.state = state
+        item.state = state.copy()
         item.extra = kind
         item.top_level = top_level and self.form_depth == 0
         item.stream, item.start, item.end = stream_index, index, index
@@ -834,6 +842,8 @@ class Walker:
                 unit.dropped.add(str(name))
                 return []
             return None
+        if action == "omit":
+            return [] if self.rewrite else None
         if isinstance(action, tuple) and action[0] == "wrap":
             return (list(action[1]) + [ins] + list(action[2])) if self.rewrite else None
         if action == "keep" or not self.include_forms or self.form_depth > 12:
@@ -889,14 +899,14 @@ class Walker:
         item.bbox = quad_bbox(item.quad)
         item.unit = unit
         item.inline = ins
-        item.state = state
+        item.state = state.copy()
         item.top_level = top_level and self.form_depth == 0
         item.stream, item.start, item.end = stream_index, index, index
         self.items.append(item)
         action = self.plan.image(item)
         if not self.rewrite or action is None:
             return None
-        if action == "remove":
+        if action in ("remove", "omit"):
             return []
         if action[0] == "replace":
             new_name = self._add_resource(unit, "/XObject", action[1], "ZPDFim")
