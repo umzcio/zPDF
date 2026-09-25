@@ -113,10 +113,11 @@ def _mark_continuations(blocks: list[Block]) -> None:
     statement: every line its own block) is read as one paragraph. Block b
     continues the block a before it in reading order when both are paragraphs
     of one size, a's last line ends where b's first word would not have fitted
-    (or runs to the column's right edge), b starts at the
-    continuation margin (not indented past a's left edge, at most four ems left
+    (or runs to the column's right edge, measured on the blocks near them), b
+    starts at the continuation margin (not indented past a's left edge, at most four ems left
     of an indented first line), b lies in a's column directly below, and the
-    gap is no more than the spacing. Marked, not merged: layout modes keep each
+    gap is no more than the spacing. Or b opens the next column and carries on
+    a's sentence (_continues_in_next_column). Marked, not merged: layout modes keep each
     line where it is drawn; reading order and PPTX text boxes join them
     (``continues``)."""
     for a, b in zip(blocks, blocks[1:]):
@@ -127,11 +128,24 @@ def _mark_continuations(blocks: list[Block]) -> None:
         size = a.size
         if abs(a.size - b.size) > 0.6:
             continue
+        if not (_prose(a) and _prose(b)) or _style(a) != _style(b):
+            continue
+        lead = next((t.char for t in b.tokens if not t.char.text.isspace()), None)
+        if lead is not None and lead.font_name != _style(b)[0]:
+            continue                                  # a marker in a symbol font ('n' as a bullet)
+        if _continues_in_next_column(a, b):
+            b.continues = a                            # type: ignore[attr-defined]
+            b.continues_in_next_column = True          # type: ignore[attr-defined]  # reading order only
+            continue
         left = min(a.lbox.x0, b.lbox.x0)
-        # the column's right edge: the widest block starting at this margin (short
-        # lines side by side, 'From: …' over 'Date: …', are not full lines)
-        right = max(x.lbox.x1 for x in blocks
-                    if left - 4.0 * size <= x.lbox.x0 <= left + 4.0 * size and x.lbox.y1 > x.lbox.y0)
+        # the column's right edge: the widest block starting at this margin near
+        # these two (short lines side by side, 'From: …' over 'Date: …', are not
+        # full lines; a heading far above is not this column)
+        near_top, near_bottom = a.lbox.y0 - 8 * size, b.lbox.y1 + 8 * size
+        right = max((x.lbox.x1 for x in blocks
+                     if x.kind == "paragraph" and left - 4.0 * size <= x.lbox.x0 <= left + 4.0 * size
+                     and x.lbox.y1 > x.lbox.y0 and x.lbox.y1 >= near_top and x.lbox.y0 <= near_bottom),
+                    default=max(a.lbox.x1, b.lbox.x1))
         width = right - left
         if width < 10 * size:
             continue
@@ -145,7 +159,9 @@ def _mark_continuations(blocks: list[Block]) -> None:
             continue                                  # b's first word would have fitted: a paragraph ends
         indent = _last_line_left(a) - left
         own_room = max(a.lbox.x1, b.lbox.x1) - _last_line_right(a)     # margins of these two lines alone
-        if indent >= 0.8 * size and own_room >= 0.8 * size and abs(indent - own_room) <= max(2.0, 0.3 * max(indent, own_room)):
+        body = b.lines >= 2 and b.lbox.x0 <= left + 1.0 and b.lbox.width >= 0.9 * width   # b runs on as a paragraph body
+        if not body and indent >= 0.8 * size and own_room >= 0.8 * size \
+                and abs(indent - own_room) <= max(2.0, 0.3 * max(indent, own_room)):
             continue                                  # a centred line ('NWS Watch = Get Set' in a callout)
         gap = b.lbox.y0 - a.lbox.y1
         if not (-0.2 * size <= gap <= 1.8 * size):
@@ -161,12 +177,22 @@ def _mark_continuations(blocks: list[Block]) -> None:
             expected = None
         if expected is not None and gap > expected + 0.35 * size:
             continue                                  # a paragraph space
-        if not (_prose(a) and _prose(b)) or _style(a) != _style(b):
-            continue
-        lead = next((t.char for t in b.tokens if not t.char.text.isspace()), None)
-        if lead is not None and lead.font_name != _style(b)[0]:
-            continue                                  # a marker in a symbol font ('n' as a bullet)
         b.continues = a                                # type: ignore[attr-defined]
+
+
+def _continues_in_next_column(a: Block, b: Block) -> bool:
+    """b, at the top of the next column, carries on a's sentence: b lies to the
+    right of a and starts at least three lines above a's last line, a ends without closing
+    punctuation, and b starts in lower case (or a ends with a hyphen)."""
+    if b.lbox.x0 < a.lbox.x1 - 2 or b.lbox.y0 > a.lbox.y1 - 3 * max(a.size, 1.0):
+        return False                   # not the top of a new column (pieces of one row around a form field)
+    tail = a.text.rstrip()
+    head = b.text.lstrip()
+    if not tail or not head:
+        return False
+    if tail[-1] in ".!?:;\"\u201d\u2019)]":
+        return False
+    return head[0].islower() or tail[-1] in "-\u00ad"
 
 
 def _prose(b: Block) -> bool:

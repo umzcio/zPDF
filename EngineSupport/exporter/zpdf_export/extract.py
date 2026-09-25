@@ -465,8 +465,16 @@ def _extract_chars(page, mapper: _Mapper, out: PageExtract) -> None:
         if raw.FPDFText_GetFillColor(tp, i, col_r, col_g, col_b, col_a):
             color = (col_r.value, col_g.value, col_b.value)
         inferred = False
+        if recovered and text.isspace() and lbox.width > 0.1 * max(size, 1.0) and lbox.height > 0.03 * max(size, 1.0):
+            # the font names the glyph a space, but it draws ink (a line-end hyphen
+            # PDFium reports as U+0002 in FAA PHAK): not a space; read its shape instead
+            text, missing, recovered = "\ufffd", True, False
+            n_recovered -= 1
         if missing and not generated:
-            prev = out.chars[-1] if out.chars and not out.chars[-1].generated else None
+            # the glyph before this one in its own layer (a scan's invisible OCR text
+            # is kept apart from the visible glyphs)
+            layer = out.hidden_chars if invisible else out.chars
+            prev = layer[-1] if layer and not layer[-1].generated else None
             guess = _infer_glyph(lbox, size, prev)
             if guess:
                 text, missing, inferred = guess, False, True

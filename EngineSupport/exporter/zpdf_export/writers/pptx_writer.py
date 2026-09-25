@@ -406,7 +406,10 @@ class _Writer:
                     continue
                 if it.kind == "block":
                     # lines of one paragraph split by wide spacing share a box (layout.continues)
-                    prev = getattr(it.payload, "continues", None)
+                    # lines of one paragraph share a box; a paragraph going on in the
+                    # next column is a box per column (reading order joins them elsewhere)
+                    prev = None if getattr(it.payload, "continues_in_next_column", False) \
+                        else getattr(it.payload, "continues", None)
                     g = group_of.get(id(prev)) if prev is not None else None
                     if g is None:
                         g = group_of.get(id(it.payload))

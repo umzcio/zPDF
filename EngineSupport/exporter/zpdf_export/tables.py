@@ -437,6 +437,9 @@ def detect_tables(page: PageExtract) -> list[Table]:
                 cells.append(Cell(out_row, c0, rowspan, cs, _cell_text(lines),
                                   lbox, _to_bbox(page, lbox), bold, chars_here))
         cells.sort(key=lambda c: (c.row, c.col))
+        if _cells_split_a_word(in_region, cells):
+            k -= 1
+            continue       # a drawing's box with a leader line across a label: not a table
         header_rows, inference = _header_rows(cells, n_out)
         header_rows = _extend_header_rows(header_rows, cells, n_out)
         tables.append(Table(table_id, page.index, n_out, n_cols, cells, region, _to_bbox(page, region),
@@ -444,6 +447,25 @@ def detect_tables(page: PageExtract) -> list[Table]:
                             [f for f in getattr(page, "fills", []) if region.intersects(f.lbox)
                              and not getattr(f, "white", False)]))
     return tables
+
+
+def _cells_split_a_word(chars, cells) -> bool:
+    """True when two neighbouring letters or digits of one word (no word space
+    between them) belong to different cells. A table's rules never pass
+    between the letters of a word; a leader line or a drawing's frame across a
+    label does ('Struts' read as 'St t' / 'ru s')."""
+    owner = {id(ch): k for k, cell in enumerate(cells) for ch in cell.chars}
+    for ln in build_lines(list(chars)):
+        prev = None
+        for t in ln.tokens:
+            c = t.char
+            if prev is not None and not t.space_before and prev.text.isalnum() and c.text.isalnum():
+                size = max(prev.font_size, c.font_size, 1.0)
+                a, b = owner.get(id(prev)), owner.get(id(c))
+                if a is not None and b is not None and a != b and c.lbox.x0 - prev.lbox.x1 < 0.25 * size:
+                    return True
+            prev = c
+    return False
 
 
 def _present(chars, x0: float, x1: float):

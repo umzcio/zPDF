@@ -149,6 +149,16 @@ def _emit_cluster(page_handle, out, objs, real_chars, page_area, counter, allow_
                     for sub in _clusters(clean):
                         _emit_cluster(page_handle, out, sub, real_chars, page_area, counter, allow_split=False, snapshot=snapshot)
             return
+    bar = _scale_bar(out, lbox, real_chars, set(id(c) for c in inside))
+    if bar is not None:
+        # the drawing's scale bar: its bar and labels are part of the picture
+        bar_chars, bar_rule, bar_text = bar
+        for c in bar_chars:
+            lbox, bbox = lbox.union(c.lbox), bbox.union(c.bbox)
+        lbox, bbox = lbox.union(bar_rule.lbox), bbox.union(bar_rule.bbox)
+        inside = list(inside) + bar_chars
+        absorbed = (absorbed + " " + bar_text).strip()
+        out.rules.remove(bar_rule)
     png, wpx, hpx = _render_region(page_handle, out, bbox)
     if png is None:
         out.warnings.append({"code": "VECTOR_ARTWORK_BLANK", "page": out.index, "object_id": art_id,
@@ -162,6 +172,38 @@ def _emit_cluster(page_handle, out, objs, real_chars, page_area, counter, allow_
     if absorbed:
         warn["absorbed_text"] = absorbed
     out.warnings.append(warn)
+
+
+_SCALE_WORD = __import__("re").compile(
+    r"(?i)^(\d+([.,]\d+)?|kilometers?|kilometres?|km|miles?|mi|meters?|metres?|m|feet|ft|yards?|nautical|nmi)$")
+
+
+def _scale_bar(out, lbox: BBox, real_chars, taken: set):
+    """A scale bar just under a drawing: a horizontal rule within 20 pt below it
+    and inside its width, with nothing between the drawing and the rule but
+    numbers and distance units ('0', '15 KILOMETERS'). Returns (glyphs, rule,
+    text) or None."""
+    from .textlines import build_lines
+    for r in sorted(getattr(out, "rules", []), key=lambda r: r.lbox.y0):
+        rb = r.lbox
+        if r.orientation != "h" or rb.width < 20 or rb.width > lbox.width + 2:
+            continue
+        if rb.x0 < lbox.x0 - 2 or rb.x1 > lbox.x1 + 2 or not (0 <= rb.cy - lbox.y1 <= 20):
+            continue
+        band = [c for c in real_chars if id(c) not in taken and id(c) not in out.absorbed_chars
+                and lbox.y1 - 2 <= c.lbox.cy <= rb.y0 + 1 and rb.x0 - 30 <= c.lbox.cx <= rb.x1 + 80]
+        if not band:
+            continue
+        words = []
+        for ln in build_lines(band):
+            words += ln.text.split()
+        if not words or not all(_SCALE_WORD.match(w) for w in words):
+            continue
+        if not any(w[0].isdigit() for w in words) or not any(w[0].isalpha() for w in words):
+            continue
+        lines = sorted(build_lines(band), key=lambda ln: ln.lbox.x0)
+        return band, r, " ".join(ln.text.strip() for ln in lines)
+    return None
 
 
 def _covers_box(outer: BBox, inner: BBox) -> float:

@@ -1,7 +1,7 @@
 # App export integration
 
 The app vendors the unchanged `zpdf_export` package from
-umzcio/zPDF-exporter commit `318b233d78fd31783c4f170ba441e0a31c35fa73`
+umzcio/zPDF-exporter commit `e1d7344fd0f28ce8790ed5284cb1637c8b04be7c`
 (DOCX, XLSX, PPTX, HTML, Markdown, RTF, XML, EPUB 3).
 `exporter/provenance.json` records each source hash; the build verifies them.
 Changes to reconstruction belong in that upstream repo and require an explicit

@@ -2,6 +2,7 @@
 ordered IR with figures, form values, and comments (spec section 8)."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -256,6 +257,7 @@ def build_document(path: Path, sha256: str, pages, options: ExportOptions,
             stats["pages_processed"] += 1
             if progress:
                 progress("extract", i + 1, len(selected))
+        _join_line_break_hyphens(doc)
         image_only = stats.get("image_only_pages", [])
         if image_only and len(image_only) == len(selected) and not options.allow_partial:
             raise ExportError("OCR_REQUIRED", "image_only_page", page=image_only[0])
@@ -264,6 +266,75 @@ def build_document(path: Path, sha256: str, pages, options: ExportOptions,
         return doc
     finally:
         snap.close()
+
+
+_BREAK = re.compile(r"([A-Za-z\u00c0-\u024f]+)[-\u00ad]\s+([a-z\u00df-\u024f][A-Za-z\u00c0-\u024f]*)")
+# fragments a hyphenation break leaves after the hyphen (a compound's second part is a word)
+_SUFFIX = re.compile(r"(?i)^(tions?|sions?|ments?|ings?|ity|ities|als?|ates?|ated|ed|ers?|ters?|ous|ibl[ey]|abl[ey]|"
+                     r"ences?|ances?|ive|iz(e|ed|es|ing)|is(m|ts?)|ful(ly)?|ly|cy|ry|ty|ties|ures?|ians?|ic(al)?|"
+                     r"ogy|ness|ship|ward|ish|ery|ory|age|ages|ance|ant|ent|ents|ents)$")
+_WORDS = re.compile(r"[A-Za-z\u00c0-\u024f]+(?:-[A-Za-z\u00c0-\u024f]+)*")
+
+
+def _join_line_break_hyphens(doc) -> None:
+    """A hyphen that ended a source line, read in reading order as 'under-
+    standing'. The space always goes. The hyphen goes too unless the document
+    itself says it belongs: the joined word appears elsewhere → join; the
+    hyphenated form appears elsewhere → keep ('three-dimensional'); the first
+    part is a word of the document and the second a word-like part, not a
+    suffix fragment → keep ('Mining-related', 'ground-based'); else it was a
+    hyphenation point ('knowl- edge' → 'knowledge', 'contrast- ing'). Reading-order text
+    only; layout modes keep each line as drawn."""
+    from collections import Counter
+    nodes = [n for n in doc.nodes.values() if isinstance(n, TextNode) and n.kind != "invisible"]
+    if not any(_BREAK.search(n.text) for n in nodes):
+        return
+    vocab: Counter = Counter()
+    for n in nodes:
+        for w in _WORDS.findall(_BREAK.sub(" ", n.text)):      # words not at a break
+            vocab[w.lower()] += 1
+            for part in w.split("-"):
+                vocab[part.lower()] += 1 if "-" in w else 0
+
+    def keep_hyphen(a: str, b: str) -> bool:
+        joined, hyph = (a + b).lower(), f"{a}-{b}".lower()
+        if vocab[joined]:
+            return False                   # the word appears whole: a hyphenation point
+        if vocab[hyph]:
+            return True                    # the hyphenated form appears mid-line: a compound
+        # a word of the document, then a word-like part (not a suffix fragment):
+        # most likely a compound ('ground-based', 'time-consuming'); when unsure,
+        # the printed hyphen stays
+        return len(a) >= 3 and vocab[a.lower()] > 0 and len(b) >= 4 and not _SUFFIX.match(b)
+
+    def fix(text: str) -> str:
+        return _BREAK.sub(lambda m: m.group(1) + ("-" if keep_hyphen(m.group(1), m.group(2)) else "") + m.group(2), text)
+
+    for n in nodes:
+        if not _BREAK.search(n.text):
+            continue
+        n.text = fix(n.text)
+        if n.runs:
+            n.runs = _fix_runs(n.runs, fix)
+
+
+def _fix_runs(runs: list[dict], fix) -> list[dict]:
+    """Apply a text fix that only deletes characters (a space, a hyphen) across
+    run boundaries, keeping each surviving character in its run."""
+    import difflib
+    joined = "".join(r.get("text", "") for r in runs)
+    fixed = fix(joined)
+    owner = [k for k, r in enumerate(runs) for _ch in r.get("text", "")]
+    keep_idx: list[int] = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, joined, fixed, autojunk=False).get_opcodes():
+        if tag == "equal":
+            keep_idx.extend(range(i1, i2))
+        elif tag != "delete":
+            return runs                                  # not a pure deletion: leave the runs as they are
+    texts = [""] * len(runs)
+    for i in keep_idx:
+        texts[owner[i]] += joined[i]
+    return [dict(r, text=t) for r, t in zip(runs, texts) if t]
 
 
 def _outline(snap, limit: int = 5000) -> list[dict]:
@@ -457,7 +528,7 @@ def _process_page(doc: Document, page: PageExtract, options: ExportOptions, stat
                 # the next line of a paragraph split by wide line spacing: one reading-order paragraph
                 node = doc.nodes[last_block[1]]
                 more = _run_dicts(b.runs, options.include_hyperlinks)
-                sep = "" if node.text.endswith((" ", "-", "\u00ad")) else " "
+                sep = "" if node.text.endswith(" ") else " "     # a trailing hyphen: _join_line_break_hyphens decides
                 node.text = node.text + sep + b.text
                 if sep and node.runs:
                     node.runs[-1] = dict(node.runs[-1], text=node.runs[-1]["text"] + sep)
@@ -530,8 +601,8 @@ def _process_page(doc: Document, page: PageExtract, options: ExportOptions, stat
             stats["paragraphs"] += 1
         else:
             nid = _add_form_node(doc, pno, atom.payload, stats)
-        if atom.kind != "block":
-            last_block = None
+        if atom.kind not in ("block", "figure"):
+            last_block = None       # a picture between two columns does not end the paragraph
         doc.flow.append(atom.payload.table_id if atom.kind == "table" else nid)
     # boxes embedded in sentences, widgets paired to table cells (value already in
     # the cell), and unpaired widgets

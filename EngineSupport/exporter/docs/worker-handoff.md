@@ -513,6 +513,13 @@ never prints document text or paths.
 
 ### Quality the app must not overstate
 
+- **Increment 20 changed reading-order text (pin after 318b233):**
+  - paragraphs continue into the next column;
+  - line-break hyphens are resolved by the document's own words.
+  - Three compounds out of 88 breaks on four checked documents lose their
+    hyphen: "groundbased", "timeconsuming" and, kept wrongly, "over-fishing".
+  - Table cells keep their raw text ("loga- rithmic" in a Census header).
+
 - Pictures are downsampled to at most 200 dpi for their placed size
   (`IMAGE_DOWNSAMPLED` per page). High-resolution scans lose detail. The
   threshold follows one observed Word for Mac export failure on a 61 MB

@@ -1,5 +1,42 @@
 # Reader compatibility
 
+## Increment 20 re-verification (fidelity backlog)
+
+The four backlog fixes change shared stages, so every format was checked
+again (2026-09-24). No check sent keystrokes; apps were addressed directly,
+and Word is no longer brought to the front.
+
+- **Word layout batch, 19 documents:**
+  - Page parity everywhere; XFA still blocked; every edit persisted.
+  - The two scans report their now-inferred OCR hyphens (`GLYPH_INFERRED`).
+  - FAA p. 4: the "Struts" label is text, not a broken 2 × 3 table. The page
+    sits 1.7 pt higher (median 3.2 → 4.9 pt, 94 % within 12 pt as before).
+  - USGS FS 2023 p. 5: the hazard diagram's labels are text (a spurious 5 × 5
+    table is gone); within 12 pt fell from 93 % to 86 %.
+  - The diagram was already broken in the pinned build and still is.
+    Stipple masks meant to be blended over the drawing are placed as raw
+    bitmaps (backlog).
+  - FAA p. 4's "Wing" and "Empennage" labels are misplaced as before
+    (backlog).
+- **Word reflow DOCX (USGS):** the joined paragraphs ("help to characterize
+  shallow properties", "faults to form. The caldera") and the joined words
+  ("understanding", "knowledge"; "three-dimensional" kept).
+- **PowerPoint, 15 decks:** identical to the last run. A paragraph that
+  continues into the next column stays one text box per column.
+- **RTF (Word, TextEdit), 11 documents:** all opened, edited and reopened;
+  counts equal what was written.
+- **XML:** xmllint validates all 11. Word coverage 99.66–100 %. Each word's
+  box holds its word for 100 % of words in all 11; the 1920 scan's OCR
+  hyphens are now words.
+- **EPUB:** epubcheck reports 0 errors and 0 warnings on all 11.
+- **Chrome:** unchanged.
+- **Excel:** 0 display mismatches, and the edits persisted.
+- **Markdown:**
+  - audit: no unexplained word in the 11 documents; FAA's "Struts" is back;
+  - pandoc structure matches everywhere; cmark-gfm clean;
+  - the USGS caldera diagram's picture includes its scale bar, and its alt
+    text ends "0 15 KILOMETERS".
+
 ## EPUB 3: epubcheck (verified); Apple Books (checked, partly)
 
 - **epubcheck 4.2.6:** 0 fatals, 0 errors, 0 warnings, 0 infos on 12 books
