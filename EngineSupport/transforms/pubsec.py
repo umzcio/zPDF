@@ -212,7 +212,7 @@ def _transform_document(pdf, string_fn, stream_fn, skip=(), encrypt_metadata=Tru
     metadata = pdf.Root.get("/Metadata")
     metadata_id = metadata.objgen if isinstance(metadata, pikepdf.Stream) and metadata.is_indirect else None
     for obj in pdf.objects:
-        if obj is None or not obj.is_indirect or obj.objgen in skip:
+        if not isinstance(obj, pikepdf.Object) or not obj.is_indirect or obj.objgen in skip:
             continue
         if isinstance(obj, pikepdf.Stream):
             kind = str(obj.stream_dict.get("/Type", ""))
@@ -345,7 +345,7 @@ def _decrypt_aesv2(pdf, key, encrypt, encrypt_metadata):
     metadata = pdf.Root.get("/Metadata")
     metadata_id = metadata.objgen if isinstance(metadata, pikepdf.Stream) else None
     for obj in pdf.objects:
-        if obj is None or not obj.is_indirect or (encrypt.is_indirect and obj.objgen == encrypt.objgen):
+        if not isinstance(obj, pikepdf.Object) or not obj.is_indirect or (encrypt.is_indirect and obj.objgen == encrypt.objgen):
             continue
         number, generation = obj.objgen
         object_key = hashlib.md5(key + number.to_bytes(3, "little") + generation.to_bytes(2, "little") + b"sAlT").digest()

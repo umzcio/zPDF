@@ -215,6 +215,35 @@ class SignatureTests(Base):
                 if hanko is not None:
                     self.assertTrue(hanko[0]["intact"] and hanko[0]["valid"], hanko)
 
+    def test_signing_pdf_with_indirect_numbers(self):
+        """wkhtmltopdf/Qt (and others) store stream lengths as indirect integer
+        objects; pikepdf lists those in pdf.objects as plain Python ints."""
+        content = b"BT /F1 24 Tf 72 700 Td (Indirect lengths) Tj ET"
+        body = [b"<< /Type /Catalog /Pages 2 0 R >>",
+                b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+                b"/Resources << /Font << /F1 6 0 R >> >> >>",
+                b"<< /Length 5 0 R >>\nstream\n" + content + b"\nendstream",
+                str(len(content)).encode(),
+                b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+        data, offsets = b"%PDF-1.4\n", []
+        for number, obj in enumerate(body, 1):
+            offsets.append(len(data))
+            data += f"{number} 0 obj\n".encode() + obj + b"\nendobj\n"
+        xref = len(data)
+        data += f"xref\n0 {len(body) + 1}\n0000000000 65535 f \n".encode()
+        data += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
+        data += f"trailer\n<< /Size {len(body) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+        src = self.tmp / "indirect-numbers.pdf"
+        src.write_bytes(data)
+        with pikepdf.open(src) as pdf:
+            self.assertTrue(any(isinstance(o, int) for o in pdf.objects), "fixture must reproduce the int case")
+        out, _ = self.run_ops(src, [{"op": "sign", "identity": self.ident(), "page": 0,
+                                      "rect": [100, 100, 300, 160], "reason": "I approve"}], name="indirect-signed.pdf")
+        self.assertTrue(out.read_bytes().startswith(data))
+        sig = self.query(out)["signatures"][0]
+        self.assertTrue(sig["signed"] and sig["integrity"] and sig["covers_document"], sig)
+
     def test_second_signature_keeps_first_valid(self):
         src = self.fixture("uscis-i9.pdf")
         one, _ = self.run_ops(src, [{"op": "sign", "identity": self.ident(), "page": 0, "rect": [40, 40, 200, 80]}], name="one.pdf")

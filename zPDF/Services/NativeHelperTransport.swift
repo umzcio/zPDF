@@ -97,7 +97,13 @@ final class NativeHelperTransport {
             if command == "save", ["TRANSPORT_FAILED", "INTERNAL_ERROR", "ENGINE_FAILED"].contains(code) {
                 throw failure(code: code)
             }
-            throw NativeSaveError(code: code, message: error["message"] as? String ?? "The PDF engine could not complete the operation.")
+            var message = error["message"] as? String ?? "The PDF engine could not complete the operation."
+            // Unexpected engine failures carry a one-line technical detail;
+            // showing it lets a tester's screenshot identify the cause.
+            if code == "ENGINE_FAILED", let detail = error["detail"] as? String, !detail.isEmpty {
+                message += " Details: " + String(detail.prefix(200))
+            }
+            throw NativeSaveError(code: code, message: message)
         }
         return response
     }
