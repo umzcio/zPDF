@@ -198,7 +198,7 @@ final class AppState {
     let readingHistory: ReadingHistoryStore
     var restoringSession = false
     var didRestoreSession = false
-    var saveError: OpenError?
+    var saveError: OpenError? { didSet { if let saveError { DiagnosticsLog.shared.record(saveError.message) } } }
     var recovery: RecoveryCoordinator?
     var recoveryWarning: String?
     @ObservationIgnored var didStartRecovery = false

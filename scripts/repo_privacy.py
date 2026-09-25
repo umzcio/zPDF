@@ -11,8 +11,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 TOP_FILES = {'.gitignore', '.gitattributes', 'README.md', 'PRIVACY.md', 'project.yml', 'appcast.xml'}
-DIRECTORIES = {'zPDF', 'zPDFTests', 'EngineSupport', 'scripts', '.githooks'}
-TEXT_SUFFIXES = {'.swift', '.py', '.md', '.json', '.toml', '.plist', '.entitlements', '.txt', '.ijg', '.xsd', '.sh', '.html'}
+DIRECTORIES = {'zPDF', 'zPDFTests', 'EngineSupport', 'scripts', '.githooks', 'services'}
+TEXT_SUFFIXES = {'.swift', '.py', '.md', '.json', '.toml', '.plist', '.entitlements', '.txt', '.ijg', '.xsd', '.sh', '.html', '.ts', '.mjs', '.jsonc'}
 PRIVATE_PARTS = {'private', 'secrets', 'build', 'deriveddata', '__pycache__', '.venv', 'venv',
                  '.codex', '.agents', '.claude', '.ssh', '.aws', '.local-data', 'xcuserdata'}
 HOME_PATH = re.compile(rb'/(?:Users|home)/[A-Za-z0-9_.-]+/')

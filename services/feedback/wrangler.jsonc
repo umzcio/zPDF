@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zpdf-feedback",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "vars": {
+    "GITHUB_REPO": "umzcio/zPDF",
+    "GITHUB_API": "https://api.github.com",
+    "DAILY_LIMIT_PER_IP": "15"
+  },
+  // Screenshots and private reporter contact details (never in the public issue).
+  "kv_namespaces": [{ "binding": "REPORTS", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }],
+  // Per-IP burst limit; a daily cap per IP is kept in REPORTS.
+  "ratelimits": [
+    { "name": "BURST_LIMITER", "namespace_id": "4101", "simple": { "limit": 3, "period": 60 } }
+  ]
+  // Secrets (wrangler secret put): GITHUB_TOKEN (fine-grained, Issues: write on umzcio/zPDF),
+  // ATTACHMENT_KEY (random string used to sign attachment links).
+}

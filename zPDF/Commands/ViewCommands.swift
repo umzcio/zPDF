@@ -147,6 +147,9 @@ private struct HelpMenuItems: View {
         Button("Show Welcome Tour") { appState.features.showingOnboarding = true }
         Button("What's New in zPDF") { appState.features.showingWhatsNew = true }
         Divider()
+        Button("Report a Bug…") { FeedbackDraft.shared.kind = .bug; openWindow(id: "report-bug") }
+        Button("Send a Suggestion…") { FeedbackDraft.shared.kind = .suggestion; openWindow(id: "report-bug") }
+        Divider()
         Button("Keyboard Shortcuts…") {
             SettingsNavigation.shared.request(.keyboard)
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)

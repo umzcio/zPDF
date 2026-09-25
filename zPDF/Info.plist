@@ -26,6 +26,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>ZPDFFeedbackURL</key>
+	<string>https://zpdf-feedback.REPLACE.workers.dev</string>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/umzcio/zPDF/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>

@@ -102,8 +102,12 @@ struct RootView: View {
         } message: { error in
             Text("\(error.fileName): \(error.message)")
         }
-        .alert("Cannot Complete PDF Action", item: $appState.saveError) { _ in
+        .alert("Cannot Complete PDF Action", item: $appState.saveError) { error in
             Button("OK", role: .cancel) {}
+            Button("Report…") {
+                FeedbackDraft.shared.prefill(error: error.message)
+                openWindow(id: "report-bug")
+            }
         } message: { error in
             Text("\(error.fileName): \(error.message)")
         }

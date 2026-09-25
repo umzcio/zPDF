@@ -17,6 +17,11 @@ struct FeatureWindows: Scene {
                 .modifier(AppAppearanceModifier(preferences: appState.preferences))
         }
         .defaultSize(width: 680, height: 620)
+        Window("Report a Bug", id: "report-bug") {
+            ReportBugView()
+                .modifier(AppAppearanceModifier(preferences: appState.preferences))
+        }
+        .windowResizability(.contentSize)
         WindowGroup("Document", id: "document-window", for: UUID.self) { $tabID in
             DocumentWindowView(tabID: tabID)
                 .environment(appState)

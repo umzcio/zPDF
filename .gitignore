@@ -8,6 +8,7 @@
 !/appcast.xml
 !/.githooks/
 !/scripts/
+!/services/
 !/EngineSupport/
 !/zPDF/
 !/zPDFTests/
@@ -90,3 +91,9 @@ playground.xcworkspace
 # Release credentials (App Store Connect API key config) — never committed.
 .notary-config.local
 *.p8
+
+# Feedback relay (services/feedback)
+services/feedback/node_modules/
+services/feedback/.wrangler/
+services/feedback/.dev.vars
+services/feedback/worker-configuration.d.ts
