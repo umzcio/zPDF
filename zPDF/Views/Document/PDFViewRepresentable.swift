@@ -78,6 +78,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         pdfView.setDisplayedDocument(document)
         context.coordinator.observe(pdfView)
         viewStore.pdfView = pdfView
+        appState.comments.canvas.attach(to: pdfView)
         return pdfView
     }
 
@@ -166,11 +167,6 @@ struct PDFViewRepresentable: NSViewRepresentable {
         var pageRevision = -1
         private var observers: [NSObjectProtocol] = []
         private var editMonitor: Any?
-
-        /// In-progress ink stroke: page, page-space points, live preview.
-        private var inkPage: PDFPage?
-        private var inkPoints: [CGPoint] = []
-        private var inkPreview: PDFAnnotation?
 
         init(appState: AppState, onPageChanged: @escaping (Int) -> Void) {
             self.appState = appState
@@ -263,9 +259,6 @@ struct PDFViewRepresentable: NSViewRepresentable {
             observers.removeAll()
             if let editMonitor { NSEvent.removeMonitor(editMonitor) }
             editMonitor = nil
-            inkPage = nil
-            inkPoints = []
-            inkPreview = nil
         }
 
         isolated deinit {
@@ -306,63 +299,27 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 placeFormField(fieldKind, at: pagePoint, on: page, in: document)
                 return true
             }
-            guard let tool = appState.armedAnnotationTool,
-                  let tab = appState.activeTab,
-                  let document = pdfView.document else { return false }
-            let viewPoint = pdfView.convert(event.locationInWindow, from: nil)
-            guard let page = pdfView.page(for: viewPoint, nearest: true) else { return false }
-            let pagePoint = pdfView.convert(viewPoint, to: page)
-            switch tool {
-            case .stickyNote, .textBox, .stamp:
-                appState.annotationService.addAnnotation(tool,
-                                                         at: pagePoint,
-                                                         onPage: document.index(for: page),
-                                                         in: tab)
-                if !appState.preferences.keepAnnotationToolSelected { appState.armedAnnotationTool = nil }
-                appState.noteAnnotationsChanged()
-                return true
-            case .drawing:
-                inkPage = page
-                inkPoints = [pagePoint]
-                refreshInkPreview()
-                return true
-            case .highlight, .strikethrough, .underline, .attachFile:
-                // Markup applies via the selection flow; attachFile is a
-                // TODO (see AnnotationService). Fall through to PDFView.
-                return false
-            }
+            // Comment tools and comment selection (CommentCanvasController).
+            return appState.comments.canvas.mouseDown(event, in: pdfView)
         }
 
-        /// Continues an ink stroke. Returns true while one is in progress.
+        /// Continues a comment gesture. Returns true while one is in progress.
         @MainActor
         func continueAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
-            guard let page = inkPage else { return false }
-            let viewPoint = pdfView.convert(event.locationInWindow, from: nil)
-            inkPoints.append(pdfView.convert(viewPoint, to: page))
-            refreshInkPreview()
-            return true
+            appState.comments.canvas.mouseDragged(event, in: pdfView)
         }
 
-        /// Finishes an ink stroke: swaps the live preview for the real
-        /// service-created annotation and disarms the drawing tool.
+        /// Finishes a comment gesture (shape, stroke, move, resize).
         @MainActor
         func endAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
-            guard let page = inkPage, let document = pdfView.document else { return false }
-            let points = inkPoints
-            if let preview = inkPreview {
-                page.removeAnnotation(preview)
-            }
-            inkPage = nil
-            inkPoints = []
-            inkPreview = nil
-            if points.count > 1, let tab = appState.activeTab {
-                appState.annotationService.addInkAnnotation(points: points,
-                                                            onPage: document.index(for: page),
-                                                            in: tab)
-                if !appState.preferences.keepAnnotationToolSelected { appState.armedAnnotationTool = nil }
-                appState.noteAnnotationsChanged()
-            }
-            return true
+            appState.comments.canvas.mouseUp(event, in: pdfView)
+        }
+
+        /// Context menu for a comment under the pointer.
+        @MainActor
+        func commentMenu(for event: NSEvent, in pdfView: PDFView) -> NSMenu? {
+            guard appState.activeTab?.pdfDocument === pdfView.document else { return nil }
+            return appState.comments.canvas.menu(for: event, in: pdfView)
         }
 
         /// Called by AnnotationCanvasView after mouse-up so a finished drag
@@ -407,28 +364,6 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 counter += 1
             }
             return "\(kind.displayName) \(counter)"
-        }
-
-        /// Live ink stroke preview while dragging; removed and replaced by
-        /// the service-created annotation on mouse-up.
-        @MainActor
-        private func refreshInkPreview() {
-            guard let page = inkPage, inkPoints.count > 1 else { return }
-            let path = NSBezierPath()
-            path.move(to: inkPoints[0])
-            for point in inkPoints.dropFirst() {
-                path.line(to: point)
-            }
-            path.lineWidth = 2
-            if let preview = inkPreview {
-                page.removeAnnotation(preview)
-            }
-            let bounds = path.bounds.insetBy(dx: -4, dy: -4)
-            let preview = PDFAnnotation(bounds: bounds, forType: .ink, withProperties: nil)
-            preview.add(path)
-            preview.color = AnnotationTool.drawing.annotationColor
-            page.addAnnotation(preview)
-            inkPreview = preview
         }
     }
 }
@@ -594,6 +529,10 @@ final class AnnotationCanvasView: PDFView {
         if allowsSaveEdits, annotationCoordinator?.endAnnotationInteraction(with: event, in: self) == true { return }
         super.mouseUp(with: event)
         if allowsSaveEdits { annotationCoordinator?.applyArmedMarkupTool() }
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        annotationCoordinator?.commentMenu(for: event, in: self) ?? super.menu(for: event)
     }
 }
 

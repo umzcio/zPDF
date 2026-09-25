@@ -64,6 +64,10 @@ struct NativeAnnotationItem: Sendable, Equatable {
     var scratchPage: Int?
     var scratchKey: String?
     var replyTo: [Int]?
+    /// Reply to an annotation added in the same edit (its /ZPDFCommentID).
+    var replyToComment: String?
+    /// "R" (reply, default) or "Group" (grouped markup such as Replace Text).
+    var replyType: String?
 
     var json: [String: Any] {
         var value: [String: Any] = ["action": action, "page": page]
@@ -72,6 +76,8 @@ struct NativeAnnotationItem: Sendable, Equatable {
         if let scratchPage { value["scratch_page"] = scratchPage }
         if let scratchKey { value["scratch_key"] = scratchKey }
         if let replyTo { value["reply_to"] = replyTo }
+        if let replyToComment { value["reply_to_comment"] = replyToComment }
+        if let replyType { value["reply_type"] = replyType }
         return value
     }
 }

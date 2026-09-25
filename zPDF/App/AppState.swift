@@ -715,8 +715,7 @@ final class AppState {
     /// selection.
     func toggleArmedAnnotationTool(_ tool: AnnotationTool) {
         // TODO(phase-2): file attachments need an NSOpenPanel picker.
-        guard activeTab?.allowsSaveEdits == true,
-              [.highlight, .underline, .stickyNote].contains(tool) else { return }
+        guard activeTab?.allowsSaveEdits == true else { return }
         armedAnnotationTool = (armedAnnotationTool == tool) ? nil : tool
         // Only one canvas interaction is live at a time.
         if armedAnnotationTool != nil {
@@ -741,10 +740,11 @@ final class AppState {
               let pdfView = pdfViewStore.pdfView,
               let selection = pdfView.currentSelection,
               !selection.pages.isEmpty else { return }
-        annotationService.addMarkupAnnotation(tool, over: selection, in: tab)
+        let created = annotationService.addMarkupAnnotation(tool, over: selection, in: tab)
         if !preferences.keepAnnotationToolSelected { armedAnnotationTool = nil }
         pdfView.clearSelection()
         noteAnnotationsChanged()
+        didCreateMarkup(created, tool: tool, in: tab)
     }
 
     // MARK: - Form field tools (phase 3)

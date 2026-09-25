@@ -22,7 +22,15 @@ DELETE = Name("/ZPDFDelete")
 OWNED = ("/Rect", "/AP", "/C", "/IC", "/BS", "/Border", "/BE", "/Contents", "/QuadPoints",
          "/InkList", "/L", "/LE", "/Vertices", "/DA", "/DS", "/Q", "/Name", "/CA", "/F",
          "/M", "/T", "/RD", "/CL", "/IT", "/Rotate", "/FS")
-PRIVATE = ("/ZPDFDelete", "/ZPDFCommentID", "/ZPDFNewField", "/ZPDFScratchKey", "/ZPDFReplyTo", "/ZPDFRevision")
+PRIVATE = ("/ZPDFDelete", "/ZPDFCommentID", "/ZPDFNewField", "/ZPDFScratchKey", "/ZPDFReplyTo", "/ZPDFRevision",
+           "/ZPDFSpec")
+# Feature modules extend grafting without editing this file:
+#   UPDATE_HOOKS: hook(ctx, target, copied) before owned keys are copied onto an
+#                 existing annotation (e.g. keep data PDFKit cannot serialize).
+#   GRAFT_HOOKS:  hook(ctx, annot, page, spec) after an add/update; `spec` is the
+#                 decoded /ZPDFSpec JSON the app attached (or None).
+UPDATE_HOOKS = []
+GRAFT_HOOKS = []
 
 
 def _annots(page):
@@ -40,6 +48,10 @@ def _foreign(ctx, scratch, page_index, key):
                if str(a.get("/ZPDFScratchKey", "")) == key]
     require(len(matches) == 1, "INVALID_ARGUMENT", "The annotation scratch file is incomplete.")
     source = matches[0]
+    comment_id = source.get("/ZPDFCommentID")
+    comment_id = str(comment_id) if comment_id is not None else None
+    spec = source.get("/ZPDFSpec")
+    spec = str(spec) if spec is not None else None
     for private in PRIVATE:
         if private in source:
             del source[private]
@@ -48,7 +60,21 @@ def _foreign(ctx, scratch, page_index, key):
     for key in ("/Popup", "/P", "/Parent", "/IRT"):
         if key in source:
             del source[key]
-    return ctx.pdf.copy_foreign(source)
+    copied = ctx.pdf.copy_foreign(source)
+    if comment_id is not None:
+        copied[Name("/ZPDFCommentID")] = pikepdf.String(comment_id)  # resolves replies to new comments; stripped by finalize
+    return copied, _decode_spec(spec)
+
+
+def _decode_spec(value):
+    if value is None:
+        return None
+    import json
+    try:
+        decoded = json.loads(str(value))
+    except ValueError:
+        return None
+    return decoded if isinstance(decoded, dict) else None
 
 
 @op("annotations")
@@ -59,7 +85,7 @@ def annotations(ctx, scratch, items):
     needs_scratch = any(item.get("action") in ("add", "update") for item in items)
     with (pikepdf.open(scratch) if needs_scratch else nullcontext()) as foreign:
         # Resolve every target before the first mutation.
-        planned = []
+        planned, grafted, pending_replies = [], [], []
         for item in items:
             action = item.get("action")
             page_index = item.get("page")
@@ -85,8 +111,10 @@ def annotations(ctx, scratch, items):
                 target[DELETE] = True
                 counts["deleted"] += 1
                 continue
-            copied = _foreign(ctx, foreign, item.get("scratch_page"), item.get("scratch_key"))
+            copied, spec = _foreign(ctx, foreign, item.get("scratch_page"), item.get("scratch_key"))
             if action == "update":
+                for hook in UPDATE_HOOKS:
+                    hook(ctx, target, copied)
                 for key in OWNED:
                     if key in copied:
                         target[key] = copied[key]
@@ -94,17 +122,38 @@ def annotations(ctx, scratch, items):
                         del target[key]
                 if "/Contents" in copied and "/RC" in target:
                     del target["/RC"]  # stale rich text would override edited contents
+                grafted.append((target, page, spec))
                 counts["updated"] += 1
             else:
+                if not copied.is_indirect:
+                    copied = ctx.pdf.make_indirect(copied)
                 copied.P = page.obj
+                reply_type = Name("/" + item["reply_type"]) if item.get("reply_type") in ("R", "Group") else Name.R
                 if item.get("reply_to") is not None:
                     parent_page, parent_index = item["reply_to"]
+                    require(isinstance(parent_page, int) and 0 <= parent_page < len(ctx.pdf.pages), "STALE_ANNOTATION",
+                            "A reply's parent comment no longer exists.")
                     parents = ctx.pdf.pages[parent_page].obj.get("/Annots", [])
                     require(0 <= parent_index < len(parents), "STALE_ANNOTATION", "A reply's parent comment no longer exists.")
                     copied.IRT = parents[parent_index]
-                    copied.RT = Name.R
+                    copied.RT = reply_type
+                elif item.get("reply_to_comment"):
+                    pending_replies.append((copied, str(item["reply_to_comment"]), reply_type))
                 _annots(page).append(copied)
+                grafted.append((copied, page, spec))
                 counts["added"] += 1
+        # Replies to comments added in this same edit resolve after every addition.
+        for reply, parent_id, reply_type in pending_replies:
+            parent = next((a for p in ctx.pdf.pages for a in p.obj.get("/Annots", [])
+                           if str(a.get("/ZPDFCommentID", "")) == parent_id and a.objgen != reply.objgen), None)
+            require(parent is not None, "STALE_ANNOTATION", "A reply's parent comment no longer exists.")
+            reply.IRT = parent
+            reply.RT = reply_type
+        for annot, page, spec in grafted:
+            for hook in GRAFT_HOOKS:
+                hook(ctx, annot, page, spec)
+            if "/ZPDFSpec" in annot:
+                del annot["/ZPDFSpec"]
     return counts
 
 

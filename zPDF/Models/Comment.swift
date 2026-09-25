@@ -2,12 +2,12 @@
 //  Comment.swift
 //  zPDF
 //
-//  Purpose: Model for an annotation comment in the Comment panel: author,
-//  date, text, page index, optional quoted passage, and nested reply
-//  threading (replies are child Comments).
-//  Phase: 2 — REAL model; synced with the document's PDFAnnotations by
-//  AnnotationService (id matches the annotation's stable comment UUID,
-//  text persists into PDFAnnotation.contents, replies thread in memory).
+//  Purpose: Model for one comment thread row in the Comment panel: author,
+//  date, text, page, subtype/kind, review status, checkmark, media details
+//  and nested replies. Built by AnnotationService from the document's real
+//  annotations: replies are Text annotations whose /IRT names the parent
+//  (read from the file, or /ZPDFReplyTo for replies added this session), and
+//  review status comes from /State + /StateModel reply annotations.
 //
 
 import Foundation
@@ -20,9 +20,23 @@ struct Comment: Identifiable, Equatable, Sendable {
     /// Zero-based page index the comment is attached to.
     var pageIndex: Int
     var kind: CommentKind
+    /// PDF subtype without the leading slash ("Square", "FreeText"...).
+    var subtype: String = ""
     /// Quoted source text shown above the comment (prototype .quote block).
     var quotedText: String?
     var replies: [Comment]
+    /// Latest Review-model state set on this comment (Acrobat "Set Status").
+    var status: CommentStatus = .none
+    var statusAuthor: String?
+    /// Marked-model state (Acrobat checkmark).
+    var isMarked = false
+    /// sRGB hex of the annotation colour, for the list icon tint.
+    var colorHex: String?
+    var attachmentName: String?
+    var attachmentSize: Int?
+    var soundDuration: Double?
+    /// True when the comment is only in this session (not yet saved).
+    var isNew = false
 
     init(id: UUID = UUID(),
          author: String,
@@ -54,6 +68,12 @@ struct Comment: Identifiable, Equatable, Sendable {
         replies.reduce(replies.count) { $0 + $1.totalReplyCount }
     }
 
+    /// Every id in this thread (self first, then replies depth-first).
+    var threadIDs: [UUID] { [id] + replies.flatMap(\.threadIDs) }
+
+    /// Searchable text of the whole thread, so a query matches a reply too.
+    var threadText: String { ([text] + replies.map(\.threadText)).joined(separator: "\n") }
+
     /// Sample threads mirroring the prototype's Comment panel — used by
     /// SwiftUI previews only.
     static let sampleData: [Comment] = [
@@ -61,10 +81,11 @@ struct Comment: Identifiable, Equatable, Sendable {
                 text: "Can we update the Q3 figures in Table 1? The final numbers came in yesterday."),
         Comment(author: "David Okafor",
                 text: "Confirmed these numbers with Finance — good to go.",
+                kind: .highlight,
                 quotedText: "Revenue reached $48.2 million, an increase of 12.4%…"),
         Comment(author: "Priya Nair",
-                text: "Add a footnote on methodology here — auditors will ask for it."),
+                text: "Add a footnote on methodology here — auditors will ask for it.", kind: .shape),
         Comment(author: "Alex Morgan",
-                text: "Looks good overall. Ready for exec review once these edits land.")
+                text: "Looks good overall. Ready for exec review once these edits land.", kind: .stamp)
     ]
 }

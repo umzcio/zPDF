@@ -16,6 +16,25 @@ final class CommentReviewTests: XCTestCase {
         XCTAssertEqual(query.apply(to: [other, target]).count, 2)
     }
 
+    func testReviewerStatusAndCheckmarkFilters() {
+        var accepted = comment("One", author: "Ana")
+        accepted.status = .accepted
+        var marked = comment("Two", author: "Ben")
+        marked.isMarked = true
+        var reply = comment("Nested answer", author: "Cy")
+        reply.text = "Nested answer"
+        var parent = comment("Three", author: "Cy")
+        parent.replies = [reply]
+        let all = [accepted, marked, parent]
+        XCTAssertEqual(CommentReviewQuery(author: "Ben").apply(to: all).map(\.id), [marked.id])
+        XCTAssertEqual(CommentReviewQuery(status: .accepted).apply(to: all).map(\.id), [accepted.id])
+        XCTAssertEqual(CommentReviewQuery(status: CommentStatus.none).apply(to: all).count, 2)
+        XCTAssertEqual(CommentReviewQuery(marked: true).apply(to: all).map(\.id), [marked.id])
+        XCTAssertEqual(CommentReviewQuery(text: "nested").apply(to: all).map(\.id), [parent.id], "search covers replies")
+        XCTAssertFalse(CommentReviewQuery(text: "x").isFiltering)
+        XCTAssertTrue(CommentReviewQuery(author: "Ana").isFiltering)
+    }
+
     func testTypeFilterCombinesWithSearch() {
         let note = comment("Review", kind: .note)
         let highlight = comment("Review", kind: .highlight)
@@ -28,8 +47,14 @@ final class CommentReviewTests: XCTestCase {
         XCTAssertEqual(CommentKind(pdfSubtype: "Text"), .note)
         XCTAssertEqual(CommentKind(pdfSubtype: "/Highlight"), .highlight)
         XCTAssertEqual(CommentKind(pdfSubtype: "Underline"), .underline)
-        XCTAssertEqual(CommentKind(pdfSubtype: "FreeText"), .other)
-        XCTAssertEqual(CommentKind(pdfSubtype: "Ink"), .other)
+        XCTAssertEqual(CommentKind(pdfSubtype: "FreeText"), .textBox)
+        XCTAssertEqual(CommentKind(pdfSubtype: "FreeText", intent: "/FreeTextCallout"), .callout)
+        XCTAssertEqual(CommentKind(pdfSubtype: "StrikeOut"), .strikethrough)
+        XCTAssertEqual(CommentKind(pdfSubtype: "StrikeOut", intent: "StrikeOutTextEdit"), .replaceText)
+        XCTAssertEqual(CommentKind(pdfSubtype: "Ink"), .drawing)
+        XCTAssertEqual(CommentKind(pdfSubtype: "Polygon"), .shape)
+        XCTAssertEqual(CommentKind(pdfSubtype: "FileAttachment"), .attachment)
+        XCTAssertEqual(CommentKind(pdfSubtype: "Widget"), .other)
         XCTAssertEqual(CommentKind(pdfSubtype: nil), .other)
     }
 
