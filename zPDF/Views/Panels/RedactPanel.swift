@@ -60,7 +60,7 @@ struct RedactPanel: View {
             }
             if showingPageMarks {
                 VStack(alignment: .leading, spacing: 8) {
-                    PageScopePicker(choice: $pageScope, range: $pageRange)
+                    EditPageScopePicker(choice: $pageScope, range: $pageRange)
                     HStack {
                         Spacer()
                         Button("Mark Pages") {

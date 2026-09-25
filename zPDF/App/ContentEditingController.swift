@@ -794,7 +794,7 @@ final class ContentEditingController {
 
     // MARK: - Crop
 
-    func applyCrop(scope: PageScope, margins: EdgeMargins? = nil, removeWhiteMargins: Bool = false) {
+    func applyCrop(scope: EditPageScope, margins: EdgeMargins? = nil, removeWhiteMargins: Bool = false) {
         guard let tab, let document = tab.pdfDocument else { return }
         let pages = scope.pages(current: tab.currentPage - 1, count: document.pageCount)
         guard !pages.isEmpty else { return }
@@ -818,7 +818,7 @@ final class ContentEditingController {
         perform([op], name: "Crop Pages")
     }
 
-    func resetCrop(scope: PageScope) {
+    func resetCrop(scope: EditPageScope) {
         guard let tab, let document = tab.pdfDocument else { return }
         let pages = scope.pages(current: tab.currentPage - 1, count: document.pageCount)
         cropRect = nil
@@ -905,7 +905,7 @@ struct EdgeMargins: Equatable {
 }
 
 /// Page ranges offered by page-level tools.
-enum PageScope: Equatable, Hashable {
+enum EditPageScope: Equatable, Hashable {
     case current
     case all
     case range(String)
@@ -914,7 +914,7 @@ enum PageScope: Equatable, Hashable {
         switch self {
         case .current: return [current]
         case .all: return Array(0..<count)
-        case .range(let text): return PageScope.parse(text, count: count) ?? []
+        case .range(let text): return EditPageScope.parse(text, count: count) ?? []
         }
     }
 

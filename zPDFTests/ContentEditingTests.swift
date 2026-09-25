@@ -270,10 +270,10 @@ final class ContentEditingTests: XCTestCase {
     }
 
     func testPageScopeParsing() {
-        XCTAssertEqual(PageScope.parse("1-3, 5", count: 10), [0, 1, 2, 4])
-        XCTAssertEqual(PageScope.parse("8-", count: 10), [7, 8, 9])
-        XCTAssertNil(PageScope.parse("0", count: 10))
-        XCTAssertNil(PageScope.parse("4-2", count: 10))
-        XCTAssertEqual(PageScope.all.pages(current: 0, count: 3), [0, 1, 2])
+        XCTAssertEqual(EditPageScope.parse("1-3, 5", count: 10), [0, 1, 2, 4])
+        XCTAssertEqual(EditPageScope.parse("8-", count: 10), [7, 8, 9])
+        XCTAssertNil(EditPageScope.parse("0", count: 10))
+        XCTAssertNil(EditPageScope.parse("4-2", count: 10))
+        XCTAssertEqual(EditPageScope.all.pages(current: 0, count: 3), [0, 1, 2])
     }
 }

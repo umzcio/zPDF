@@ -102,7 +102,7 @@ extension ContentEditingController {
         recordMarkChange("Change Redaction Appearance")
     }
 
-    func markPages(_ scope: PageScope) {
+    func markPages(_ scope: EditPageScope) {
         guard let tab, let document = tab.pdfDocument else { return }
         let pages = scope.pages(current: tab.currentPage - 1, count: document.pageCount)
         var added = 0

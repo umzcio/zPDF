@@ -138,7 +138,7 @@ struct PageDesignSheet: View {
                     case .bates: batesForm
                     }
                     Section("Pages") {
-                        PageScopePicker(choice: $model.scope, range: $model.range)
+                        EditPageScopePicker(choice: $model.scope, range: $model.range)
                     }
                 }
                 .formStyle(.grouped)

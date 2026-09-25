@@ -440,7 +440,7 @@ private struct CropSection: View {
 
     var body: some View {
         PanelSection(title: "Crop pages") {
-            PageScopePicker(choice: $scope, range: $range)
+            EditPageScopePicker(choice: $scope, range: $range)
             if controller.cropRect == nil {
                 Text("Margins")
                     .font(.system(size: 10.5, weight: .semibold))
@@ -489,7 +489,7 @@ private struct CropSection: View {
         }
     }
 
-    private var resolvedScope: PageScope { scope.scope(range: range) }
+    private var resolvedScope: EditPageScope { scope.scope(range: range) }
     private var resolvedPages: [Int] {
         guard let tab = appState.activeTab else { return [] }
         return resolvedScope.pages(current: tab.currentPage - 1, count: tab.pageCount)
@@ -521,7 +521,7 @@ enum ScopeChoice: String, CaseIterable, Identifiable {
         case .range: "Pages"
         }
     }
-    func scope(range: String) -> PageScope {
+    func scope(range: String) -> EditPageScope {
         switch self {
         case .current: .current
         case .all: .all
@@ -530,7 +530,7 @@ enum ScopeChoice: String, CaseIterable, Identifiable {
     }
 }
 
-struct PageScopePicker: View {
+struct EditPageScopePicker: View {
     @Binding var choice: ScopeChoice
     @Binding var range: String
     var allowsCurrent = true
