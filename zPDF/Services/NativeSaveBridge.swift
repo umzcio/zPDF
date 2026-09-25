@@ -379,9 +379,11 @@ final class SaveHelper {
 
     /// Applies pending edits: generic annotations first (index-stable), then
     /// the facade, then removal of annotations marked for deletion.
-    func materialize(_ source: URL, expectedHash: String, changes: NativeSaveChanges,
+    func materialize(_ source: URL, expectedHash: String, changes pending: NativeSaveChanges,
                      in directory: URL) throws -> (url: URL, hash: String) {
-        var url = source, hash = expectedHash
+        // Signed documents and form edits the facade can't express (see ProtectedSaveBridge).
+        let (preparedURL, preparedHash, changes) = try nativePrepass(source, expectedHash: expectedHash, changes: pending, in: directory)
+        var url = preparedURL, hash = preparedHash
         let tag = UUID().uuidString.prefix(8)
         if !changes.annotationItems.isEmpty {
             var op: [String: Any] = ["op": "annotations", "items": changes.annotationItems.map(\.json)]
@@ -408,7 +410,8 @@ final class SaveHelper {
     }
 
     /// An open facade session containing every pending edit.
-    func prepared(_ source: URL, expectedHash: String, changes: NativeSaveChanges, in directory: URL) throws -> [String: Any] {
+    func prepared(_ source: URL, expectedHash: String, changes pending: NativeSaveChanges, in directory: URL) throws -> [String: Any] {
+        let (source, expectedHash, changes) = try nativePrepass(source, expectedHash: expectedHash, changes: pending, in: directory)
         guard !changes.annotationItems.isEmpty else {
             return try prepare(source, expectedHash: expectedHash, changes: changes)
         }

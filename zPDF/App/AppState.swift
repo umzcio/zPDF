@@ -385,7 +385,10 @@ final class AppState {
                     guard tabs.contains(where: { $0 === tab }) else { return }
                     tab.sourceHash = info.sourceHash
                     tab.saveBlock = info.writeBlock
-                    if info.writeBlock == nil {
+                    if info.writeBlock == "UNSUPPORTED_ENCRYPTED_WRITE" {
+                        // Forms & Signatures: edit through a decrypted private revision.
+                        try await prepareEncryptedEditing(tab, url: url, password: password ?? "", hash: info.sourceHash)
+                    } else if info.writeBlock == nil {
                         let source = try await DocumentEditSource.capture(url, expectedHash: info.sourceHash)
                         let editableDocument = try engine.openDocument(at: source.url)
                         tab.editSource = source
@@ -397,7 +400,7 @@ final class AppState {
                         resetUndoHistory(tab)
                     }
                     tab.saveChecking = false
-
+                    profileDocument(tab)
                 } catch {
                     guard tabs.contains(where: { $0 === tab }) else { return }
                     tab.saveChecking = false
@@ -535,16 +538,16 @@ final class AppState {
                 defer { if access && !retainedAccess { target.url.stopAccessingSecurityScopedResource() } }
                 guard try await allowStaging(in: target.url.deletingLastPathComponent(), for: tab) else { return false }
                 let editSource = tab.editSource
-                let savedHash = try await NativeSaveBridge.save(editSource?.url ?? url, expectedHash: editSource?.hash ?? hash, changes: changes,
-                                                              destination: target.url, overwrite: target.overwrite,
-                                                              sourceGuard: editSource == nil ? nil : NativeSourceGuard(url: url, hash: hash))
+                let savedHash = try await ProtectedSave.save(editSource?.url ?? url, expectedHash: editSource?.hash ?? hash, changes: changes,
+                                                             destination: target.url, overwrite: target.overwrite,
+                                                             sourceGuard: editSource == nil ? nil : NativeSourceGuard(url: url, hash: hash),
+                                                             context: tab.protection.saveContext)
                 if extracting != nil {
                     tab.lastExtractedURL = target.url
                     return true
                 }
-                let newSource = try await DocumentEditSource.capture(target.url, expectedHash: savedHash)
-                let reloaded = try engine.openDocument(at: newSource.url)
-                let baseline = try await SaveBaseline.capture(reloaded)
+                // Encrypted results reopen through a decrypted revision (DocumentProtection).
+                let (newSource, reloaded, baseline) = try await reloadSavedRevision(tab, url: target.url, hash: savedHash)
                 if target.url != url {
                     tab.securityScopedURL?.stopAccessingSecurityScopedResource()
                     tab.securityScopedURL = access ? target.url : nil

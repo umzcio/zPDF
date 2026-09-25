@@ -283,6 +283,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
         func beginAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
             guard appState.activeTab?.allowsSaveEdits == true,
                   appState.activeTab?.pdfDocument === pdfView.document else { return false }
+            // Fill & Sign / Prepare Form / Certificates tools (FormsCanvasInteraction).
+            if appState.signatureService.canvas.begin(event, in: pdfView, state: appState) { return true }
             // The Edit panel's text-editing mode selects the text run
             // under the click and consumes the event (phase 4).
             if appState.textEditingModeActive {
@@ -336,6 +338,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         /// Continues an ink stroke. Returns true while one is in progress.
         @MainActor
         func continueAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
+            if appState.signatureService.canvas.drag(event, in: pdfView, state: appState) { return true }
             guard let page = inkPage else { return false }
             let viewPoint = pdfView.convert(event.locationInWindow, from: nil)
             inkPoints.append(pdfView.convert(viewPoint, to: page))
@@ -347,6 +350,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         /// service-created annotation and disarms the drawing tool.
         @MainActor
         func endAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
+            if appState.signatureService.canvas.end(event, in: pdfView, state: appState) { return true }
             guard let page = inkPage, let document = pdfView.document else { return false }
             let points = inkPoints
             if let preview = inkPreview {
