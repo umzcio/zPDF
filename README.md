@@ -133,6 +133,11 @@ notes, screenshots, test evidence, credentials and generated output are kept
 out of the repository, and only public or synthetic fixture PDFs belong here.
 The git hooks enforce this.
 
+## License
+
+zPDF is licensed under the [Apache License 2.0](LICENSE); see [NOTICE](NOTICE).
+The vendored exporter (`EngineSupport/exporter/`) is MIT-licensed.
+
 ## Third-party software
 
 zPDF bundles PDFium (BSD-3-Clause), QPDF (Apache-2.0), pikepdf (MPL-2.0),

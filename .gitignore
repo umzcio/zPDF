@@ -3,6 +3,8 @@
 !/.gitignore
 !/.gitattributes
 !/README.md
+!/LICENSE
+!/NOTICE
 !/PRIVACY.md
 !/project.yml
 !/appcast.xml

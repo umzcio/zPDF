@@ -1,0 +1,17 @@
+zPDF
+Copyright 2026 The zPDF Authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes third-party software, each under its own license:
+
+- EngineSupport/exporter/ — zPDF-exporter (MIT)
+- EngineSupport/engine/native/ — QPDF (Apache-2.0) and libjpeg (IJG);
+  notices in EngineSupport/engine/native/licenses/
+- Bundled at build time (pinned in EngineSupport/*.json and project.yml):
+  PDFium via pypdfium2 (BSD-3-Clause / Apache-2.0), pikepdf (MPL-2.0),
+  fontTools (MIT), cryptography (Apache-2.0 or BSD-3-Clause), cffi (MIT),
+  asn1crypto (MIT), Pillow (MIT-CMU), lxml (BSD-3-Clause), python-docx (MIT),
+  openpyxl (MIT), python-pptx (MIT), XlsxWriter (BSD-2-Clause),
+  Sparkle (MIT, zPDF/Resources/Licenses/Sparkle-LICENSE.txt) and CPython (PSF).
+  Their license files are included in the app bundle.

@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-TOP_FILES = {'.gitignore', '.gitattributes', 'README.md', 'PRIVACY.md', 'project.yml', 'appcast.xml'}
+TOP_FILES = {'.gitignore', '.gitattributes', 'README.md', 'PRIVACY.md', 'project.yml', 'appcast.xml', 'LICENSE', 'NOTICE'}
 DIRECTORIES = {'zPDF', 'zPDFTests', 'EngineSupport', 'scripts', '.githooks', 'services'}
 TEXT_SUFFIXES = {'.swift', '.py', '.md', '.json', '.toml', '.plist', '.entitlements', '.txt', '.ijg', '.xsd', '.sh', '.html', '.ts', '.mjs', '.jsonc'}
 PRIVATE_PARTS = {'private', 'secrets', 'build', 'deriveddata', '__pycache__', '.venv', 'venv',
