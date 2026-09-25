@@ -11,7 +11,7 @@
     "DAILY_LIMIT_PER_IP": "15"
   },
   // Screenshots and private reporter contact details (never in the public issue).
-  "kv_namespaces": [{ "binding": "REPORTS", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }],
+  "kv_namespaces": [{ "binding": "REPORTS", "id": "800640db722c409492a9db268080e36b" }],
   // Per-IP burst limit; a daily cap per IP is kept in REPORTS.
   "ratelimits": [
     { "name": "BURST_LIMITER", "namespace_id": "4101", "simple": { "limit": 3, "period": 60 } }
