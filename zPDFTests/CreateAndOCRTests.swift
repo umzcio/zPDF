@@ -85,6 +85,27 @@ final class CreateAndOCRTests: XCTestCase {
         XCTAssertEqual(listed.files.first?.size, 8)
     }
 
+    func testImageNormalizerSplitsTIFFAndConvertsHEIC() throws {
+        let directory = try WorkflowFactory.directory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let png = try WorkflowFactory.textImage("Frame", at: directory.appendingPathComponent("frame.png"), size: CGSize(width: 400, height: 300))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(try XCTUnwrap(CGImageSourceCreateWithURL(png as CFURL, nil)), 0, nil))
+        let tiff = directory.appendingPathComponent("pages.tiff")
+        let tiffDestination = try XCTUnwrap(CGImageDestinationCreateWithURL(tiff as CFURL, "public.tiff" as CFString, 2, nil))
+        CGImageDestinationAddImage(tiffDestination, image, nil)
+        CGImageDestinationAddImage(tiffDestination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(tiffDestination))
+        XCTAssertEqual(try ImageNormalizer.frames(of: tiff, into: directory).count, 2)
+        XCTAssertEqual(try ImageNormalizer.frames(of: png, into: directory), [png], "upright PNG passes through")
+        let heic = directory.appendingPathComponent("photo.heic")
+        if let destination = CGImageDestinationCreateWithURL(heic as CFURL, "public.heic" as CFString, 1, nil) {
+            CGImageDestinationAddImage(destination, image, nil)
+            if CGImageDestinationFinalize(destination) {
+                XCTAssertEqual(try ImageNormalizer.frames(of: heic, into: directory).first?.pathExtension, "jpg")
+            }
+        }
+    }
+
     func testContinuityCameraRequestorAcceptsImagesAndHandsOverPasteboard() throws {
         let view = ContinuityCameraHostView()
         XCTAssertTrue(view.validRequestor(forSendType: nil, returnType: .tiff) as AnyObject === view)

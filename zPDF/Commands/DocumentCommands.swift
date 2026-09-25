@@ -29,8 +29,6 @@ struct DocumentCommands: Commands {
         CommandGroup(after: .importExport) {
             Button("Export Pages as Images…") { appState.present(.exportImages) }
                 .disabled(!hasDocument)
-            Button("Reduce File Size…") { appState.present(.reduceFileSize) }
-                .disabled(!editable)
         }
         CommandMenu("Document") {
             Menu("Insert Pages") {
