@@ -3,6 +3,34 @@
     <channel>
         <title>zPDF</title>
         <item>
+            <title>0.1.1</title>
+            <pubDate>Fri, 25 Sep 2026 10:25:01 -0600</pubDate>
+            <link>https://github.com/umzcio/zPDF</link>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<meta charset="utf-8">
+<h2>zPDF 0.1.1</h2>
+<p>A fix release for testers of 0.1.0.</p>
+<h3>Fixed</h3>
+<ul>
+<li><b>Signing with a certificate failed</b> (&quot;The PDF engine could not complete this operation&quot;) on most PDFs exported from web browsers, Microsoft Office, Google Docs and design tools. Signing now works on those files, and so does encrypting a PDF for specific certificate recipients.</li>
+<li><b>Better conversions to Word, Excel, PowerPoint, HTML, Markdown, RTF, XML and EPUB:</b></li>
+<li>Labels inside drawings are no longer mistaken for tables, which dropped or scrambled words.</li>
+<li>Map scale bars stay with their map.</li>
+<li>Paragraphs that continue into the next column are kept together.</li>
+<li>Words hyphenated at a line break are joined back up in reading-order formats.</li>
+</ul>
+<h3>Install or update</h3>
+<ul>
+<li><b>Already on 0.1.0:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
+<li><b>New install:</b> download <code>zPDF-0.1.1.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
+</ul>
+<p>Requires macOS 15 or later on an Apple silicon Mac.</p>
+]]></description>
+            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.1/zPDF-0.1.1.dmg" length="91483797" type="application/octet-stream" sparkle:edSignature="qxzMlxRs4/7FS0JVdTfYYud7XVcumj0RCoeYvNbxQi+enzJaI1CiHIYL85tQ+kAbg6OUeT3FQqhXXVrTzaWzBg=="/>
+        </item>
+        <item>
             <title>0.1.0</title>
             <pubDate>Fri, 25 Sep 2026 08:50:31 -0600</pubDate>
             <link>https://github.com/umzcio/zPDF</link>
