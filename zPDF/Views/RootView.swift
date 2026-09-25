@@ -67,6 +67,7 @@ struct RootView: View {
         }
 
         .sheet(isPresented: $appState.showingCombine) { CombinePDFsView().environment(appState) }
+        .sheet(item: $appState.workflowSheet) { WorkflowSheetHost(sheet: $0).environment(appState) }
         .sheet(item: $appState.conversionExport) { request in
             ConversionExportView(request: request).environment(appState)
         }

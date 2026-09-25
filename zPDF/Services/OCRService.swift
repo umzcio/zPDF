@@ -7,13 +7,9 @@
 //  >= 2x page rendering via PDFEngine.renderPage, per-page progress, and
 //  cooperative cancellation between pages.
 //  Phase: 3 — batch OCR over pages + language selection.
-//  TODO(phase-4): write recognized text back into the PDF as an invisible
-//  (text-render-mode-3) layer so scanned documents become searchable and
-//  selectable. The seam is `recognizeDocument(_:using:languages:progress:)`,
-//  which already yields one `OCRPageResult` per page; the missing piece is
-//  injecting Tj/TJ operators with Tr 3 into each page's content stream.
-//  PDFKit cannot write content streams, so this needs content-stream work
-//  or an engine swap — see IMPLEMENTATION.md phase 4.
+//  Word-level recognition with boxes lives in OCRLayout.swift; OCRWorkflow
+//  writes it as an invisible text layer through the native `ocr_text_layer`
+//  transform, so scanned documents become searchable and selectable.
 //
 
 import AppKit

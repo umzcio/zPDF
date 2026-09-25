@@ -43,6 +43,7 @@ struct DocumentView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading).padding(8)
                         }
                         Divider()
+                        ScanDetectionBanner()
                         HStack(alignment: .top, spacing: 0) {
                             if appState.activeTab != nil && appState.activePanel != .organize
                                 && !appState.readingPresentation.isActive {

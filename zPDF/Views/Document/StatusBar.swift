@@ -123,14 +123,16 @@ private struct StatusNavigationControls: View {
                 pageText = "\(tab.currentPage)"
                 showingPage = true
             } label: {
-                Text("Page \(tab.currentPage) of \(max(tab.pageCount, 1))")
+                Text(tab.pageLabel(at: tab.currentPage - 1).map { "Page \($0) (\(tab.currentPage) of \(max(tab.pageCount, 1)))" }
+                     ?? "Page \(tab.currentPage) of \(max(tab.pageCount, 1))")
                     .frame(height: 22).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .modifier(KeyboardFocusRing())
             .help("Go to page (⇧⌘N)")
             .accessibilityLabel("Go to page")
-            .accessibilityValue("Page \(tab.currentPage) of \(tab.pageCount)")
+            .accessibilityValue(tab.pageLabel(at: tab.currentPage - 1).map { "Page \($0), \(tab.currentPage) of \(tab.pageCount)" }
+                                ?? "Page \(tab.currentPage) of \(tab.pageCount)")
             .popover(isPresented: $showingPage, arrowEdge: .top) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Go to page").font(.headline)

@@ -68,9 +68,8 @@ struct zPDFApp: App {
                 Divider()
                 Button("Combine PDFs…") { appState.showingCombine = true }
                     .disabled(!appState.documentWindowIsKey || appState.isResolvingClose)
-                Button("Compress PDF…") {
-                    if let tab = appState.activeTab { appState.exportDocuments(.compress, tabs: [tab]) }
-                }.disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true)
+                Button("Reduce File Size…") { appState.present(.reduceFileSize) }
+                    .disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true)
             }
             CommandGroup(after: .textEditing) {
                 Button("Find in PDF…") { appState.searchFocusRequest += 1 }

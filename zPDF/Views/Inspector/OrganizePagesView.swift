@@ -59,12 +59,13 @@ struct OrganizePagesView: View {
                         onExtract: { extractPage(item.index) },
                         onDelete: { deletePage(item.index) }
                     )
+                    .contextMenu { pageMenu(item.index) }
                     .dropDestination(for: String.self) { items, _ in
                         acceptDrop(items, at: item.index)
                     } isTargeted: { targeted in
-                        if targeted, let drag = appState.pageDrag, drag.tab === tab,
-                           drag.document === tab.pdfDocument, drag.page !== item.page,
-                           tab.allowsSaveEdits {
+                        if targeted, let drag = appState.pageDrag, tab.allowsSaveEdits,
+                           (drag.tab === tab && drag.document === tab.pdfDocument && drag.page !== item.page)
+                            || appState.acceptsForeignPageDrag(into: tab) {
                             dropTarget = item.id
                         } else if dropTarget == item.id {
                             dropTarget = nil
@@ -74,6 +75,38 @@ struct OrganizePagesView: View {
             }
             .padding(28)
         }
+        .dropDestination(for: URL.self) { urls, _ in
+            let files = urls.filter { $0.isFileURL && (PageFileKind.isPDF($0) || PageFileKind.isImage($0)) }
+            guard !files.isEmpty, tab.allowsSaveEdits else { return false }
+            Task {
+                if await appState.insertFiles(files, at: tab.pageCount, in: tab) {
+                    statusMessage = "Inserted \(files.count == 1 ? files[0].lastPathComponent : "\(files.count) files") at the end."
+                    refresh()
+                }
+            }
+            return true
+        }
+    }
+
+    @ViewBuilder
+    private func pageMenu(_ index: Int) -> some View {
+        Button("Insert Blank Page Before") {
+            Task { await appState.insertBlankPages(count: 1, size: nil, landscape: nil, at: index, in: tab); refresh() }
+        }
+        Button("Insert Blank Page After") {
+            Task { await appState.insertBlankPages(count: 1, size: nil, landscape: nil, at: index + 1, in: tab); refresh() }
+        }
+        Button("Insert Pages from File…") { tab.goToPage(index + 1); appState.present(.insertPages(.file)) }
+        Divider()
+        Button("Duplicate Page") { Task { await appState.duplicatePages([index], in: tab); refresh() } }
+        Button("Replace Page…") { tab.goToPage(index + 1); appState.present(.replacePages) }
+        Button("Extract Page…") { extractPage(index) }
+        Divider()
+        Button("Rotate Counterclockwise") { Task { await appState.rotatePages([index], by: -90, in: tab); refresh() } }
+        Button("Rotate Clockwise") { Task { await appState.rotatePages([index], by: 90, in: tab); refresh() } }
+        Divider()
+        Button("Delete Page", role: .destructive) { deletePage(index) }
+            .disabled(tab.pageCount <= 1)
     }
 
     private struct PageItem: Identifiable {
@@ -102,6 +135,18 @@ struct OrganizePagesView: View {
     private func acceptDrop(_ items: [String], at index: Int) -> Bool {
         dropTarget = nil
         guard items.count == 1, let drag = appState.pageDrag else { return false }
+        if drag.tab !== tab {
+            // A page from another open document is inserted before this cell.
+            let token = items[0]
+            let sourceName = drag.tab.displayName
+            Task {
+                if await appState.dropForeignPage(token, at: index, in: tab) {
+                    statusMessage = "Inserted a page from \(sourceName) at position \(index + 1)."
+                    refresh()
+                }
+            }
+            return true
+        }
         let source = ObjectIdentifier(drag.page)
         let revision = tab.pageRevision
         // The existing handler owns token/document validation and the mutation.
@@ -215,7 +260,7 @@ private struct OrganizePageCell: View {
             }
             .onDrag(onDrag)
 
-            Text("\(pageNumber)")
+            Text(page.label.flatMap { $0.isEmpty || $0 == "\(pageNumber)" ? nil : "\(pageNumber) (\($0))" } ?? "\(pageNumber)")
                 .font(.system(size: 11))
                 .foregroundStyle(DesignTokens.Colors.mutedText)
                 .accessibilityHidden(true)
@@ -270,24 +315,54 @@ private struct OrganizePageCell: View {
 
 /// Guidance for the organizer; page actions stay attached to each thumbnail.
 struct OrganizePagesPanel: View {
-    @State private var splitInterval = 1
     @Environment(AppState.self) private var appState
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.large) {
             if let tab = appState.activeTab {
                 ExtractPagesControls(tab: tab).id(tab.id)
-                PanelSection(title: "Split PDF") {
-                    Stepper("Every \(splitInterval) page(s)", value: $splitInterval, in: 1...max(1, tab.pageCount))
-                        .help("Number of pages in each output PDF")
-                    Button("Split into PDFs…") { appState.exportDocuments(.split(splitInterval), tabs: [tab]) }
-                        .disabled(!tab.allowsSaveEdits)
+                PanelSection(title: "Insert") {
+                    PanelToolGrid {
+                        PanelToolButton(title: "Blank Page", symbolName: "doc.badge.plus", isActive: false) {
+                            appState.present(.insertPages(.blank))
+                        }
+                        .help("Insert blank pages (⇧⌘B)")
+                        PanelToolButton(title: "From File", symbolName: "doc.on.doc", isActive: false) {
+                            appState.present(.insertPages(.file))
+                        }
+                        .help("Insert pages from PDFs or images (⇧⌘I)")
+                        PanelToolButton(title: "Replace", symbolName: "arrow.triangle.2.circlepath", isActive: false) {
+                            appState.present(.replacePages)
+                        }
+                        .help("Replace pages with pages from another PDF")
+                        PanelToolButton(title: "Duplicate", symbolName: "plus.square.on.square", isActive: false) {
+                            Task { await appState.duplicatePages([tab.currentPage - 1], in: tab) }
+                        }
+                        .help("Duplicate the current page (page \(tab.currentPage))")
+                    }
+                    .disabled(!tab.allowsSaveEdits)
                 }
-                PanelSection(title: "Combine and compress") {
-                    Button("Combine PDFs…") { appState.showingCombine = true }
-                    Button("Save compressed copy…") { appState.exportDocuments(.compress, tabs: [tab]) }
+                RotatePagesControls(tab: tab).id(tab.id)
+                PanelSection(title: "Page setup") {
+                    PanelRow(title: "Number Pages…", symbolName: "number") { appState.present(.pageLabels) }
+                        .help("Page labels such as i, ii, iii or A-1")
+                    PanelRow(title: "Set Page Boxes…", symbolName: "crop") { appState.present(.pageBoxes) }
+                        .help("Crop, trim, bleed, art and media boxes (⇧⌘T)")
+                    PanelRow(title: "Change Page Size…", symbolName: "arrow.up.left.and.arrow.down.right") { appState.present(.resizePages) }
+                        .help("Scale pages to a new paper size")
+                    PanelRow(title: "Page Transitions…", symbolName: "play.rectangle") { appState.present(.transitions) }
+                        .help("Transitions for full-screen presentations")
+                }
+                .disabled(!tab.allowsSaveEdits)
+                PanelSection(title: "Split, combine and compress") {
+                    PanelRow(title: "Split Document…", symbolName: "square.split.2x1") { appState.present(.split) }
+                        .help("Split by page count, file size or top-level bookmarks")
                         .disabled(!tab.allowsSaveEdits)
-                    PanelNote("Lossless compression preserves image quality. Already optimized files may not shrink.")
+                    PanelRow(title: "Combine Files…", symbolName: "doc.on.doc") { appState.showingCombine = true }
+                        .help("Merge PDFs, images and documents into one PDF")
+                    PanelRow(title: "Reduce File Size…", symbolName: "arrow.down.right.and.arrow.up.left") { appState.present(.reduceFileSize) }
+                        .help("Save a smaller copy with a chosen image quality")
+                        .disabled(!tab.allowsSaveEdits)
                 }
                 if let message = appState.exportMessage {
                     Text(message).font(.caption).fixedSize(horizontal: false, vertical: true)
@@ -297,10 +372,7 @@ struct OrganizePagesPanel: View {
                 }
             }
             PanelSection(title: "Reorder pages") {
-                PanelNote("Drag a thumbnail to its new position, or use the arrow buttons below it.")
-            }
-            PanelSection(title: "Rotate or delete") {
-                PanelNote("Use the buttons below a page. The document must keep at least one page.")
+                PanelNote("Drag a thumbnail to its new position. Drag a page onto another document's tab to copy it there, or drop PDFs and images on the grid to add them. Right-click a page for more actions.")
             }
             PanelNote("Save to keep your changes. Back to all tools returns to reading the document.")
         }
@@ -354,5 +426,51 @@ private struct ExtractPagesControls: View {
         } catch {
             validationMessage = error.localizedDescription
         }
+    }
+}
+
+/// Rotate the current page, all pages or a range in one step.
+private struct RotatePagesControls: View {
+    @Environment(AppState.self) private var appState
+    let tab: DocumentTab
+    @State private var scope: PageScope = .current
+    @State private var rangeText = ""
+
+    var body: some View {
+        PanelSection(title: "Rotate") {
+            Picker("Pages to rotate", selection: $scope) {
+                Text("Current").tag(PageScope.current)
+                Text("All").tag(PageScope.all)
+                Text("Range").tag(PageScope.range)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .help("Which pages to rotate")
+            if scope == .range {
+                TextField("e.g. 1, 3–5", text: $rangeText)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Pages to rotate")
+                    .help("Page numbers or ranges from 1 to \(tab.pageCount)")
+            }
+            HStack(spacing: 6) {
+                rotateButton(-90, "rotate.left", "Rotate counterclockwise")
+                rotateButton(90, "rotate.right", "Rotate clockwise")
+                rotateButton(180, "arrow.triangle.2.circlepath", "Rotate 180°")
+            }
+        }
+        .disabled(!tab.allowsSaveEdits)
+    }
+
+    private func rotateButton(_ angle: Int, _ symbol: String, _ label: String) -> some View {
+        Button {
+            guard let pages = try? PageScopePicker.pages(scope, range: rangeText, current: tab.currentPage, count: tab.pageCount) else { return }
+            Task { await appState.rotatePages(pages, by: angle, in: tab) }
+        } label: {
+            Image(systemName: symbol).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .disabled(!PageScopePicker.isValid(scope, range: rangeText, count: tab.pageCount))
+        .help(label)
+        .accessibilityLabel(label)
     }
 }

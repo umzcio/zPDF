@@ -312,6 +312,8 @@ final class AppState {
     /// Failures set `openError`, which RootView presents as an alert.
     /// Test seam; production passwords are entered in a secure field and never stored.
     var showingCombine = false
+    /// Page, create, optimize, standards and compare dialogs (WorkflowSheets.swift).
+    var workflowSheet: WorkflowSheet?
     var searchFocusRequest = 0
     var pageFocusRequest = 0
     var exportMessage: String?
@@ -637,7 +639,7 @@ final class AppState {
     /// Replace the catalog with tool controls in the same sidebar.
     func openTool(_ tool: ToolID) {
         guard ToolID.available.contains(tool), activeTab != nil,
-              tool == .comment || activeTab?.allowsSaveEdits == true,
+              tool == .comment || tool.worksOnReadOnlyDocuments || activeTab?.allowsSaveEdits == true,
               commitFieldEditing() else { return }
         railSelection = .document
         armedAnnotationTool = nil
@@ -645,7 +647,8 @@ final class AppState {
         textEditingModeActive = false
         if tool == .combineFiles { showingCombine = true; return }
         if tool == .exportPDF { showConversionExport(); return }
-        if tool == .compressPDF, let tab = activeTab { exportDocuments(.compress, tabs: [tab]); return }
+        if tool == .compressPDF { present(.reduceFileSize); return }
+        if tool == .createPDF { present(.createPDF(.files)); return }
         if tool == .comment { documentPanel = .comments }
         activePanel = tool.inspectorPanel
         sidebarVisible = true
