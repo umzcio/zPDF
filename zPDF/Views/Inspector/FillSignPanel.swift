@@ -126,7 +126,7 @@ struct FillSignPanel: View {
         let saved = service.signatures(of: kind)
         return Group {
             if saved.isEmpty {
-                PanelActionButton(title: title + "…", symbolName: symbol,
+                FormsActionButton(title: title + "…", symbolName: symbol,
                                   help: kind == .signature ? "Draw, type, or import your signature" : "Draw, type, or import your initials") {
                     capture = kind
                 }
@@ -154,7 +154,7 @@ struct FillSignPanel: View {
                             .buttonStyle(.plain)
                             .help("Place this \(kind == .initials ? "initials" : "signature"): click or drag on the page")
                             .accessibilityLabel("Place \(kind == .initials ? "initials" : "signature") \(signature.name)")
-                            PanelIconButton(symbolName: "trash", label: "Delete saved \(kind == .initials ? "initials" : "signature")",
+                            FormsIconButton(symbolName: "trash", label: "Delete saved \(kind == .initials ? "initials" : "signature")",
                                             role: .destructive) { service.remove(signature) }
                         }
                     }
@@ -175,32 +175,32 @@ struct FillSignPanel: View {
         let fields = tab?.protection.formFields ?? []
         let lists = fields.filter { $0.kind == "list" && $0.multiSelect && !$0.readonly }
         PanelSection(title: "Form") {
-            PanelActionButton(title: "Auto-fill from profile…", symbolName: "person.text.rectangle",
+            FormsActionButton(title: "Auto-fill from profile…", symbolName: "person.text.rectangle",
                               help: service.profile.isEmpty ? "Add your details in Settings › Forms to auto-fill matching fields"
                                   : "Suggest values from your profile for matching empty fields") {
                 showsAutofill = true
             }
             ForEach(lists) { field in
-                PanelActionButton(title: "Choose \(field.name)…", symbolName: "checklist",
+                FormsActionButton(title: "Choose \(field.name)…", symbolName: "checklist",
                                   help: "Select one or more options in the list box “\(field.name)”") { editingList = field }
             }
             if fields.contains(where: { $0.kind == "barcode" }) {
-                PanelActionButton(title: "Update barcodes", symbolName: "qrcode",
+                FormsActionButton(title: "Update barcodes", symbolName: "qrcode",
                                   help: "Encode the current field values into the form’s barcodes") {
                     run { try await appState.updateBarcodes(in: $0) }
                 }
             }
             if tab?.protection.hasFormLogic == true {
-                PanelActionButton(title: "Recalculate", symbolName: "function",
+                FormsActionButton(title: "Recalculate", symbolName: "function",
                                   help: "Update calculated fields and formats now") {
                     if let tab { Task { await FormLogic.recalculate(tab, state: appState) } }
                 }
             }
             if !fields.isEmpty {
                 HStack(spacing: 8) {
-                    PanelActionButton(title: "Clear form", symbolName: "arrow.uturn.backward",
+                    FormsActionButton(title: "Clear form", symbolName: "arrow.uturn.backward",
                                       help: "Reset every field to its default value") { confirmClear = true }
-                    PanelActionButton(title: "Flatten", symbolName: "square.stack.3d.down.forward",
+                    FormsActionButton(title: "Flatten", symbolName: "square.stack.3d.down.forward",
                                       help: "Make field values part of the page so they can’t be changed") { confirmFlatten = true }
                 }
             }

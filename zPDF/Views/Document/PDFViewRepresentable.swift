@@ -305,14 +305,14 @@ struct PDFViewRepresentable: NSViewRepresentable {
         @MainActor
         func continueAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
             if appState.signatureService.canvas.drag(event, in: pdfView, state: appState) { return true }
-            appState.comments.canvas.mouseDragged(event, in: pdfView)
+            return appState.comments.canvas.mouseDragged(event, in: pdfView)
         }
 
         /// Finishes a comment gesture (shape, stroke, move, resize).
         @MainActor
         func endAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
             if appState.signatureService.canvas.end(event, in: pdfView, state: appState) { return true }
-            appState.comments.canvas.mouseUp(event, in: pdfView)
+            return appState.comments.canvas.mouseUp(event, in: pdfView)
         }
 
         /// Context menu for a comment under the pointer.

@@ -37,7 +37,7 @@ enum BuiltInSettings {
         .init(id: .signatures, title: "Signatures", symbol: "signature",
               keywords: "saved signatures delete manage digital id certificate trust trusted timestamp tsa ltv revocation ocsp crl sign signing reason location pades", order: 140) { AnyView(SignatureSettings(appState: $0)) },
         .init(id: .security, title: "Security", symbol: "lock.shield",
-              keywords: "links web urls javascript scripts trust", order: 150) { AnyView(SecuritySettings(appState: $0)) },
+              keywords: "links web urls javascript scripts trust", order: 150) { AnyView(SecurityPreferencesSettings(appState: $0)) },
         .init(id: .print, title: "Print", symbol: "printer",
               keywords: "print presets booklet poster multiple save as pdf", order: 160) { _ in AnyView(PrintSettings()) },
         .init(id: .tools, title: "Tools", symbol: "square.grid.2x2",
@@ -472,7 +472,7 @@ private struct SignatureSettings: View {
     }
 }
 
-private struct SecuritySettings: View {
+private struct SecurityPreferencesSettings: View {
     let appState: AppState
     var body: some View {
         @Bindable var preferences = appState.preferences

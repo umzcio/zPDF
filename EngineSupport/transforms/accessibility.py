@@ -8,7 +8,7 @@ Queries
   reading_order            Content-owning elements of one page, in order.
 
 Operations
-  set_language, set_title, set_tab_order, set_field_tooltips,
+  set_language, set_title, set_page_tab_order, set_field_tooltips,
   tag_annotations, autotag, edit_structure, set_alt_text,
   set_reading_order, mark_pdfua
 
@@ -688,7 +688,7 @@ def accessibility_check(ctx):
     tab_pages = sorted({i for i, _ in real_annots if pdf.pages[i].obj.get("/Tabs") != Name.S})
     _item(items, "tab_order", "Page Content", "Tab order", "failed" if tab_pages else "passed",
           f"{len(tab_pages)} page(s) with annotations do not use structure tab order." if tab_pages
-          else "Pages with annotations use structure tab order.", "set_tab_order", tab_pages)
+          else "Pages with annotations use structure tab order.", "set_page_tab_order", tab_pages)
     bad_fonts = [i for i, page in enumerate(pdf.pages) if not all(_font_ok(f) for f in _page_fonts(page))]
     _item(items, "character_encoding", "Page Content", "Character encoding", "failed" if bad_fonts else "passed",
           f"{len(bad_fonts)} page(s) use fonts without a reliable Unicode mapping." if bad_fonts
@@ -889,8 +889,8 @@ def set_title(ctx, title, display_doc_title=True):
     return {"title": title}
 
 
-@op("set_tab_order")
-def set_tab_order(ctx, order="S", pages=None):
+@op("set_page_tab_order")
+def set_page_tab_order(ctx, order="S", pages=None):
     require(order in ("S", "R", "C"), "INVALID_ARGUMENT", "Tab order must be S, R or C.")
     indexes = _page_indexes(ctx.pdf, pages)
     for i in indexes:

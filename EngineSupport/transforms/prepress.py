@@ -749,9 +749,7 @@ def set_trim_to_crop(ctx, pages=None):
     return {"pages": changed}
 
 
-@op("remove_javascript")
-def remove_javascript(ctx):
-    return {"removed": _strip_javascript(ctx.pdf)}
+# "remove_javascript" is registered by properties.py (all scripts or by id).
 
 
 @op("embed_fonts")

@@ -31,13 +31,13 @@ struct ProtectPanel: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.large) {
             statusSection
             PanelSection(title: "Encryption") {
-                PanelActionButton(title: currentlyProtected ? "Change password security…" : "Protect with password…",
+                FormsActionButton(title: currentlyProtected ? "Change password security…" : "Protect with password…",
                                   symbolName: "lock.shield", help: "Require a password to open the PDF, restrict printing, editing and copying",
                                   prominent: !currentlyProtected) {
                     preset = nil
                     showsPasswordSheet = true
                 }
-                PanelActionButton(title: "Encrypt with certificates…", symbolName: "person.badge.key",
+                FormsActionButton(title: "Encrypt with certificates…", symbolName: "person.badge.key",
                                   help: "Only people whose certificates you choose can open the PDF, using their digital IDs") {
                     showsCertificateSheet = true
                 }
@@ -61,7 +61,7 @@ struct ProtectPanel: View {
                     .help("Start from security settings you saved earlier")
                 }
                 if currentlyProtected {
-                    PanelActionButton(title: "Remove security…", symbolName: "lock.open", help: "Save without passwords or restrictions",
+                    FormsActionButton(title: "Remove security…", symbolName: "lock.open", help: "Save without passwords or restrictions",
                                       role: .destructive) {
                         removePassword = ""
                         showsRemove = true
@@ -69,13 +69,13 @@ struct ProtectPanel: View {
                 }
             }
             PanelSection(title: "Sanitize") {
-                PanelActionButton(title: "Remove hidden information", symbolName: "eye.trianglebadge.exclamationmark",
+                FormsActionButton(title: "Remove hidden information", symbolName: "eye.trianglebadge.exclamationmark",
                                   help: "Remove metadata, hidden layers, scripts, and other hidden content before sharing") {
                     guard let tab else { return }
                     perform { try await appState.removeHiddenInformation(tab) }
                 }
                 if ToolID.redact.isImplemented {
-                    PanelActionButton(title: "Redact text and images", symbolName: "eye.slash",
+                    FormsActionButton(title: "Redact text and images", symbolName: "eye.slash",
                                       help: "Permanently remove sensitive content") { appState.openTool(.redact) }
                 }
             }

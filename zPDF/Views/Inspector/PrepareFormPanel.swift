@@ -121,11 +121,11 @@ struct PrepareFormPanel: View {
             }
             ArmedToolBanner()
             HStack(spacing: 8) {
-                PanelActionButton(title: "Detect fields", symbolName: "wand.and.rays",
+                FormsActionButton(title: "Detect fields", symbolName: "wand.and.rays",
                                   help: "Find boxes and lines on this page (including scans) and suggest fields to add") {
                     openReview(detect: true)
                 }
-                PanelActionButton(title: "Coordinates", symbolName: "ruler",
+                FormsActionButton(title: "Coordinates", symbolName: "ruler",
                                   help: "Place text fields and check boxes by exact position") {
                     openReview(detect: false)
                 }
@@ -197,13 +197,13 @@ struct PrepareFormPanel: View {
     private var orderSection: some View {
         PanelSection(title: "Form") {
             HStack(spacing: 8) {
-                PanelActionButton(title: "Tab order…", symbolName: "arrow.right.to.line",
+                FormsActionButton(title: "Tab order…", symbolName: "arrow.right.to.line",
                                   help: "Choose the order Tab moves through fields on each page") { showsTabOrder = true }
-                PanelActionButton(title: "Calc order…", symbolName: "function",
+                FormsActionButton(title: "Calc order…", symbolName: "function",
                                   help: "Choose the order calculated fields are computed") { showsCalcOrder = true }
                     .disabled(!fields.contains { $0.calculation.kind != "none" })
             }
-            PanelActionButton(title: "Flatten form…", symbolName: "square.stack.3d.down.forward",
+            FormsActionButton(title: "Flatten form…", symbolName: "square.stack.3d.down.forward",
                               help: "Turn all fields into static page content") { confirmFlatten = true }
                 .disabled(fields.isEmpty)
             PanelNote("Fields save as standard PDF form fields with their own appearance, so they stay fillable in zPDF, Preview and Acrobat.")
@@ -278,9 +278,9 @@ struct FieldPropertiesView: View {
                     Image(systemName: field.symbolName).foregroundStyle(DesignTokens.Colors.accent)
                     Text(field.displayKind).font(.system(size: 11, weight: .semibold))
                     Spacer()
-                    PanelIconButton(symbolName: "square.on.square", label: "Duplicate across pages") { showsDuplicate = true }
+                    FormsIconButton(symbolName: "square.on.square", label: "Duplicate across pages") { showsDuplicate = true }
                         .disabled(tab.pageCount < 2)
-                    PanelIconButton(symbolName: "trash", label: "Delete field", role: .destructive) { confirmDelete = true }
+                    FormsIconButton(symbolName: "trash", label: "Delete field", role: .destructive) { confirmDelete = true }
                 }
                 HStack(spacing: 8) {
                     Picker("Section", selection: $pane) {
@@ -551,9 +551,9 @@ struct FieldPropertiesView: View {
                             TextField("Item", text: $option.label).accessibilityLabel("Option label")
                             TextField("Same as item", text: $option.export).frame(width: 72).accessibilityLabel("Option export value")
                                 .help("Value saved in the form data (defaults to the item)")
-                            PanelIconButton(symbolName: "arrow.up", label: "Move up") { move(option, by: -1) }
+                            FormsIconButton(symbolName: "arrow.up", label: "Move up") { move(option, by: -1) }
                                 .disabled(draft.options.first == option)
-                            PanelIconButton(symbolName: "minus.circle", label: "Remove item", role: .destructive) {
+                            FormsIconButton(symbolName: "minus.circle", label: "Remove item", role: .destructive) {
                                 draft.options.removeAll { $0.id == option.id }
                             }
                         }

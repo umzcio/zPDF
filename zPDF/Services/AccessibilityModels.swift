@@ -52,7 +52,7 @@ struct AccessibilityCheckItem: Decodable, Identifiable, Hashable {
 
 /// Fix actions the checker can suggest (engine fix ids).
 enum AccessibilityFix: String, CaseIterable {
-    case setTitle = "set_title", setLanguage = "set_language", setTabOrder = "set_tab_order", autotag,
+    case setTitle = "set_title", setLanguage = "set_language", setTabOrder = "set_page_tab_order", autotag,
          fieldTooltips = "field_tooltips", bookmarks, tagAnnotations = "tag_annotations"
 
     var title: String {

@@ -177,7 +177,7 @@ class CheckerTests(Base):
         self.assertEqual(items["tagged_pdf"]["fix"], "autotag")
         self.assertEqual(items["title"]["fix"], "set_title")
         self.assertEqual(items["primary_language"]["fix"], "set_language")
-        self.assertEqual(items["tab_order"]["fix"], "set_tab_order")
+        self.assertEqual(items["tab_order"]["fix"], "set_page_tab_order")
         self.assertEqual(items["tab_order"]["pages"], [1])
         self.assertEqual(items["figures_alt_text"]["status"], "skipped")
         self.assertEqual(items["logical_reading_order"]["status"], "manual")
@@ -192,7 +192,7 @@ class CheckerTests(Base):
         src = sample_pdf(self.tmp / "s.pdf")
         out, results = self.run_ops(src, [{"op": "set_title", "title": "Annual Report"},
                                           {"op": "set_language", "lang": "en-US"},
-                                          {"op": "set_tab_order"}])
+                                          {"op": "set_page_tab_order"}])
         self.assertEqual(results[0]["title"], "Annual Report")
         _, items = self.check(out)
         for cid in ("title", "primary_language", "tab_order"):

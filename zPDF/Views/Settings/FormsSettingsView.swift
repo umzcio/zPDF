@@ -88,7 +88,7 @@ struct SignatureSettingsRows: View {
                         Text(certificate.issuer).font(.caption).foregroundStyle(DesignTokens.Colors.mutedText).lineLimit(1)
                     }
                     Spacer()
-                    PanelIconButton(symbolName: "trash", label: "Stop trusting \(certificate.name)", role: .destructive) {
+                    FormsIconButton(symbolName: "trash", label: "Stop trusting \(certificate.name)", role: .destructive) {
                         service.trust.remove(certificate)
                     }
                 }

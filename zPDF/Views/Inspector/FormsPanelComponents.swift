@@ -6,7 +6,7 @@ import SwiftUI
 // same in light and dark appearance.
 
 /// Full-width bordered action with a leading symbol; always has a tooltip.
-struct PanelActionButton: View {
+struct FormsActionButton: View {
     let title: String
     let symbolName: String
     let help: String
@@ -42,7 +42,7 @@ struct PanelActionButton: View {
 }
 
 /// Small borderless icon control used inside list rows.
-struct PanelIconButton: View {
+struct FormsIconButton: View {
     let symbolName: String
     let label: String
     var role: ButtonRole? = nil

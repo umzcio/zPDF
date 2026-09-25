@@ -29,9 +29,17 @@ REWRITE = set()
 _HELPERS = {"fonts", "cms", "incremental", "appearance", "formcalc", "pubsec"}
 
 
+def _register(table, name, function, kind):
+    existing = table.get(name)
+    if existing is not None and existing.__module__ != function.__module__:
+        raise RuntimeError(f"Document {kind} {name!r} is registered by both "
+                           f"{existing.__module__} and {function.__module__}.")
+    table[name] = function
+
+
 def op(name, incremental=False, rewrite=False):
     def register(function):
-        REGISTRY[name] = function
+        _register(REGISTRY, name, function, "operation")
         if incremental:
             INCREMENTAL.add(name)
         if rewrite:
@@ -43,7 +51,7 @@ def op(name, incremental=False, rewrite=False):
 def query(name):
     """Read-only inspection returning plain data (never writes)."""
     def register(function):
-        QUERIES[name] = function
+        _register(QUERIES, name, function, "query")
         return function
     return register
 

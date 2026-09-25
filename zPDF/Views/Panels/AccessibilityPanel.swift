@@ -313,7 +313,7 @@ struct AccessibilityPanel: View {
         switch fix {
         case .setTitle, .setLanguage: showingTitleLanguage = true
         case .autotag: if tagged { confirmRetag = true } else { autotag(replace: false) }
-        case .setTabOrder: perform([["op": "set_tab_order", "order": "S"]], "Set Tab Order")
+        case .setTabOrder: perform([["op": "set_page_tab_order", "order": "S"]], "Set Tab Order")
         case .fieldTooltips: perform([["op": "set_field_tooltips"]], "Add Field Descriptions")
         case .tagAnnotations: perform([["op": "tag_annotations"]], "Tag Annotations")
         case .bookmarks: perform([["op": "outline_from_headings", "replace": false]], "Bookmarks from Headings")
@@ -336,7 +336,7 @@ struct AccessibilityPanel: View {
         }
         if fixes.contains(.fieldTooltips) { ops.append(["op": "set_field_tooltips"]) }
         if fixes.contains(.tagAnnotations) && !fixes.contains(.autotag) { ops.append(["op": "tag_annotations"]) }
-        if fixes.contains(.setTabOrder) && !fixes.contains(.autotag) { ops.append(["op": "set_tab_order", "order": "S"]) }
+        if fixes.contains(.setTabOrder) && !fixes.contains(.autotag) { ops.append(["op": "set_page_tab_order", "order": "S"]) }
         guard !ops.isEmpty else { return }
         perform(ops, "Fix Accessibility Issues")
         // Bookmarks can fail when no headings exist; run separately so the

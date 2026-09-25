@@ -193,14 +193,14 @@ enum StepCatalog {
                        parameters: [
                         .init(key: "language", label: "Language", kind: .text(prompt: "en-US"), defaultValue: .text("")),
                         .init(key: "title", label: "Title", kind: .text(prompt: "<<filename>>"), defaultValue: .text("<<filename>>"))
-                       ], requires: ["autotag", "set_language", "set_title", "set_field_tooltips", "set_tab_order", "optional"]) { p, c in
+                       ], requires: ["autotag", "set_language", "set_title", "set_field_tooltips", "set_page_tab_order", "optional"]) { p, c in
             let language = (p["language"]?.text).flatMap { $0.isEmpty ? nil : $0 } ?? c.language
             var ops: [[String: Any]] = [optional(["op": "autotag", "language": language])]
             let title = c.expand(p["title"]?.text ?? "")
             if !title.isEmpty { ops.append(["op": "set_title", "title": title, "display_doc_title": true]) }
             ops.append(["op": "set_language", "lang": language])
             ops.append(["op": "set_field_tooltips"])
-            ops.append(["op": "set_tab_order", "order": "S"])
+            ops.append(["op": "set_page_tab_order", "order": "S"])
             ops.append(optional(["op": "tag_annotations"]))
             return ops
         },

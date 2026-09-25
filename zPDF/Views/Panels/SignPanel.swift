@@ -74,7 +74,7 @@ struct SignPanel: View {
             if service.digitalIDs.isEmpty {
                 PanelNote("Create or import a digital ID to sign with a certificate.")
             } else {
-                PanelActionButton(title: "Drag a signature box", symbolName: "signature",
+                FormsActionButton(title: "Drag a signature box", symbolName: "signature",
                                   help: "Drag on the page where the visible signature should appear", prominent: true) {
                     service.arm(.certificateSignature)
                 }
@@ -82,14 +82,14 @@ struct SignPanel: View {
                 let emptyFields = tab?.protection.signatures.filter { !$0.signed } ?? []
                 if !emptyFields.isEmpty {
                     ForEach(emptyFields) { field in
-                        PanelActionButton(title: "Sign “\(field.field)”", symbolName: "signature",
+                        FormsActionButton(title: "Sign “\(field.field)”", symbolName: "signature",
                                           help: "Sign the empty signature field on page \((field.page ?? 0) + 1)") {
                             signing = SignTarget(page: field.page ?? 0, rect: nil, field: field.field)
                         }
                         .disabled(tab?.allowsSaveEdits != true)
                     }
                 }
-                PanelActionButton(title: "Sign without a visible box", symbolName: "eye.slash",
+                FormsActionButton(title: "Sign without a visible box", symbolName: "eye.slash",
                                   help: "Add an invisible signature that appears only in the Signatures panel") {
                     signing = SignTarget(page: max(0, (tab?.currentPage ?? 1) - 1), rect: nil, field: nil)
                 }
@@ -105,8 +105,8 @@ struct SignPanel: View {
                 DigitalIDRow(identity: identity)
             }
             HStack(spacing: 8) {
-                PanelActionButton(title: "Create…", symbolName: "plus.circle", help: "Create a self-signed digital ID") { showsCreate = true }
-                PanelActionButton(title: "Import…", symbolName: "square.and.arrow.down",
+                FormsActionButton(title: "Create…", symbolName: "plus.circle", help: "Create a self-signed digital ID") { showsCreate = true }
+                FormsActionButton(title: "Import…", symbolName: "square.and.arrow.down",
                                   help: "Import a digital ID from a .p12 or .pfx file") { showsImport = true }
             }
         }
@@ -115,7 +115,7 @@ struct SignPanel: View {
     @ViewBuilder
     private var validationSection: some View {
         PanelSection(title: "Validation") {
-            PanelActionButton(title: "Validate all signatures", symbolName: "checkmark.shield",
+            FormsActionButton(title: "Validate all signatures", symbolName: "checkmark.shield",
                               help: "Check every signature and show details in the sidebar") {
                 guard let tab else { return }
                 appState.documentPanel = .signatures
@@ -123,7 +123,7 @@ struct SignPanel: View {
             }
             .disabled(tab == nil)
             if tab?.protection.isSigned == true {
-                PanelActionButton(title: "Add long-term validation", symbolName: "clock.badge.checkmark",
+                FormsActionButton(title: "Add long-term validation", symbolName: "clock.badge.checkmark",
                                   help: "Embed certificates\(service.preferences.fetchRevocation ? " and revocation data" : "") so signatures can be validated years from now") {
                     guard let tab else { return }
                     perform { try await appState.addLongTermValidation(tab) }
@@ -173,8 +173,8 @@ struct DigitalIDRow: View {
                     .lineLimit(2)
             }
             Spacer(minLength: 0)
-            PanelIconButton(symbolName: "square.and.arrow.up", label: "Export certificate to share") { export() }
-            PanelIconButton(symbolName: "trash", label: "Remove digital ID", role: .destructive) { confirmRemove = true }
+            FormsIconButton(symbolName: "square.and.arrow.up", label: "Export certificate to share") { export() }
+            FormsIconButton(symbolName: "trash", label: "Remove digital ID", role: .destructive) { confirmRemove = true }
         }
         .padding(8)
         .background(DesignTokens.Colors.surface)
