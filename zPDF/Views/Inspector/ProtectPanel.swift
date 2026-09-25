@@ -204,7 +204,7 @@ struct PasswordSecuritySheet: View {
                     if requireOpen {
                         SecureField("Open password", text: $settings.openPassword)
                         SecureField("Confirm open password", text: $confirmOpen)
-                        strength(settings.openPassword)
+                        if !settings.openPassword.isEmpty { strength(settings.openPassword) }
                     }
                 }
                 Section {
@@ -235,7 +235,7 @@ struct PasswordSecuritySheet: View {
                 if let error { PanelErrorText(message: error) }
             }
             .formStyle(.grouped)
-            .frame(height: 440)
+            .frame(height: 420)
         } buttons: {
             Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
             Button("Apply") { apply() }
@@ -271,7 +271,6 @@ struct PasswordSecuritySheet: View {
                 .accessibilityValue(label)
             Text(label).font(.caption).foregroundStyle(DesignTokens.Colors.mutedText)
         }
-        .opacity(password.isEmpty ? 0 : 1)
     }
 
     private func apply() {

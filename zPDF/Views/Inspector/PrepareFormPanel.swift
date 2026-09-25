@@ -125,7 +125,7 @@ struct PrepareFormPanel: View {
                                   help: "Find boxes and lines on this page (including scans) and suggest fields to add") {
                     openReview(detect: true)
                 }
-                PanelActionButton(title: "By coordinates", symbolName: "ruler",
+                PanelActionButton(title: "Coordinates", symbolName: "ruler",
                                   help: "Place text fields and check boxes by exact position") {
                     openReview(detect: false)
                 }
@@ -226,8 +226,17 @@ struct PrepareFormPanel: View {
 
 struct FieldPropertiesView: View {
     enum Pane: String, CaseIterable, Identifiable {
-        case general = "General", appearance = "Look", options = "Options", format = "Format", calculate = "Calculate"
+        case general = "General", appearance = "Appearance", options = "Options", format = "Format", calculate = "Calculate"
         var id: String { rawValue }
+        var symbol: String {
+            switch self {
+            case .general: "slider.horizontal.3"
+            case .appearance: "paintpalette"
+            case .options: "list.bullet"
+            case .format: "textformat.123"
+            case .calculate: "function"
+            }
+        }
     }
 
     @Environment(AppState.self) private var appState
@@ -244,12 +253,14 @@ struct FieldPropertiesView: View {
     @State private var confirmDelete = false
     @State private var newOption = ""
 
-    init(field: FormFieldInfo, tab: DocumentTab, allFields: [FormFieldInfo], onRename: @escaping (String) -> Void) {
+    init(field: FormFieldInfo, tab: DocumentTab, allFields: [FormFieldInfo], pane: Pane = .general,
+         onRename: @escaping (String) -> Void) {
         self.field = field
         self.tab = tab
         self.allFields = allFields
         self.onRename = onRename
         _draft = State(initialValue: field)
+        _pane = State(initialValue: pane)
     }
 
     private var panes: [Pane] {
@@ -271,13 +282,20 @@ struct FieldPropertiesView: View {
                         .disabled(tab.pageCount < 2)
                     PanelIconButton(symbolName: "trash", label: "Delete field", role: .destructive) { confirmDelete = true }
                 }
-                Picker("Section", selection: $pane) {
-                    ForEach(panes) { Text($0.rawValue).tag($0) }
+                HStack(spacing: 8) {
+                    Picker("Section", selection: $pane) {
+                        ForEach(panes) { item in
+                            Image(systemName: item.symbol).tag(item).accessibilityLabel(item.rawValue).help(item.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityLabel("Property section")
+                    Text(pane.rawValue).font(.system(size: 10.5, weight: .medium)).foregroundStyle(DesignTokens.Colors.mutedText)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.small)
-                .accessibilityLabel("Property section")
                 Group {
                     switch pane {
                     case .general: generalPane
@@ -378,7 +396,7 @@ struct FieldPropertiesView: View {
                         Picker("Size", selection: $draft.fontSize) {
                             Text("Auto").tag(0.0)
                             ForEach([6.0, 8, 9, 10, 11, 12, 14, 16, 18, 24], id: \.self) { Text("\(Int($0))").tag($0) }
-                        }.labelsHidden().frame(width: 64).accessibilityLabel("Font size")
+                        }.labelsHidden().fixedSize().accessibilityLabel("Font size")
                     }
                 }
                 colorRow("Text", value: $draft.textColor, allowsNone: false)
@@ -389,7 +407,7 @@ struct FieldPropertiesView: View {
                             Image(systemName: "text.aligncenter").tag("center").accessibilityLabel("Center")
                             Image(systemName: "text.alignright").tag("right").accessibilityLabel("Right")
                         }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 110)
+                        .pickerStyle(.segmented).labelsHidden().fixedSize()
                         .help("Text alignment")
                     }
                 }
@@ -502,18 +520,31 @@ struct FieldPropertiesView: View {
 
     private var optionsEditor: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach($draft.options) { $option in
-                HStack(spacing: 4) {
-                    TextField("Item", text: $option.label).accessibilityLabel("Option label")
-                    TextField("Export", text: $option.export).frame(width: 64).accessibilityLabel("Option export value")
-                        .help("Value saved in the form data (defaults to the label)")
-                    PanelIconButton(symbolName: "arrow.up", label: "Move up") { move(option, by: -1) }
-                        .disabled(draft.options.first == option)
-                    PanelIconButton(symbolName: "minus.circle", label: "Remove item", role: .destructive) {
-                        draft.options.removeAll { $0.id == option.id }
+            HStack(spacing: 4) {
+                Text("Item").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Export").frame(width: 72, alignment: .leading)
+                Color.clear.frame(width: 44, height: 1)
+            }
+            .font(.system(size: 9.5, weight: .semibold))
+            .foregroundStyle(DesignTokens.Colors.mutedText)
+            .textCase(.uppercase)
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    ForEach($draft.options) { $option in
+                        HStack(spacing: 4) {
+                            TextField("Item", text: $option.label).accessibilityLabel("Option label")
+                            TextField("Same as item", text: $option.export).frame(width: 72).accessibilityLabel("Option export value")
+                                .help("Value saved in the form data (defaults to the item)")
+                            PanelIconButton(symbolName: "arrow.up", label: "Move up") { move(option, by: -1) }
+                                .disabled(draft.options.first == option)
+                            PanelIconButton(symbolName: "minus.circle", label: "Remove item", role: .destructive) {
+                                draft.options.removeAll { $0.id == option.id }
+                            }
+                        }
                     }
                 }
             }
+            .frame(height: min(CGFloat(max(draft.options.count, 1)) * 26, 182))
             HStack(spacing: 4) {
                 TextField("New item", text: $newOption)
                     .onSubmit(addOption)

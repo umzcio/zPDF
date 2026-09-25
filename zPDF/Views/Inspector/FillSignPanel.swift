@@ -74,7 +74,7 @@ struct FillSignPanel: View {
                 tool("Date", "calendar", .date, "Place today’s date")
                 tool("Check", "checkmark", .check, "Place a check mark")
                 tool("Cross", "xmark", .cross, "Place an X")
-                tool("Dot", "circle.fill", .dot, "Place a dot")
+                tool("Dot", "smallcircle.filled.circle", .dot, "Place a dot")
                 tool("Line", "line.diagonal", .line, "Drag to draw a line")
             }
             HStack(spacing: 8) {
@@ -184,6 +184,12 @@ struct FillSignPanel: View {
                 PanelActionButton(title: "Choose \(field.name)…", symbolName: "checklist",
                                   help: "Select one or more options in the list box “\(field.name)”") { editingList = field }
             }
+            if fields.contains(where: { $0.kind == "barcode" }) {
+                PanelActionButton(title: "Update barcodes", symbolName: "qrcode",
+                                  help: "Encode the current field values into the form’s barcodes") {
+                    run { try await appState.updateBarcodes(in: $0) }
+                }
+            }
             if tab?.protection.hasFormLogic == true {
                 PanelActionButton(title: "Recalculate", symbolName: "function",
                                   help: "Update calculated fields and formats now") {
@@ -280,7 +286,9 @@ struct SignatureCaptureSheet: View {
                                 .font(.custom(font.name, size: 26))
                                 .lineLimit(1).minimumScaleFactor(0.4)
                                 .foregroundStyle(Color.black)
-                                .frame(maxWidth: .infinity, minHeight: 58)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 58)
+                                .clipped()
                                 .padding(.horizontal, 8)
                                 .background(Color.white)
                                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.medium))

@@ -310,6 +310,122 @@ final class FormsSignaturesTests: XCTestCase {
         XCTAssertEqual(reloaded.signatures.first?.name, "Jordan Public")
     }
 
+    func testLiveFormLogicFormatsCalculatesAndValidates() async throws {
+        let url = try fixture("ordinary-edge")
+        let state = try makeState()
+        let tab = try await TestSupport.open(url, in: state)
+        try await state.applyDocumentTransform([
+            ["op": "add_form_field", "type": "number", "name": "Price", "page": 0, "rect": [72, 450, 172, 472],
+             "format": ["kind": "number", "decimals": 2, "currency": "$"]],
+            ["op": "add_form_field", "type": "text", "name": "Qty", "page": 0, "rect": [200, 450, 260, 472],
+             "validate": ["min": 0, "max": 100]],
+            ["op": "add_form_field", "type": "text", "name": "Total", "page": 0, "rect": [300, 450, 400, 472],
+             "readonly": true, "format": ["kind": "number", "decimals": 2, "currency": "$"],
+             "calculate": ["kind": "sfn", "expression": "Price * Qty"]],
+        ], to: tab, actionName: "Prepare")
+        state.refreshFormModel(tab)
+        for _ in 0..<200 where !tab.protection.hasFormLogic { try await Task.sleep(for: .milliseconds(25)) }
+        XCTAssertTrue(tab.protection.hasFormLogic)
+        let page = try XCTUnwrap(tab.pdfDocument?.page(at: 0))
+        func widget(_ name: String) throws -> PDFAnnotation { try XCTUnwrap(page.annotations.first { $0.fieldName == name }) }
+        try widget("Price").widgetStringValue = "1234.5"
+        try widget("Qty").widgetStringValue = "2"
+        await FormLogic.recalculate(tab, state: state)
+        XCTAssertEqual(try widget("Price").widgetStringValue, "$1,234.50")
+        XCTAssertEqual(try widget("Total").widgetStringValue, "$2,469.00")
+        var alerts: [String] = []
+        let previous = FormLogic.presentError
+        FormLogic.presentError = { alerts.append($0) }
+        defer { FormLogic.presentError = previous }
+        try widget("Qty").widgetStringValue = "500"
+        await FormLogic.recalculate(tab, state: state)
+        XCTAssertEqual(alerts.count, 1)
+        XCTAssertTrue(alerts.first?.contains("less than or equal to 100") == true)
+        XCTAssertEqual(try widget("Qty").widgetStringValue, "2", "An invalid value is rejected like Acrobat does")
+        try await TestSupport.save(state, tab)
+        let saved = try await fields(url)
+        XCTAssertEqual(saved["Price"]?.value, "1234.5")
+        XCTAssertEqual(saved["Total"]?.value, "2469")
+    }
+
+    func testBarcodeFieldEncodesFieldData() async throws {
+        let matrix = try XCTUnwrap(BarcodeEncoder.matrix(for: "Ada\t59801", symbology: "qr"))
+        XCTAssertGreaterThan(matrix.count, 20)
+        XCTAssertEqual(matrix.count, matrix.first?.count)
+        XCTAssertNotNil(BarcodeEncoder.matrix(for: "Ada", symbology: "pdf417"))
+        let url = try fixture("ordinary-edge")
+        let state = try makeState()
+        let tab = try await TestSupport.open(url, in: state)
+        try await state.applyDocumentTransform([
+            ["op": "add_form_field", "type": "text", "name": "Name", "page": 0, "rect": [72, 450, 172, 472]],
+            ["op": "add_form_field", "type": "barcode", "name": "Code", "page": 0, "rect": [300, 400, 396, 496],
+             "barcode": ["symbology": "qr", "fields": ["Name"]]],
+        ], to: tab, actionName: "Prepare")
+        state.refreshFormModel(tab)
+        for _ in 0..<200 where !tab.protection.formFields.contains(where: { $0.kind == "barcode" }) {
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        try XCTUnwrap(tab.pdfDocument?.page(at: 0)?.annotations.first { $0.fieldName == "Name" }).widgetStringValue = "Ada"
+        try await state.updateBarcodes(in: tab)
+        try await TestSupport.save(state, tab)
+        let saved = try await fields(url)
+        XCTAssertEqual(saved["Code"]?.value, "Ada")
+    }
+
+    func testScannedPageDetectionFindsBoxesAndLines() async throws {
+        let size = CGSize(width: 612, height: 792)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor.white.setFill(); rect.fill()
+            NSColor.black.setStroke()
+            let box = NSBezierPath(rect: CGRect(x: 100, y: 600, width: 220, height: 28)); box.lineWidth = 2; box.stroke()
+            let check = NSBezierPath(rect: CGRect(x: 100, y: 500, width: 16, height: 16)); check.lineWidth = 2; check.stroke()
+            let line = NSBezierPath(); line.move(to: CGPoint(x: 100, y: 400)); line.line(to: CGPoint(x: 400, y: 400)); line.lineWidth = 1.5; line.stroke()
+            return true
+        }
+        let page = try XCTUnwrap(PDFPage(image: image))
+        XCTAssertTrue(ScannedFieldDetector.isRaster(page))
+        let suggestions = await ScannedFieldDetector.detect(on: page)
+        func near(_ rect: [Double], _ expected: [Double]) -> Bool { zip(rect, expected).allSatisfy { abs($0 - $1) <= 3 } }
+        XCTAssertTrue(suggestions.contains { $0.type == "text" && near($0.rect, [100, 600, 320, 628]) }, "\(suggestions)")
+        XCTAssertTrue(suggestions.contains { $0.type == "checkbox" && near($0.rect, [100, 500, 116, 516]) }, "\(suggestions)")
+        XCTAssertTrue(suggestions.contains { $0.type == "text" && abs($0.rect[1] - 401) <= 3 && abs($0.rect[2] - $0.rect[0] - 300) <= 4 },
+                      "\(suggestions)")
+        XCTAssertEqual(suggestions.count, 3, "\(suggestions)")
+    }
+
+    func testSignedDocumentNoteSavesAppendOnlyAndExtractCopies() async throws {
+        let url = try fixture("ordinary-edge")
+        let state = try makeState()
+        let identity = try await state.signatureService.createDigitalID(name: "Note Signer", email: "", organization: "",
+                                                                        password: "id-password")
+        let tab = try await TestSupport.open(url, in: state)
+        try await state.signDocument(AppState.SignRequest(identity: identity, password: "id-password", page: 0,
+                                                          rect: CGRect(x: 72, y: 72, width: 180, height: 44)), in: tab)
+        let signed = try Data(contentsOf: url)
+        let page = try XCTUnwrap(tab.pdfDocument?.page(at: 0))
+        let note = PDFAnnotation(bounds: CGRect(x: 300, y: 600, width: 20, height: 20), forType: .text, withProperties: nil)
+        note.contents = "Reviewed after signing"
+        page.addAnnotation(note)
+        state.refreshUnsavedChanges(tab)
+        try await TestSupport.save(state, tab)
+        XCTAssertTrue(try Data(contentsOf: url).starts(with: signed))
+        XCTAssertTrue(PDFDocument(url: url)?.page(at: 0)?.annotations.contains { $0.contents == "Reviewed after signing" } == true)
+        let report = try await query("signatures", url)
+        let signature = try XCTUnwrap((report["signatures"] as? [[String: Any]])?.first)
+        XCTAssertEqual(signature["integrity"] as? Bool, true)
+        XCTAssertEqual(signature["changes_after"] as? [String], ["annotations"])
+        // Page edits can't be saved into the signed file itself...
+        try state.rotatePage(0, in: tab)
+        let saved = await state.saveDocument(tab).value
+        XCTAssertFalse(saved)
+        XCTAssertTrue(state.saveError?.message.contains("SIGNED_DOCUMENT") == true)
+        // ...but pages can still be extracted into a new, unsigned copy.
+        let copy = url.deletingLastPathComponent().appendingPathComponent("extract.pdf")
+        let extracted = await state.extractPages(IndexSet(integer: 0), from: tab, to: SaveDestination(url: copy, overwrite: false)).value
+        XCTAssertTrue(extracted, state.saveError?.message ?? "")
+        XCTAssertEqual(PDFDocument(url: copy)?.pageCount, 1)
+    }
+
     func testProfileMatching() {
         var profile = FormProfile()
         profile.email = "me@example.test"

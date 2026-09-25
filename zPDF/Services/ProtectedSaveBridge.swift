@@ -93,6 +93,16 @@ enum ProtectedSave {
                      sourceGuard: NativeSourceGuard? = nil,
                      context: ProtectedSaveContext) async throws -> String {
         let signed = await Task.detached { SignedPDF.mayBeSigned(url) }.value
+        var changes = changes
+        if signed, changes.pages != nil, let destination, !SaveDestination.sameFile(sourceGuard?.url ?? url, destination) {
+            // Extracted/reordered copies can't keep signatures; the source is untouched.
+            changes.allowsSignedRewrite = true
+            if !context.mayHaveSecurity {
+                return try await NativeSaveBridge.save(url, expectedHash: expectedHash, changes: changes,
+                                                       destination: destination, overwrite: overwrite, sourceGuard: sourceGuard)
+            }
+        }
+        let pending = changes
         guard signed || context.mayHaveSecurity else {
             return try await NativeSaveBridge.save(url, expectedHash: expectedHash, changes: changes,
                                                    destination: destination, overwrite: overwrite,
@@ -108,8 +118,8 @@ enum ProtectedSave {
                     let helper = try SaveHelper()
                     defer { helper.dispose() }
                     let work = try NativeWorkDirectory()
-                    var (candidate, hash) = changes.isEmpty ? (url, expectedHash)
-                        : try helper.materialize(url, expectedHash: expectedHash, changes: changes, in: work.url)
+                    var (candidate, hash) = pending.isEmpty ? (url, expectedHash)
+                        : try helper.materialize(url, expectedHash: expectedHash, changes: pending, in: work.url)
                     if context.mayHaveSecurity {
                         (candidate, hash) = try helper.applySecurity(candidate, hash: hash, context: context, in: work.url)
                     }
@@ -166,7 +176,7 @@ extension SaveHelper {
     /// are filled natively so values, calculations and appearances stay correct.
     func nativePrepass(_ source: URL, expectedHash: String, changes: NativeSaveChanges,
                        in directory: URL) throws -> (url: URL, hash: String, changes: NativeSaveChanges) {
-        if SignedPDF.mayBeSigned(source) {
+        if !changes.allowsSignedRewrite, SignedPDF.mayBeSigned(source) {
             let info = try query(source, hash: expectedHash, name: "security_info", params: [:])
             if info["signed"] as? Bool == true {
                 return try materializeSigned(source, expectedHash: expectedHash, changes: changes, in: directory)

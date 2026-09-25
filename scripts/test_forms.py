@@ -326,6 +326,37 @@ class FormAuthoringTests(Base):
         self.assertEqual(updated["format"]["kind"], "date")
 
 
+class FillSignTests(Base):
+    def test_image_stamp_and_markup_notes(self):
+        import base64, io
+        from PIL import Image
+        image = Image.new("RGBA", (200, 60), (0, 0, 0, 0))
+        for x in range(20, 180):
+            image.putpixel((x, 30), (0, 0, 0, 255))
+        buffer = io.BytesIO()
+        image.save(buffer, "PNG")
+        src = blank_pdf(self.tmp / "blank.pdf")
+        out, result = self.run_ops(src, [
+            {"op": "place_image_stamp", "page": 0, "rect": [100, 100, 250, 145],
+             "image": base64.b64encode(buffer.getvalue()).decode(), "kind": "signature", "author": "Ada"},
+            {"op": "add_markup_note", "page": 0, "kind": "sticky_note", "rect": [300, 700, 320, 720], "contents": "Hi"},
+            {"op": "add_markup_note", "page": 0, "kind": "highlight", "rect": [72, 600, 300, 614], "color": [255, 230, 0]},
+        ])
+        with pikepdf.open(out) as pdf:
+            annots = list(pdf.pages[0].Annots)
+            stamp = next(a for a in annots if a.Subtype == "/Stamp")
+            self.assertEqual(str(stamp.Name), "/ZPDFSignature")
+            image_xobject = stamp.AP.N.Resources.XObject.Im1
+            self.assertIn("/SMask", image_xobject, "transparent signature keeps its alpha")
+            self.assertEqual(str(next(a for a in annots if a.Subtype == "/Text").Contents), "Hi")
+            highlight = next(a for a in annots if a.Subtype == "/Highlight")
+            self.assertEqual(len(highlight.QuadPoints), 8)
+            self.assertIn("/N", highlight.AP)
+        flat, _ = self.run_ops(out, [{"op": "flatten_annotations"}], name="flat.pdf")
+        with pikepdf.open(flat) as pdf:
+            self.assertFalse(any(a.Subtype == "/Stamp" for a in pdf.pages[0].get("/Annots", [])))
+
+
 class SecurityTests(Base):
     def test_password_encrypt_permissions_and_remove(self):
         src = self.fixture("uscis-i9.pdf")

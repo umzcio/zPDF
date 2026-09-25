@@ -88,6 +88,20 @@ extension AppState {
         }
     }
 
+    /// Re-encodes barcode fields from the on-screen values of their source fields.
+    func updateBarcodes(in tab: DocumentTab) async throws {
+        guard let document = tab.pdfDocument else { return }
+        let values = FormLogic.currentValues(document).values
+        let items: [[String: Any]] = tab.protection.formFields.filter { $0.kind == "barcode" }.map { field in
+            let data = field.barcodeFields.map { values[$0] ?? "" }.joined(separator: "\t")
+            return ["name": field.name, "value": data,
+                    "matrix": BarcodeEncoder.matrix(for: data, symbology: field.barcodeSymbology) ?? []]
+        }
+        guard !items.isEmpty else { return }
+        try await applyDocumentTransform([["op": "update_barcodes", "items": items]], to: tab, actionName: "Update Barcodes")
+        refreshFormModel(tab)
+    }
+
     func refreshFormModel(_ tab: DocumentTab) {
         tab.protection.profiledHash = nil
         profileDocument(tab)

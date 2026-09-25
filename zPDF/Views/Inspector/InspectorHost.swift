@@ -183,9 +183,11 @@ struct PanelToolButton: View {
             VStack(spacing: 5) {
                 Image(systemName: symbolName)
                     .font(.system(size: 17))
+                    .frame(height: 22)
                 Text(title)
                     .font(.system(size: 10.5))
                     .multilineTextAlignment(.center)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)

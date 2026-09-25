@@ -411,9 +411,9 @@ enum FormFieldAuthoring {
 
 // MARK: - Field detection on scanned pages
 
-/// Suggests fields on raster (scanned) pages with Apple Vision: rectangles
-/// become text fields or check boxes, and long horizontal rules become
-/// answer lines. Printed text regions are excluded.
+/// Suggests fields on raster (scanned) pages: boxes drawn with ruled lines
+/// become text fields or check boxes, long horizontal rules become answer
+/// lines, and anything containing printed text (Apple Vision OCR) is dropped.
 enum ScannedFieldDetector {
     @MainActor static func isRaster(_ page: PDFPage) -> Bool {
         (page.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).count < 20
@@ -429,82 +429,101 @@ enum ScannedFieldDetector {
         return await Task.detached(priority: .userInitiated) { analyze(cg, pageBox: box) }.value
     }
 
-    nonisolated static func analyze(_ cg: CGImage, pageBox box: CGRect) -> [NativeFieldSuggestion] {
-        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
-        let rectangles = VNDetectRectanglesRequest()
-        rectangles.minimumAspectRatio = 0.03
-        rectangles.maximumAspectRatio = 1
-        rectangles.minimumSize = 0.012
-        rectangles.maximumObservations = 80
-        rectangles.minimumConfidence = 0.5
-        rectangles.quadratureTolerance = 8
-        let text = VNRecognizeTextRequest()
-        text.recognitionLevel = .fast
-        try? handler.perform([rectangles, text])
-        func pageRect(_ normalized: CGRect) -> CGRect {
-            CGRect(x: box.minX + normalized.minX * box.width, y: box.minY + normalized.minY * box.height,
-                   width: normalized.width * box.width, height: normalized.height * box.height)
-        }
-        let textBoxes = (text.results ?? []).map { pageRect($0.boundingBox) }
-        var accepted: [CGRect] = []
-        var kinds: [String] = []
-        let candidates = (rectangles.results ?? []).map { pageRect($0.boundingBox) }
-            .sorted { $0.width * $0.height < $1.width * $1.height }
-        for rect in candidates {
-            let inner = rect.insetBy(dx: 1.5, dy: 1.5)
-            let textArea = textBoxes.reduce(CGFloat(0)) { sum, t in
-                let i = t.intersection(inner); return sum + (i.isNull ? 0 : i.width * i.height)
-            }
-            guard textArea < inner.width * inner.height * 0.2 else { continue }
-            guard !accepted.contains(where: { $0.intersects(inner) }) else { continue }
-            let isCheck = (7...24).contains(rect.width) && (7...24).contains(rect.height) && abs(rect.width - rect.height) < 5
-            guard isCheck || (rect.width >= 24 && (8...72).contains(rect.height)) else { continue }
-            accepted.append(rect)
-            kinds.append(isCheck ? "checkbox" : "text")
-        }
-        // Horizontal answer lines: long thin dark runs.
-        for line in horizontalRules(cg) {
-            let rect = CGRect(x: box.minX + line.minX / CGFloat(cg.width) * box.width,
-                              y: box.minY + (1 - line.maxY / CGFloat(cg.height)) * box.height,
-                              width: line.width / CGFloat(cg.width) * box.width, height: 14)
-            guard rect.width >= 36, !accepted.contains(where: { $0.insetBy(dx: -2, dy: -2).intersects(rect) }),
-                  !textBoxes.contains(where: { $0.intersection(rect).width > rect.width * 0.4 }) else { continue }
-            accepted.append(rect)
-            kinds.append("text")
-        }
-        return zip(accepted, kinds).prefix(200).map { rect, kind in
-            NativeFieldSuggestion(type: kind, rect: [rect.minX, rect.minY, rect.maxX, rect.maxY])
-        }
-    }
+    /// A dark horizontal or vertical run in image pixels (top-down rows).
+    struct Rule { var start: Int; var end: Int; var position: Int }
 
-    /// Dark horizontal runs at least 70 px long and at most 4 px thick.
-    nonisolated static func horizontalRules(_ cg: CGImage) -> [CGRect] {
+    nonisolated static func analyze(_ cg: CGImage, pageBox box: CGRect) -> [NativeFieldSuggestion] {
         let width = cg.width, height = cg.height
-        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
+        guard width > 0, height > 0,
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
                                       space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return [] }
         context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
         guard let data = context.data else { return [] }
         let pixels = data.bindMemory(to: UInt8.self, capacity: width * height)
-        var runs: [CGRect] = []
-        for y in 0..<height {
-            var start: Int?
-            for x in 0...width {
-                let dark = x < width && pixels[(height - 1 - y) * width + x] < 110
-                if dark { if start == nil { start = x } }
-                else if let s = start {
-                    if x - s >= 70 { runs.append(CGRect(x: s, y: y, width: x - s, height: 1)) }
-                    start = nil
+        let px = CGFloat(width) / box.width                 // pixels per point
+        func dark(_ x: Int, _ row: Int) -> Bool { pixels[row * width + x] < 128 }
+        let minRun = max(10, Int(6 * px))
+        // Horizontal and vertical dark runs, merged across adjacent rows/columns.
+        func runs(horizontal: Bool) -> [Rule] {
+            var found: [Rule] = []
+            let outer = horizontal ? height : width, inner = horizontal ? width : height
+            for a in 0..<outer {
+                var start: Int?
+                for b in 0...inner {
+                    let isDark = b < inner && (horizontal ? dark(b, a) : dark(a, b))
+                    if isDark { if start == nil { start = b } }
+                    else if let s = start {
+                        if b - s >= minRun { found.append(Rule(start: s, end: b, position: a)) }
+                        start = nil
+                    }
                 }
             }
+            var merged: [Rule] = []
+            for rule in found {
+                if let index = merged.lastIndex(where: { rule.position - $0.position <= 2 && abs($0.start - rule.start) < 4 && abs($0.end - rule.end) < 4 }),
+                   rule.position - merged[index].position <= 2 {
+                    merged[index].position = rule.position   // keep the far edge of a thick rule
+                } else { merged.append(rule) }
+                if merged.count > 4000 { break }
+            }
+            return merged
         }
-        // Merge vertically adjacent runs into rules; drop thick bars (tables, boxes).
-        var merged: [CGRect] = []
-        for run in runs {
-            if let index = merged.lastIndex(where: { abs($0.maxY - run.minY) <= 1 && abs($0.minX - run.minX) < 6 && abs($0.width - run.width) < 12 }) {
-                merged[index] = merged[index].union(run)
-            } else { merged.append(run) }
+        // Noisy scans produce many short strokes; keep the longest rules for pairing.
+        let horizontal = Array(runs(horizontal: true).sorted { $0.end - $0.start > $1.end - $1.start }.prefix(800))
+            .sorted { ($0.position, $0.start) < ($1.position, $1.start) }
+        let vertical = Array(runs(horizontal: false).sorted { $0.end - $0.start > $1.end - $1.start }.prefix(1200))
+        func pageRect(x0: Int, x1: Int, top: Int, bottom: Int) -> CGRect {
+            CGRect(x: box.minX + CGFloat(x0) / px, y: box.minY + (CGFloat(height - bottom)) / px,
+                   width: CGFloat(x1 - x0) / px, height: CGFloat(bottom - top) / px)
         }
-        return merged.filter { $0.height <= 4 }
+        var accepted: [CGRect] = []
+        var kinds: [String] = []
+        var usedRules = Set<Int>()
+        // Boxes: two horizontal rules with matching extent joined by vertical rules at both ends.
+        let tolerance = Int(3 * px)
+        for (i, top) in horizontal.enumerated() {
+            for (j, bottom) in horizontal.enumerated() where j != i && bottom.position > top.position {
+                let gap = CGFloat(bottom.position - top.position) / px
+                guard gap >= 7, gap <= 72, abs(top.start - bottom.start) <= tolerance, abs(top.end - bottom.end) <= tolerance else { continue }
+                func edge(_ x: Int) -> Bool {
+                    vertical.contains { abs($0.position - x) <= tolerance && $0.start <= top.position + tolerance && $0.end >= bottom.position - tolerance }
+                }
+                guard edge(top.start), edge(top.end - 1) else { continue }
+                let rect = pageRect(x0: top.start, x1: top.end, top: top.position, bottom: bottom.position)
+                let isCheck = rect.width <= 24 && rect.height <= 24 && abs(rect.width - rect.height) < 5
+                guard isCheck || rect.width >= 22 else { continue }
+                guard !accepted.contains(where: { $0.insetBy(dx: 1, dy: 1).intersects(rect.insetBy(dx: 1, dy: 1)) }) else { continue }
+                accepted.append(rect)
+                kinds.append(isCheck ? "checkbox" : "text")
+                usedRules.formUnion([i, j])
+                break
+            }
+        }
+        // Answer lines: long standalone horizontal rules.
+        for (i, rule) in horizontal.enumerated() where !usedRules.contains(i) {
+            let length = CGFloat(rule.end - rule.start) / px
+            guard length >= 36, length <= box.width * 0.9 else { continue }
+            let base = pageRect(x0: rule.start, x1: rule.end, top: rule.position, bottom: rule.position + 1)
+            let rect = CGRect(x: base.minX, y: base.minY + 1, width: base.width, height: 14)
+            guard !accepted.contains(where: { $0.insetBy(dx: -2, dy: -2).intersects(rect) }) else { continue }
+            accepted.append(rect)
+            kinds.append("text")
+        }
+        // Printed text inside a candidate means it's a label, not an empty field.
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+        let text = VNRecognizeTextRequest()
+        text.recognitionLevel = .fast
+        try? handler.perform([text])
+        let textBoxes = (text.results ?? []).map {
+            CGRect(x: box.minX + $0.boundingBox.minX * box.width, y: box.minY + $0.boundingBox.minY * box.height,
+                   width: $0.boundingBox.width * box.width, height: $0.boundingBox.height * box.height)
+        }
+        return zip(accepted, kinds).filter { rect, _ in
+            !textBoxes.contains { t in let i = t.intersection(rect.insetBy(dx: 1, dy: 1)); return !i.isNull && i.width * i.height > rect.width * rect.height * 0.25 }
+        }
+        .sorted { ($0.0.maxY, -$0.0.minX) > ($1.0.maxY, -$1.0.minX) }
+        .prefix(200)
+        .map { rect, kind in NativeFieldSuggestion(type: kind, rect: [rect.minX, rect.minY, rect.maxX, rect.maxY]) }
     }
 }
 
@@ -581,6 +600,14 @@ enum FormProfileMatcher {
 @MainActor
 enum FormLogic {
     private static var observers: [ObjectIdentifier: [Any]] = [:]
+    /// Acrobat-style "Invalid value" alert; replaceable for tests.
+    static var presentError: (String) -> Void = { message in
+        let alert = NSAlert()
+        alert.messageText = "Invalid value"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.runModal()
+    }
     private static var pending: Task<Void, Never>?
 
     /// Recalculates after a field editor commits or a button/choice click,
@@ -636,11 +663,7 @@ enum FormLogic {
         let params: [String: Any] = ["values": values, "touched": Array(touched)]
         guard let result = try? await state.queryDocument("form_calculate", params: params, in: tab) else { return }
         if let errors = result["errors"] as? [String: String], let first = errors.first {
-            let alert = NSAlert()
-            alert.messageText = "Invalid value"
-            alert.informativeText = first.value
-            alert.alertStyle = .warning
-            alert.runModal()
+            presentError(first.value)
             for name in errors.keys {
                 let restored = previous[name] ?? ""
                 widgets[name]?.forEach { $0.widgetStringValue = restored }

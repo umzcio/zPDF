@@ -15,7 +15,7 @@ struct PanelActionButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(role: role, action: action) {
+        let button = Button(role: role, action: action) {
             HStack(spacing: 8) {
                 Image(systemName: symbolName)
                     .font(.system(size: 12))
@@ -23,17 +23,21 @@ struct PanelActionButton: View {
                 Text(title)
                     .font(.system(size: 12))
                     .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 2)
         }
-        .buttonStyle(.bordered)
-        .tint(prominent ? DesignTokens.Colors.accent : nil)
         .controlSize(.regular)
         .help(help)
         .accessibilityLabel(title)
         .accessibilityHint(help)
+        if prominent {
+            button.buttonStyle(.borderedProminent).tint(DesignTokens.Colors.controlAccent)
+        } else {
+            button.buttonStyle(.bordered)
+        }
     }
 }
 
@@ -68,7 +72,7 @@ struct PanelStatusCard: View {
 
     private var tint: Color {
         switch tone {
-        case .neutral: DesignTokens.Colors.accent
+        case .neutral: DesignTokens.Colors.mutedText
         case .good: DesignTokens.Colors.readyGreen
         case .warning: Color.orange
         case .bad: Color.red

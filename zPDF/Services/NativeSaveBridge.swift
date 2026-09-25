@@ -103,6 +103,9 @@ struct NativeSaveChanges: Sendable {
     /// Generic annotation edits applied natively before the facade runs.
     var annotationItems: [NativeAnnotationItem] = []
     var annotationScratch: AnnotationScratch?
+    /// A copy written elsewhere (Extract Pages) may rewrite a signed source;
+    /// saving the signed document itself never does (ProtectedSaveBridge).
+    var allowsSignedRewrite = false
 
     var hasFacadeEdits: Bool {
         !comments.isEmpty || !fields.isEmpty || !newFields.isEmpty || !notes.isEmpty || pages != nil || compress
