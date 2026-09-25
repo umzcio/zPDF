@@ -305,6 +305,7 @@ private struct ObjectSection: View {
     @Environment(AppState.self) private var appState
     private var controller: ContentEditingController { appState.contentEditing }
     @State private var frame = CGRect.zero
+    @State private var angle: Double = 0
 
     var body: some View {
         let objects = controller.selectedObjectsList
@@ -357,6 +358,21 @@ private struct ObjectSection: View {
                     }
                 }
                 positionFields
+                HStack(spacing: 6) {
+                    Text("Rotate")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(DesignTokens.Colors.mutedText)
+                    TextField("Degrees", value: $angle, format: .number.precision(.fractionLength(0...1)))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11.5).monospacedDigit())
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 56)
+                        .onSubmit { controller.rotateSelection(freeDegrees: angle); angle = 0 }
+                        .help("Rotate by any angle, clockwise (press Return)")
+                        .accessibilityLabel("Rotation angle in degrees")
+                    Text("°").foregroundStyle(DesignTokens.Colors.mutedText)
+                    Spacer()
+                }
             }
         }
         .onAppear { syncFrame() }

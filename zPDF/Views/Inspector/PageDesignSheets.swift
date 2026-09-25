@@ -100,38 +100,17 @@ struct PageDesignSheet: View {
     @State private var loaded = false
     @State private var working = false
     @State private var error: String?
-    @State private var scope: ScopeChoice = .all
-    @State private var range = ""
-    // Shared text styling
-    @State private var family: FontFamilyChoice = .sans
-    @State private var bold = false
-    @State private var fontSize: Double = 10
-    @State private var color: Color = .black
-    // Header & footer
-    @State private var fields: [String: String] = [:]
-    @State private var margins = EdgeMargins(left: 36, bottom: 30, right: 36, top: 30)
-    @State private var startNumber = 1
+    @State private var model: PageDesignModel
     @FocusState private var focusedField: String?
-    // Watermark / background
-    @State private var useImage = false
-    @State private var text = "CONFIDENTIAL"
-    @State private var imageURL: URL?
-    @State private var opacity: Double = 0.3
-    @State private var angle: Double = 45
-    @State private var anchor: AnchorChoice = .center
-    @State private var under = false
-    @State private var fit = false
-    @State private var scale: Double = 100
-    // Bates
-    @State private var prefix = ""
-    @State private var suffix = ""
-    @State private var batesStart = 1
-    @State private var digits = 6
-    @State private var batesAnchor: AnchorChoice = .bottomRight
     @State private var result: String?
 
-    private static let headerKeys = ["top-left", "top-center", "top-right"]
-    private static let footerKeys = ["bottom-left", "bottom-center", "bottom-right"]
+    private static let headerKeys = PageDesignModel.headerKeys
+    private static let footerKeys = PageDesignModel.footerKeys
+
+    init(kind: PageDesignKind) {
+        self.kind = kind
+        _model = State(initialValue: PageDesignModel(kind: kind))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -159,7 +138,7 @@ struct PageDesignSheet: View {
                     case .bates: batesForm
                     }
                     Section("Pages") {
-                        PageScopePicker(choice: $scope, range: $range)
+                        PageScopePicker(choice: $model.scope, range: $model.range)
                     }
                 }
                 .formStyle(.grouped)
@@ -222,24 +201,24 @@ struct PageDesignSheet: View {
                 .fixedSize()
                 .help("Insert a page number or date into the selected box")
                 Menu("Presets") {
-                    Button("Page 1 of N (footer center)") { fields["bottom-center"] = "Page <<page>> of <<pages>>" }
-                    Button("Page number (footer right)") { fields["bottom-right"] = "<<page>>" }
-                    Button("Date (header right)") { fields["top-right"] = "<<date>>" }
+                    Button("Page 1 of N (footer center)") { model.fields["bottom-center"] = "Page <<page>> of <<pages>>" }
+                    Button("Page number (footer right)") { model.fields["bottom-right"] = "<<page>>" }
+                    Button("Date (header right)") { model.fields["top-right"] = "<<date>>" }
                 }
                 .fixedSize()
                 .help("Common header and footer layouts")
                 Spacer()
-                Stepper("Start at \(startNumber)", value: $startNumber, in: 0...99_999)
+                Stepper("Start at \(model.startNumber)", value: $model.startNumber, in: 0...99_999)
                     .help("Number shown on the first page")
             }
             textStyleRows
             HStack {
-                marginField("Top", $margins.top)
-                marginField("Bottom", $margins.bottom)
+                marginField("Top", $model.margins.top)
+                marginField("Bottom", $model.margins.bottom)
             }
             HStack {
-                marginField("Left", $margins.left)
-                marginField("Right", $margins.right)
+                marginField("Left", $model.margins.left)
+                marginField("Right", $model.margins.right)
             }
         }
     }
@@ -248,7 +227,7 @@ struct PageDesignSheet: View {
         HStack(spacing: 6) {
             ForEach(keys, id: \.self) { key in
                 TextField(key.hasSuffix("left") ? "Left" : key.hasSuffix("right") ? "Right" : "Center",
-                          text: Binding(get: { fields[key] ?? "" }, set: { fields[key] = $0 }))
+                          text: Binding(get: { model.fields[key] ?? "" }, set: { model.fields[key] = $0 }))
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(key.hasSuffix("left") ? .leading : key.hasSuffix("right") ? .trailing : .center)
                     .focused($focusedField, equals: key)
@@ -259,24 +238,24 @@ struct PageDesignSheet: View {
 
     private func insert(_ token: String) {
         let key = focusedField ?? "bottom-center"
-        fields[key, default: ""] += token
+        model.fields[key, default: ""] += token
     }
 
     @ViewBuilder
     private var textStyleRows: some View {
-        Picker("Font", selection: $family) {
+        Picker("Font", selection: $model.family) {
             ForEach(FontFamilyChoice.allCases) { Text($0.title).tag($0) }
         }
         HStack {
-            Toggle("Bold", isOn: $bold)
+            Toggle("Bold", isOn: $model.bold)
             Spacer()
-            TextField("Size", value: $fontSize, format: .number.precision(.fractionLength(0...1)))
+            TextField("Size", value: $model.fontSize, format: .number.precision(.fractionLength(0...1)))
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 56)
                 .accessibilityLabel("Font size")
-            Stepper("Font size", value: $fontSize, in: 4...300).labelsHidden()
+            Stepper("Font size", value: $model.fontSize, in: 4...300).labelsHidden()
             Text("pt").foregroundStyle(DesignTokens.Colors.mutedText)
-            ColorPicker("Color", selection: $color, supportsOpacity: false)
+            ColorPicker("Color", selection: Binding(get: { Color(nsColor: model.color) }, set: { model.color = NSColor($0) }), supportsOpacity: false)
                 .labelsHidden()
                 .help("Text color")
         }
@@ -295,25 +274,25 @@ struct PageDesignSheet: View {
     @ViewBuilder
     private var watermarkForm: some View {
         Section("Source") {
-            Picker("Source", selection: $useImage) {
+            Picker("Source", selection: $model.useImage) {
                 Text("Text").tag(false)
                 Text("Image").tag(true)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            if useImage {
+            if model.useImage {
                 imagePickerRow
-                Toggle("Fit to page", isOn: $fit)
-                if !fit {
+                Toggle("Fit to page", isOn: $model.fit)
+                if !model.fit {
                     LabeledContent("Scale") {
                         HStack {
-                            Slider(value: $scale, in: 5...400)
-                            Text("\(Int(scale))%").monospacedDigit().frame(width: 44, alignment: .trailing)
+                            Slider(value: $model.scale, in: 5...400)
+                            Text("\(Int(model.scale))%").monospacedDigit().frame(width: 44, alignment: .trailing)
                         }
                     }
                 }
             } else {
-                TextField("Watermark text", text: $text, axis: .vertical)
+                TextField("Watermark text", text: $model.text, axis: .vertical)
                     .lineLimit(1...3)
                     .accessibilityLabel("Watermark text")
                 textStyleRows
@@ -322,34 +301,34 @@ struct PageDesignSheet: View {
         Section("Appearance") {
             LabeledContent("Opacity") {
                 HStack {
-                    Slider(value: $opacity, in: 0.05...1)
+                    Slider(value: $model.opacity, in: 0.05...1)
                         .accessibilityLabel("Opacity")
-                    Text("\(Int(opacity * 100))%").monospacedDigit().frame(width: 40, alignment: .trailing)
+                    Text("\(Int(model.opacity * 100))%").monospacedDigit().frame(width: 40, alignment: .trailing)
                 }
             }
-            Picker("Rotation", selection: $angle) {
+            Picker("Rotation", selection: $model.angle) {
                 Text("0°").tag(0.0)
                 Text("45°").tag(45.0)
                 Text("90°").tag(90.0)
                 Text("−45°").tag(-45.0)
             }
             .pickerStyle(.segmented)
-            LabeledContent("Position") { AnchorGrid(selection: $anchor) }
-            Toggle("Behind page content", isOn: $under)
+            LabeledContent("Position") { AnchorGrid(selection: $model.anchor) }
+            Toggle("Behind page content", isOn: $model.under)
                 .help("Place the watermark under text and images instead of on top")
         }
     }
 
     private var imagePickerRow: some View {
         HStack {
-            Text(imageURL?.lastPathComponent ?? "No image chosen")
-                .foregroundStyle(imageURL == nil ? DesignTokens.Colors.mutedText : DesignTokens.Colors.text)
+            Text(model.imageURL?.lastPathComponent ?? "No image chosen")
+                .foregroundStyle(model.imageURL == nil ? DesignTokens.Colors.mutedText : DesignTokens.Colors.text)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer()
             Button("Choose…") {
                 appState.contentEditing.chooseImage { url in
-                    imageURL = try? appState.contentEditing.stageImage(url)
+                    model.imageURL = try? appState.contentEditing.stageImage(url)
                 }
             }
             .help("Choose an image file")
@@ -359,22 +338,22 @@ struct PageDesignSheet: View {
     @ViewBuilder
     private var backgroundForm: some View {
         Section("Source") {
-            Picker("Source", selection: $useImage) {
+            Picker("Source", selection: $model.useImage) {
                 Text("Color").tag(false)
                 Text("Image").tag(true)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            if useImage {
+            if model.useImage {
                 imagePickerRow
-                Toggle("Stretch to fill the page", isOn: $fit)
+                Toggle("Stretch to fill the page", isOn: $model.fit)
             } else {
-                ColorPicker("Color", selection: $color, supportsOpacity: false)
+                ColorPicker("Color", selection: Binding(get: { Color(nsColor: model.color) }, set: { model.color = NSColor($0) }), supportsOpacity: false)
             }
             LabeledContent("Opacity") {
                 HStack {
-                    Slider(value: $opacity, in: 0.05...1).accessibilityLabel("Opacity")
-                    Text("\(Int(opacity * 100))%").monospacedDigit().frame(width: 40, alignment: .trailing)
+                    Slider(value: $model.opacity, in: 0.05...1).accessibilityLabel("Opacity")
+                    Text("\(Int(model.opacity * 100))%").monospacedDigit().frame(width: 40, alignment: .trailing)
                 }
             }
         }
@@ -383,26 +362,22 @@ struct PageDesignSheet: View {
     @ViewBuilder
     private var batesForm: some View {
         Section("Number") {
-            TextField("Prefix", text: $prefix).accessibilityLabel("Prefix")
-            TextField("Suffix", text: $suffix).accessibilityLabel("Suffix")
-            Stepper("Start number: \(batesStart)", value: $batesStart, in: 0...999_999_999)
-            Stepper("Digits: \(digits)", value: $digits, in: 1...15)
+            TextField("Prefix", text: $model.prefix).accessibilityLabel("Prefix")
+            TextField("Suffix", text: $model.suffix).accessibilityLabel("Suffix")
+            Stepper("Start number: \(model.batesStart)", value: $model.batesStart, in: 0...999_999_999)
+            Stepper("Digits: \(model.digits)", value: $model.digits, in: 1...15)
             LabeledContent("Example") {
-                Text(batesNumber(batesStart)).font(.system(size: 12, design: .monospaced))
+                Text(model.batesNumber(model.batesStart)).font(.system(size: 12, design: .monospaced))
             }
         }
         Section("Appearance") {
-            Picker("Position", selection: $batesAnchor) {
+            Picker("Position", selection: $model.batesAnchor) {
                 ForEach([AnchorChoice.topLeft, .topCenter, .topRight, .bottomLeft, .bottomCenter, .bottomRight]) {
                     Text($0.title).tag($0)
                 }
             }
             textStyleRows
         }
-    }
-
-    private func batesNumber(_ n: Int) -> String {
-        prefix + String(format: "%0\(digits)d", n) + suffix
     }
 
     // MARK: - Preview
@@ -413,170 +388,53 @@ struct PageDesignSheet: View {
     }
 
     private var previewItems: [PageDesignPreview.Item] {
-        let rgb = NSColor(color)
+        let rgb = model.color
+        let pageCount = appState.activeTab?.pageCount ?? 1
         switch kind {
         case .headerFooter:
             return (Self.headerKeys + Self.footerKeys).compactMap { key in
-                guard let template = fields[key], !template.isEmpty else { return nil }
-                let text = template.replacingOccurrences(of: "<<page>>", with: "\(startNumber)")
-                    .replacingOccurrences(of: "<<pages>>", with: "\(max(1, appState.activeTab?.pageCount ?? 1))")
-                    .replacingOccurrences(of: "<<date>>", with: Date().formatted(.dateTime.month(.twoDigits).day(.twoDigits).year()))
-                    .replacingOccurrences(of: "<<isodate>>", with: Date().formatted(.iso8601.year().month().day()))
-                return .init(text: text, anchor: AnchorChoice(rawValue: key) ?? .bottomCenter, size: fontSize, color: rgb,
-                             opacity: 1, angle: 0, margins: margins, bold: bold)
+                guard let template = model.fields[key], !template.isEmpty else { return nil }
+                return .init(text: model.expanded(template, pageCount: pageCount), anchor: AnchorChoice(rawValue: key) ?? .bottomCenter,
+                             size: model.fontSize, color: rgb, opacity: 1, angle: 0, margins: model.margins, bold: model.bold)
             }
         case .watermark:
-            guard !useImage, !text.isEmpty else { return [] }
-            return [.init(text: text, anchor: anchor, size: fontSize, color: rgb, opacity: opacity, angle: angle,
-                          margins: EdgeMargins(), bold: bold)]
+            guard !model.useImage, !model.text.isEmpty else { return [] }
+            return [.init(text: model.text, anchor: model.anchor, size: model.fontSize, color: rgb, opacity: model.opacity,
+                          angle: model.angle, margins: EdgeMargins(), bold: model.bold)]
         case .background:
             return []
         case .bates:
-            return [.init(text: batesNumber(batesStart), anchor: batesAnchor, size: fontSize, color: rgb, opacity: 1, angle: 0,
-                          margins: EdgeMargins(left: 36, bottom: 24, right: 36, top: 24), bold: bold)]
+            return [.init(text: model.batesNumber(model.batesStart), anchor: model.batesAnchor, size: model.fontSize, color: rgb,
+                          opacity: 1, angle: 0, margins: EdgeMargins(left: 36, bottom: 24, right: 36, top: 24), bold: model.bold)]
         }
     }
 
     private var previewBackground: (NSColor, Double)? {
-        kind == .background && !useImage ? (NSColor(color), opacity) : nil
+        kind == .background && !model.useImage ? (model.color, model.opacity) : nil
     }
 
     // MARK: - Engine
 
-    private var canApply: Bool {
-        guard pages != nil else { return false }
-        switch kind {
-        case .headerFooter: return fields.values.contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        case .watermark: return useImage ? imageURL != nil : !text.trimmingCharacters(in: .whitespaces).isEmpty
-        case .background: return useImage ? imageURL != nil : true
-        case .bates: return true
-        }
+    private var current: (page: Int, count: Int) {
+        guard let tab = appState.activeTab else { return (0, 0) }
+        return (tab.currentPage - 1, tab.pageCount)
     }
 
-    /// nil when the range is invalid; empty array = all pages.
-    private var pages: [Int]? {
-        guard let tab = appState.activeTab else { return nil }
-        if scope == .all { return [] }
-        let list = scope.scope(range: range).pages(current: tab.currentPage - 1, count: tab.pageCount)
-        return list.isEmpty ? nil : list
-    }
-
-    private var fontSpec: [String: Any] { ["family": family.rawValue, "bold": bold] }
-
-    private var settings: [String: Any] {
-        var s: [String: Any] = ["family": family.rawValue, "bold": bold, "size": fontSize, "color": NSColor(color).engineRGB,
-                                "scope": scope.rawValue, "range": range]
-        switch kind {
-        case .headerFooter:
-            s["fields"] = fields
-            s["margins"] = [margins.left, margins.bottom, margins.right, margins.top]
-            s["start"] = startNumber
-        case .watermark:
-            s["text"] = text; s["image"] = useImage; s["opacity"] = opacity; s["angle"] = angle
-            s["anchor"] = anchor.rawValue; s["under"] = under; s["fit"] = fit; s["scale"] = scale
-        case .background:
-            s["image"] = useImage; s["opacity"] = opacity; s["fit"] = fit
-        case .bates:
-            s["prefix"] = prefix; s["suffix"] = suffix; s["start"] = batesStart; s["digits"] = digits
-            s["anchor"] = batesAnchor.rawValue
-        }
-        return s
-    }
-
-    private func operation() -> [String: Any] {
-        var op: [String: Any]
-        let rgb = NSColor(color).engineRGB
-        switch kind {
-        case .headerFooter:
-            let items = fields.filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
-            op = ["op": "header_footer", "items": items, "font": fontSpec, "size": fontSize, "color": rgb,
-                  "margins": [margins.left, margins.bottom, margins.right, margins.top], "start": startNumber]
-        case .watermark:
-            op = ["op": "watermark", "opacity": opacity, "angle": angle, "anchor": anchor.rawValue, "under": under]
-            if useImage, let imageURL {
-                op["image"] = imageURL.path
-                op["fit"] = fit
-                op["scale"] = scale / 100
-            } else {
-                op["text"] = text
-                op["font"] = fontSpec
-                op["size"] = fontSize
-                op["color"] = rgb
-            }
-        case .background:
-            op = ["op": "background", "opacity": opacity]
-            if useImage, let imageURL { op["image"] = imageURL.path; op["scale_to_fit"] = fit } else { op["color"] = rgb }
-        case .bates:
-            let vertical = batesAnchor.rawValue.hasPrefix("top")
-            op = ["op": "bates", "prefix": prefix, "suffix": suffix, "start": batesStart, "digits": digits,
-                  "anchor": batesAnchor.rawValue, "font": fontSpec, "size": fontSize, "color": rgb,
-                  "margins": [36, vertical ? 24 : 24, 36, 24]]
-        }
-        if let pages, !pages.isEmpty { op["pages"] = pages }
-        return op
-    }
+    private var canApply: Bool { appState.activeTab != nil && model.canApply(current: current.page, count: current.count) }
 
     private func load() async {
         guard !loaded, let tab = appState.activeTab else { return }
         loaded = true
-        applyDefaults()
         guard let result = try? await appState.queryDocument("page_design", in: tab),
               let entry = result[kind.rawValue] as? [String: Any] else { return }
         state.pages = entry["pages"] as? [Int] ?? []
         state.settings = entry["settings"] as? [String: Any]
-        if let s = state.settings { restore(s) }
-    }
-
-    private func applyDefaults() {
-        switch kind {
-        case .headerFooter:
-            fontSize = 10
-            fields = ["bottom-center": "Page <<page>> of <<pages>>"]
-        case .watermark:
-            fontSize = 60; color = Color(nsColor: NSColor(srgbRed: 0.8, green: 0.1, blue: 0.1, alpha: 1)); bold = true
-        case .background:
-            color = Color(nsColor: NSColor(srgbRed: 1, green: 0.98, blue: 0.9, alpha: 1)); opacity = 1
-        case .bates:
-            fontSize = 10
-        }
-    }
-
-    private func restore(_ s: [String: Any]) {
-        if let v = s["family"] as? String, let f = FontFamilyChoice(rawValue: v) { family = f }
-        if let v = s["bold"] as? Bool { bold = v }
-        if let v = s["size"] as? Double { fontSize = v }
-        if let v = NSColor(components: s["color"]) { color = Color(nsColor: v) }
-        if let v = s["scope"] as? String, let c = ScopeChoice(rawValue: v) { scope = c }
-        if let v = s["range"] as? String { range = v }
-        switch kind {
-        case .headerFooter:
-            if let v = s["fields"] as? [String: String] { fields = v }
-            if let m = s["margins"] as? [Double], m.count == 4 { margins = EdgeMargins(left: m[0], bottom: m[1], right: m[2], top: m[3]) }
-            if let v = s["start"] as? Int { startNumber = v }
-        case .watermark:
-            if let v = s["text"] as? String { text = v }
-            if let v = s["image"] as? Bool { useImage = v && imageURL != nil }
-            if let v = s["opacity"] as? Double { opacity = v }
-            if let v = s["angle"] as? Double { angle = v }
-            if let v = s["anchor"] as? String, let a = AnchorChoice(rawValue: v) { anchor = a }
-            if let v = s["under"] as? Bool { under = v }
-            if let v = s["fit"] as? Bool { fit = v }
-            if let v = s["scale"] as? Double { scale = v }
-        case .background:
-            if let v = s["opacity"] as? Double { opacity = v }
-            if let v = s["fit"] as? Bool { fit = v }
-        case .bates:
-            if let v = s["prefix"] as? String { prefix = v }
-            if let v = s["suffix"] as? String { suffix = v }
-            if let v = s["start"] as? Int { batesStart = v }
-            if let v = s["digits"] as? Int { digits = v }
-            if let v = s["anchor"] as? String, let a = AnchorChoice(rawValue: v) { batesAnchor = a }
-        }
+        if let s = state.settings { model.restore(s) }
     }
 
     private func apply() {
         guard let tab = appState.activeTab else { return }
-        let ops: [[String: Any]] = [operation(), ["op": "tag_overlay_settings", "kind": kind.rawValue, "settings": settings]]
+        let ops = model.operations(current: current.page, count: current.count)
         working = true
         error = nil
         Task {
@@ -585,7 +443,7 @@ struct PageDesignSheet: View {
                 let results = try await appState.applyDocumentTransform(ops, to: tab, actionName: state.exists ? "Update \(kind.title)" : "Add \(kind.title)")
                 appState.contentEditing.invalidateContent()
                 if kind == .bates, let first = results.first?["first"] as? String, let last = results.first?["last"] as? String {
-                    appState.contentEditing.notice = "Bates numbers \(first) – \(last) added. Next document starts at \(results.first?["next"] as? Int ?? batesStart)."
+                    appState.contentEditing.notice = "Bates numbers \(first) – \(last) added. Next document starts at \(results.first?["next"] as? Int ?? model.batesStart)."
                 }
                 dismiss()
             } catch {

@@ -39,6 +39,7 @@ struct RedactPanel: View {
             SanitizeSheet().environment(appState)
         }
         .onDisappear { if appState.activePanel != .redact { controller.deactivate() } }
+        .onChange(of: controller.sanitizeRequest) { _, _ in showingSanitize = true }
     }
 
     private var markSection: some View {

@@ -47,7 +47,10 @@ struct EditCommands: Commands {
                     appState.contentEditing.applyRedactions()
                 }
                 .disabled(appState.contentEditing.marks().isEmpty)
-                Button("Remove Hidden Information…") { openPanel(.redact) }
+                Button("Remove Hidden Information…") {
+                    openPanel(.redact)
+                    appState.contentEditing.sanitizeRequest += 1
+                }
             }
             .disabled(!canEdit)
         }

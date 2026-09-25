@@ -111,6 +111,8 @@ final class ContentEditingController {
     var findRequest = 0
     /// Page design sheet to open (menu commands, Bates Numbering tool).
     var designRequest: PageDesignKind?
+    /// Opens the Remove Hidden Information sheet (menu command).
+    var sanitizeRequest = 0
     var sanitizeSummary: String?
 
     init(appState: AppState) {
@@ -424,6 +426,12 @@ final class ContentEditingController {
         }
     }
 
+    /// Free rotation (degrees, clockwise on screen) about the selection's center.
+    func rotateSelection(freeDegrees degrees: CGFloat) {
+        guard abs(degrees) > 0.01 else { return }
+        rotateSelection(degrees: degrees)
+    }
+
     func rotateSelection(degrees: CGFloat) {
         guard let page = selectionPage else { return }
         let box = selectionBounds(on: page)
@@ -685,6 +693,7 @@ final class ContentEditingController {
         editor.removeFromSuperview()
         editorRevision += 1
         overlay.needsDisplay = true
+        if isActive { overlay.window?.makeFirstResponder(overlay) }
         guard commit, let page = editor.page else { return }
         let result = editor.result()
         if editor.block == nil {

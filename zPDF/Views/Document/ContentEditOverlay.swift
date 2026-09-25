@@ -513,6 +513,11 @@ final class ContentEditOverlay: NSView {
                     drag = .resize(page: page, handle: handle, original: rect, current: rect)
                     return
                 }
+                // A selected text box moves when dragged by its border.
+                if isBlock, rect.insetBy(dx: -6, dy: -6).contains(local), !rect.insetBy(dx: 3, dy: 3).contains(local) {
+                    beginMove(page: page, point: point)
+                    return
+                }
                 if !isBlock, rect.contains(local), !event.modifierFlags.contains(.shift) {
                     beginMove(page: page, point: point)
                     return
@@ -794,6 +799,19 @@ final class ContentEditOverlay: NSView {
                  : handle == .top || handle == .bottom ? NSCursor.resizeUpDown : NSCursor.crosshair).set()
                 return
             }
+            if controller.selection?.block != nil, rect.insetBy(dx: -6, dy: -6).contains(local), !rect.insetBy(dx: 3, dy: 3).contains(local) {
+                NSCursor.openHand.set()
+                return
+            }
+            if controller.selection?.block == nil, rect.contains(local) {
+                NSCursor.openHand.set()
+                return
+            }
+        }
+        if let editor {
+            let frame = editor.frame.insetBy(dx: -3, dy: -3)
+            if handle(at: local, in: frame, sidesOnly: true) != nil { NSCursor.resizeLeftRight.set(); return }
+            if CGRect(x: frame.minX, y: frame.maxY - 2, width: frame.width, height: 10).contains(local) { NSCursor.openHand.set(); return }
         }
         switch tool {
         case .edit:
