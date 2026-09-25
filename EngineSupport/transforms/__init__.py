@@ -18,15 +18,24 @@ from engine.errors import EngineError, require
 
 REGISTRY = {}
 QUERIES = {}
+# Operations that must append to the input (signing) or must rewrite it
+# (encryption, signature removal). Signed inputs are updated incrementally by
+# default so existing signatures keep covering their exact bytes.
+INCREMENTAL = set()
+REWRITE = set()
 
 # Every module in this package registers its operations/queries on import;
 # adding a feature never requires editing this file.
-_HELPERS = {"fonts"}
+_HELPERS = {"fonts", "cms", "incremental", "appearance", "formcalc", "pubsec"}
 
 
-def op(name):
+def op(name, incremental=False, rewrite=False):
     def register(function):
         REGISTRY[name] = function
+        if incremental:
+            INCREMENTAL.add(name)
+        if rewrite:
+            REWRITE.add(name)
         return function
     return register
 
@@ -59,6 +68,8 @@ class Context:
         # Options consumed at serialization time (encryption, linearization...).
         self.save_options = {}
         self.expected_pages = None
+        # Set when the output must be appended to the input (see incremental.py).
+        self.tracker = None
         self._counter = 0
 
     def scratch(self, suffix=".pdf"):
@@ -138,6 +149,11 @@ def run(source, destination, ops, password=None):
             raise EngineError("INVALID_PDF", "This file could not be read as a PDF.") from exc
         ctx = Context(pdf, source, workdir, password)
         try:
+            names = {item["op"] for item in ops}
+            if not names & REWRITE and not pdf.is_encrypted:
+                from transforms import incremental
+                if names & INCREMENTAL or incremental.is_signed(pdf):
+                    ctx.tracker = incremental.Tracker(pdf, source)
             for item in ops:
                 params = {k: v for k, v in item.items() if k != "op"}
                 try:
@@ -147,6 +163,9 @@ def run(source, destination, ops, password=None):
                 ctx.results.append({"op": item["op"], **(result or {})})
             candidate = Path(workdir) / "candidate.pdf"
             options = dict(ctx.save_options)
+            writer = options.pop("writer", None)
+            options.pop("validate_password", None)
+            validator = options.pop("validator", None)
             encryption = options.pop("encryption", None)
             if encryption is not None:
                 options["encryption"] = encryption
@@ -155,13 +174,25 @@ def run(source, destination, ops, password=None):
                     if password else False
             else:
                 options.pop("preserve_encryption", None)
-            ctx.pdf.save(candidate, **options)
+            if writer is not None:
+                writer(ctx, candidate)
+            elif ctx.tracker is not None:
+                from transforms import incremental
+                incremental.write(ctx.pdf, ctx.tracker, candidate)
+            else:
+                ctx.pdf.save(candidate, **options)
         finally:
             ctx.pdf.close()
         validate_password = ctx.save_options.get("validate_password", password)
         if isinstance(encryption, pikepdf.Encryption):
             validate_password = encryption.user or encryption.owner
-        pages = _validate(candidate, validate_password, ctx.expected_pages)
+        if validator is not None:
+            # Output QPDF can't open directly (certificate security): the op
+            # produces a readable copy to validate instead.
+            readable = validator(candidate, Path(workdir))
+            pages = _validate(readable, None, ctx.expected_pages)
+        else:
+            pages = _validate(candidate, validate_password, ctx.expected_pages)
         os.replace(candidate, destination)
     return {"sha256": digest(destination), "bytes": destination.stat().st_size,
             "page_count": pages, "results": ctx.results}

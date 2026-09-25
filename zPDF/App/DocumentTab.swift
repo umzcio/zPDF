@@ -56,6 +56,8 @@ final class DocumentTab: Identifiable {
     let id: UUID
     let viewHistory = DocumentViewHistory()
     let commentDrafts = CommentDraftStore()
+    /// Encryption, digital-signature and form-logic state (Forms & Signatures).
+    let protection = DocumentProtectionState()
     var commentReviewQuery = CommentReviewQuery()
 
     /// File URL on disk; nil for new/unsaved documents.

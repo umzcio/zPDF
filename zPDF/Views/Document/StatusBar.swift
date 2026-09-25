@@ -53,7 +53,11 @@ struct StatusBar: View {
 
     private var statusHelp: String {
         switch appState.activeTab?.saveBlock {
-        case "XFA_EDIT_BLOCKED": "XFA form: editing and saving are unavailable"
+        case "XFA_EDIT_BLOCKED": "XFA form: choose Forms › Convert to Standard Form to fill and edit it"
+        case "UNSUPPORTED_ENCRYPTED_WRITE": appState.activeTab?.protection.signedEncrypted == true
+            ? "Encrypted and signed: read-only so its signatures stay valid"
+            : "Protected: choose Forms › Unlock Editing… and enter the permissions password to edit"
+        case "CERTIFIED_NO_CHANGES": "Certified document: the author allows no changes"
         case "ENGINE_UNAVAILABLE": "PDF engine unavailable: editing and saving are disabled"
         case .some: "Read-only: editing and saving are unavailable"
         case .none: statusText

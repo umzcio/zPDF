@@ -25,7 +25,7 @@ enum BuiltInSettings {
         .init(id: .commenting, title: "Commenting", symbol: "text.bubble",
               keywords: "author name highlight underline sticky note colors keep tool selected automatically comments", order: 80) { AnyView(CommentingSettings(appState: $0)) },
         .init(id: .forms, title: "Forms", symbol: "list.bullet.rectangle",
-              keywords: "field highlighting fill editable readonly read-only XFA password", order: 90) { AnyView(FormsSettings(appState: $0)) },
+              keywords: "field highlighting fill editable readonly read-only XFA password profile auto-fill autofill name address email phone", order: 90) { AnyView(FormsSettings(appState: $0)) },
         .init(id: .identity, title: "Identity", symbol: "person.crop.circle",
               keywords: "name email organization title author identity", order: 100) { AnyView(IdentitySettings(appState: $0)) },
         .init(id: .measuring, title: "Measuring", symbol: "ruler.fill",
@@ -35,7 +35,7 @@ enum BuiltInSettings {
         .init(id: .spelling, title: "Spelling", symbol: "textformat.abc",
               keywords: "spell check spelling correct autocorrect language dictionary", order: 130) { AnyView(SpellingSettings(appState: $0)) },
         .init(id: .signatures, title: "Signatures", symbol: "signature",
-              keywords: "saved signatures delete manage", order: 140) { AnyView(SignatureSettings(appState: $0)) },
+              keywords: "saved signatures delete manage digital id certificate trust trusted timestamp tsa ltv revocation ocsp crl sign signing reason location pades", order: 140) { AnyView(SignatureSettings(appState: $0)) },
         .init(id: .security, title: "Security", symbol: "lock.shield",
               keywords: "links web urls javascript scripts trust", order: 150) { AnyView(SecuritySettings(appState: $0)) },
         .init(id: .print, title: "Print", symbol: "printer",
@@ -359,7 +359,10 @@ private struct FormsSettings: View {
         @Bindable var preferences = appState.preferences
         Section("Forms") {
             Toggle("Highlight editable form fields", isOn: $preferences.highlightFormFields)
-            Footnote("Highlights help locate form fields and are not saved into the PDF. Encrypted files and XFA forms remain read-only.")
+            Footnote("Highlights help locate form fields and are not saved into the PDF. Hybrid XFA forms stay read-only until converted with Forms ▸ Convert to Standard Form.")
+        }
+        Section("Auto-fill Profile") {
+            FormsProfileSettingsRows()
         }
     }
 }
@@ -465,24 +468,7 @@ private struct SpellingSettings: View {
 private struct SignatureSettings: View {
     let appState: AppState
     var body: some View {
-        Section("Saved Signatures") {
-            if appState.signatureService.signatures.isEmpty {
-                Text("No saved signatures.").foregroundStyle(DesignTokens.Colors.mutedText)
-            }
-            ForEach(appState.signatureService.signatures) { signature in
-                HStack {
-                    if let image = signature.image {
-                        Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).frame(width: 90, height: 32)
-                            .accessibilityHidden(true)
-                    }
-                    Text(signature.name)
-                    Spacer()
-                    Text(signature.createdAt.formatted(date: .abbreviated, time: .omitted)).foregroundStyle(DesignTokens.Colors.mutedText)
-                    Button("Delete", role: .destructive) { appState.signatureService.remove(signature) }
-                }
-            }
-            Footnote("Saved signatures stay on this Mac. Create them with Fill forms ▸ Sign.")
-        }
+        SignatureSettingsRows()
     }
 }
 

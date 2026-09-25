@@ -1,5 +1,39 @@
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import PDFKit
 import SwiftUI
+import Vision
+
+/// 2-D barcode module matrices for barcode fields (QR Code, PDF417), encoded
+/// with Core Image's standard generators and drawn by the engine as vectors.
+enum BarcodeEncoder {
+    static func matrix(for text: String, symbology: String) -> [[Int]]? {
+        let data = Data(text.utf8)
+        let output: CIImage?
+        if symbology == "pdf417" {
+            let filter = CIFilter.pdf417BarcodeGenerator()
+            filter.message = data
+            output = filter.outputImage
+        } else {
+            let filter = CIFilter.qrCodeGenerator()
+            filter.message = data
+            filter.correctionLevel = "M"
+            output = filter.outputImage
+        }
+        guard let image = output else { return nil }
+        let context = CIContext(options: [.useSoftwareRenderer: true])
+        let extent = image.extent.integral
+        let width = Int(extent.width), height = Int(extent.height)
+        guard width > 0, height > 0, width * height < 250_000 else { return nil }
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        context.render(image, toBitmap: &pixels, rowBytes: width * 4, bounds: extent, format: .RGBA8,
+                       colorSpace: CGColorSpaceCreateDeviceRGB())
+        // Core Image rows are bottom-up; the engine expects the top row first.
+        return (0..<height).reversed().map { y in
+            (0..<width).map { x in pixels[(y * width + x) * 4] < 128 ? 1 : 0 }
+        }
+    }
+}
 
 struct DraftFormField: Identifiable {
     let id = UUID()
@@ -7,6 +41,295 @@ struct DraftFormField: Identifiable {
     var type: String
     var bounds: CGRect
     var included = true
+}
+
+/// Field kinds Prepare Form can create (engine `add_form_field` types).
+enum FormFieldKind: String, CaseIterable, Identifiable {
+    case text, checkbox, radio, combo, list, signature, date, number, button, barcode
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .text: "Text field"
+        case .checkbox: "Check box"
+        case .radio: "Radio button"
+        case .combo: "Dropdown"
+        case .list: "List box"
+        case .signature: "Signature field"
+        case .date: "Date field"
+        case .number: "Number field"
+        case .button: "Button"
+        case .barcode: "Barcode"
+        }
+    }
+
+    var shortName: String {
+        switch self {
+        case .text: "Text"
+        case .checkbox: "Check box"
+        case .radio: "Radio"
+        case .combo: "Dropdown"
+        case .list: "List box"
+        case .signature: "Signature"
+        case .date: "Date"
+        case .number: "Number"
+        case .button: "Button"
+        case .barcode: "Barcode"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .text: "character.textbox"
+        case .checkbox: "checkmark.square"
+        case .radio: "smallcircle.filled.circle"
+        case .combo: "chevron.up.chevron.down.square"
+        case .list: "list.bullet.rectangle"
+        case .signature: "signature"
+        case .date: "calendar"
+        case .number: "number.square"
+        case .button: "button.horizontal"
+        case .barcode: "qrcode"
+        }
+    }
+
+    /// Size used when the user clicks instead of dragging.
+    var defaultSize: CGSize {
+        switch self {
+        case .text: CGSize(width: 150, height: 22)
+        case .checkbox, .radio: CGSize(width: 14, height: 14)
+        case .combo: CGSize(width: 150, height: 22)
+        case .list: CGSize(width: 150, height: 66)
+        case .signature: CGSize(width: 180, height: 44)
+        case .date, .number: CGSize(width: 100, height: 22)
+        case .button: CGSize(width: 90, height: 24)
+        case .barcode: CGSize(width: 96, height: 96)
+        }
+    }
+
+    /// Kinds offered in Prepare Form's field tool grid, in Acrobat's order.
+    static let toolbar: [FormFieldKind] = [.text, .checkbox, .radio, .combo, .list, .signature, .date, .number, .button, .barcode]
+
+    /// Acrobat-style shortcut letters (Prepare Form tool keys).
+    var shortcut: KeyEquivalent? {
+        switch self {
+        case .text: "t"
+        case .checkbox: "c"
+        case .radio: "r"
+        case .combo: "d"
+        case .list: "l"
+        case .signature: "s"
+        case .date: "a"
+        case .button: "b"
+        default: nil
+        }
+    }
+}
+
+/// A form field as reported by the engine's `form_fields` query.
+struct FormFieldInfo: Identifiable, Equatable {
+    struct Widget: Equatable {
+        var page: Int
+        var rect: CGRect
+        var export: String?
+    }
+    struct Option: Equatable, Hashable, Identifiable {
+        var id = UUID()
+        var label: String
+        var export: String
+        static func == (a: Option, b: Option) -> Bool { a.label == b.label && a.export == b.export }
+        func hash(into hasher: inout Hasher) { hasher.combine(label); hasher.combine(export) }
+    }
+    struct Format: Equatable {
+        var kind = "none"
+        var decimals = 2
+        var separator = 0
+        var negative = 0
+        var currency = ""
+        var prepend = true
+        var dateFormat = "mm/dd/yyyy"
+        var timeStyle = 0
+        var specialStyle = 0
+
+        var json: [String: Any] {
+            switch kind {
+            case "number": ["kind": "number", "decimals": decimals, "separator": separator, "negative": negative,
+                            "currency": currency, "prepend": prepend]
+            case "percent": ["kind": "percent", "decimals": decimals, "separator": separator]
+            case "date": ["kind": "date", "format": dateFormat]
+            case "time": ["kind": "time", "style": timeStyle]
+            case "special": ["kind": "special", "style": specialStyle]
+            default: ["kind": "none"]
+            }
+        }
+    }
+    struct Calculation: Equatable {
+        var kind = "none"          // none, sum, product, average, min, max, sfn, custom
+        var fields: [String] = []
+        var expression = ""
+
+        var json: Any {
+            switch kind {
+            case "sum", "product", "average", "min", "max": ["kind": kind, "fields": fields] as [String: Any]
+            case "sfn": ["kind": "sfn", "expression": expression] as [String: Any]
+            default: NSNull()
+            }
+        }
+    }
+
+    var id: String { name }
+    var name: String
+    var kind: String
+    var tooltip = ""
+    var readonly = false
+    var required = false
+    var value = ""
+    var values: [String] = []
+    var defaultValue = ""
+    var font = "helvetica"
+    var fontSize: Double = 0
+    var textColor: [Double]?
+    var alignment = "left"
+    var borderColor: [Double]?
+    var fillColor: [Double]?
+    var borderWidth: Double = 1
+    var borderStyle = "solid"
+    var hidden = false
+    var printable = true
+    var widgets: [Widget] = []
+    var multiline = false
+    var password = false
+    var comb = false
+    var scroll = true
+    var spellcheck = true
+    var maxLength: Int?
+    var options: [Option] = []
+    var editable = false
+    var multiSelect = false
+    var sort = false
+    var commitOnSelect = false
+    var checkStyle = "check"
+    var exports: [String] = []
+    var caption = ""
+    var actionKind = "none"
+    var actionURL = ""
+    var actionFormat = "html"
+    var barcodeSymbology = "qr"
+    var barcodeFields: [String] = []
+    var format = Format()
+    var validateMin: Double?
+    var validateMax: Double?
+    var calculation = Calculation()
+    var customScripts: [String] = []
+    var signed = false
+
+    init(name: String, kind: String) { self.name = name; self.kind = kind }
+
+    init(_ json: [String: Any]) {
+        name = json["name"] as? String ?? ""
+        kind = json["kind"] as? String ?? "text"
+        tooltip = json["tooltip"] as? String ?? ""
+        readonly = json["readonly"] as? Bool ?? false
+        required = json["required"] as? Bool ?? false
+        if let list = json["value"] as? [String] { values = list; value = list.joined(separator: ", ") }
+        else { value = json["value"] as? String ?? ""; values = value.isEmpty ? [] : [value] }
+        defaultValue = json["default"] as? String ?? ""
+        font = json["font"] as? String ?? "helvetica"
+        fontSize = json["font_size"] as? Double ?? 0
+        textColor = json["text_color"] as? [Double]
+        alignment = json["alignment"] as? String ?? "left"
+        borderColor = json["border_color"] as? [Double]
+        fillColor = json["fill_color"] as? [Double]
+        borderWidth = json["border_width"] as? Double ?? 1
+        borderStyle = json["border_style"] as? String ?? "solid"
+        hidden = json["hidden"] as? Bool ?? false
+        printable = json["print"] as? Bool ?? true
+        widgets = (json["widgets"] as? [[String: Any]] ?? []).map {
+            let r = $0["rect"] as? [Double] ?? [0, 0, 0, 0]
+            return Widget(page: $0["page"] as? Int ?? 0,
+                          rect: CGRect(x: min(r[0], r[2]), y: min(r[1], r[3]), width: abs(r[2] - r[0]), height: abs(r[3] - r[1])),
+                          export: $0["export"] as? String)
+        }
+        multiline = json["multiline"] as? Bool ?? false
+        password = json["password"] as? Bool ?? false
+        comb = json["comb"] as? Bool ?? false
+        scroll = json["scroll"] as? Bool ?? true
+        spellcheck = json["spellcheck"] as? Bool ?? true
+        maxLength = json["max_length"] as? Int
+        options = (json["options"] as? [[String: Any]] ?? []).map {
+            Option(label: $0["label"] as? String ?? "", export: $0["export"] as? String ?? "")
+        }
+        editable = json["editable"] as? Bool ?? false
+        multiSelect = json["multi_select"] as? Bool ?? false
+        sort = json["sort"] as? Bool ?? false
+        commitOnSelect = json["commit_on_select"] as? Bool ?? false
+        checkStyle = json["check_style"] as? String ?? "check"
+        exports = json["exports"] as? [String] ?? []
+        caption = json["caption"] as? String ?? ""
+        if let action = json["action"] as? [String: Any] {
+            actionKind = action["kind"] as? String ?? "none"
+            actionURL = action["url"] as? String ?? ""
+            actionFormat = action["format"] as? String ?? "html"
+        }
+        if let barcode = json["barcode"] as? [String: Any] {
+            barcodeSymbology = barcode["symbology"] as? String ?? "qr"
+            barcodeFields = barcode["fields"] as? [String] ?? []
+        }
+        if let f = json["format"] as? [String: Any] {
+            format.kind = f["kind"] as? String ?? "none"
+            format.decimals = f["decimals"] as? Int ?? 2
+            format.separator = f["separator"] as? Int ?? 0
+            format.negative = f["negative"] as? Int ?? 0
+            format.currency = f["currency"] as? String ?? ""
+            format.prepend = f["prepend"] as? Bool ?? true
+            format.dateFormat = f["format"] as? String ?? "mm/dd/yyyy"
+            format.timeStyle = f["style"] as? Int ?? 0
+            format.specialStyle = f["style"] as? Int ?? 0
+            if format.kind == "custom" { customScripts.append("format") }
+        }
+        if let v = json["validate"] as? [String: Any] {
+            validateMin = (v["min"] as? NSNumber)?.doubleValue
+            validateMax = (v["max"] as? NSNumber)?.doubleValue
+            if v["kind"] as? String == "custom" { customScripts.append("validation") }
+        }
+        if let c = json["calculate"] as? [String: Any] {
+            calculation.kind = c["kind"] as? String ?? "none"
+            calculation.fields = c["fields"] as? [String] ?? []
+            calculation.expression = c["expression"] as? String ?? ""
+            if calculation.kind == "custom" { customScripts.append("calculation") }
+        }
+        customScripts += json["unsupported_scripts"] as? [String] ?? []
+        signed = json["signed"] as? Bool ?? false
+    }
+
+    var displayKind: String {
+        switch kind {
+        case "text": format.kind == "date" ? "Date" : format.kind == "number" ? "Number" : "Text"
+        case "checkbox": "Check box"
+        case "radio": "Radio group"
+        case "combo": "Dropdown"
+        case "list": "List box"
+        case "signature": "Signature"
+        case "button": "Button"
+        case "barcode": "Barcode"
+        default: kind.capitalized
+        }
+    }
+
+    var symbolName: String {
+        switch kind {
+        case "text": format.kind == "date" ? "calendar" : format.kind == "number" ? "number.square" : "character.textbox"
+        case "checkbox": "checkmark.square"
+        case "radio": "smallcircle.filled.circle"
+        case "combo": "chevron.up.chevron.down.square"
+        case "list": "list.bullet.rectangle"
+        case "signature": "signature"
+        case "button": "button.horizontal"
+        case "barcode": "qrcode"
+        default: "questionmark.square.dashed"
+        }
+    }
 }
 
 @MainActor
@@ -74,5 +397,288 @@ enum FormFieldAuthoring {
         }
         for field in selected { page.addAnnotation(widget(field)) }
         state.noteAnnotationsChanged()
+    }
+
+    static func uniqueName(_ base: String, in tab: DocumentTab) -> String {
+        var existing = Set(tab.protection.formFields.map(\.name))
+        if let document = tab.pdfDocument { existing.formUnion(names(in: document)) }
+        let stem = base.replacingOccurrences(of: ".", with: " ")
+        var number = 1
+        while existing.contains("\(stem) \(number)") { number += 1 }
+        return "\(stem) \(number)"
+    }
+}
+
+// MARK: - Field detection on scanned pages
+
+/// Suggests fields on raster (scanned) pages: boxes drawn with ruled lines
+/// become text fields or check boxes, long horizontal rules become answer
+/// lines, and anything containing printed text (Apple Vision OCR) is dropped.
+enum ScannedFieldDetector {
+    @MainActor static func isRaster(_ page: PDFPage) -> Bool {
+        (page.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).count < 20
+    }
+
+    @MainActor static func detect(on page: PDFPage) async -> [NativeFieldSuggestion] {
+        let box = page.bounds(for: .cropBox)
+        guard box.width > 0, box.height > 0, page.rotation % 360 == 0 else { return [] }
+        let scale: CGFloat = 2
+        let size = CGSize(width: box.width * scale, height: box.height * scale)
+        let image = page.thumbnail(of: size, for: .cropBox)
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return [] }
+        return await Task.detached(priority: .userInitiated) { analyze(cg, pageBox: box) }.value
+    }
+
+    /// A dark horizontal or vertical run in image pixels (top-down rows).
+    struct Rule { var start: Int; var end: Int; var position: Int }
+
+    nonisolated static func analyze(_ cg: CGImage, pageBox box: CGRect) -> [NativeFieldSuggestion] {
+        let width = cg.width, height = cg.height
+        guard width > 0, height > 0,
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return [] }
+        context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let data = context.data else { return [] }
+        let pixels = data.bindMemory(to: UInt8.self, capacity: width * height)
+        let px = CGFloat(width) / box.width                 // pixels per point
+        func dark(_ x: Int, _ row: Int) -> Bool { pixels[row * width + x] < 128 }
+        let minRun = max(10, Int(6 * px))
+        // Horizontal and vertical dark runs, merged across adjacent rows/columns.
+        func runs(horizontal: Bool) -> [Rule] {
+            var found: [Rule] = []
+            let outer = horizontal ? height : width, inner = horizontal ? width : height
+            for a in 0..<outer {
+                var start: Int?
+                for b in 0...inner {
+                    let isDark = b < inner && (horizontal ? dark(b, a) : dark(a, b))
+                    if isDark { if start == nil { start = b } }
+                    else if let s = start {
+                        if b - s >= minRun { found.append(Rule(start: s, end: b, position: a)) }
+                        start = nil
+                    }
+                }
+            }
+            var merged: [Rule] = []
+            for rule in found {
+                if let index = merged.lastIndex(where: { rule.position - $0.position <= 2 && abs($0.start - rule.start) < 4 && abs($0.end - rule.end) < 4 }),
+                   rule.position - merged[index].position <= 2 {
+                    merged[index].position = rule.position   // keep the far edge of a thick rule
+                } else { merged.append(rule) }
+                if merged.count > 4000 { break }
+            }
+            return merged
+        }
+        // Noisy scans produce many short strokes; keep the longest rules for pairing.
+        let horizontal = Array(runs(horizontal: true).sorted { $0.end - $0.start > $1.end - $1.start }.prefix(800))
+            .sorted { ($0.position, $0.start) < ($1.position, $1.start) }
+        let vertical = Array(runs(horizontal: false).sorted { $0.end - $0.start > $1.end - $1.start }.prefix(1200))
+        func pageRect(x0: Int, x1: Int, top: Int, bottom: Int) -> CGRect {
+            CGRect(x: box.minX + CGFloat(x0) / px, y: box.minY + (CGFloat(height - bottom)) / px,
+                   width: CGFloat(x1 - x0) / px, height: CGFloat(bottom - top) / px)
+        }
+        var accepted: [CGRect] = []
+        var kinds: [String] = []
+        var usedRules = Set<Int>()
+        // Boxes: two horizontal rules with matching extent joined by vertical rules at both ends.
+        let tolerance = Int(3 * px)
+        for (i, top) in horizontal.enumerated() {
+            for (j, bottom) in horizontal.enumerated() where j != i && bottom.position > top.position {
+                let gap = CGFloat(bottom.position - top.position) / px
+                guard gap >= 7, gap <= 72, abs(top.start - bottom.start) <= tolerance, abs(top.end - bottom.end) <= tolerance else { continue }
+                func edge(_ x: Int) -> Bool {
+                    vertical.contains { abs($0.position - x) <= tolerance && $0.start <= top.position + tolerance && $0.end >= bottom.position - tolerance }
+                }
+                guard edge(top.start), edge(top.end - 1) else { continue }
+                let rect = pageRect(x0: top.start, x1: top.end, top: top.position, bottom: bottom.position)
+                let isCheck = rect.width <= 24 && rect.height <= 24 && abs(rect.width - rect.height) < 5
+                guard isCheck || rect.width >= 22 else { continue }
+                guard !accepted.contains(where: { $0.insetBy(dx: 1, dy: 1).intersects(rect.insetBy(dx: 1, dy: 1)) }) else { continue }
+                accepted.append(rect)
+                kinds.append(isCheck ? "checkbox" : "text")
+                usedRules.formUnion([i, j])
+                break
+            }
+        }
+        // Answer lines: long standalone horizontal rules.
+        for (i, rule) in horizontal.enumerated() where !usedRules.contains(i) {
+            let length = CGFloat(rule.end - rule.start) / px
+            guard length >= 36, length <= box.width * 0.9 else { continue }
+            let base = pageRect(x0: rule.start, x1: rule.end, top: rule.position, bottom: rule.position + 1)
+            let rect = CGRect(x: base.minX, y: base.minY + 1, width: base.width, height: 14)
+            guard !accepted.contains(where: { $0.insetBy(dx: -2, dy: -2).intersects(rect) }) else { continue }
+            accepted.append(rect)
+            kinds.append("text")
+        }
+        // Printed text inside a candidate means it's a label, not an empty field.
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+        let text = VNRecognizeTextRequest()
+        text.recognitionLevel = .fast
+        try? handler.perform([text])
+        let textBoxes = (text.results ?? []).map {
+            CGRect(x: box.minX + $0.boundingBox.minX * box.width, y: box.minY + $0.boundingBox.minY * box.height,
+                   width: $0.boundingBox.width * box.width, height: $0.boundingBox.height * box.height)
+        }
+        return zip(accepted, kinds).filter { rect, _ in
+            !textBoxes.contains { t in let i = t.intersection(rect.insetBy(dx: 1, dy: 1)); return !i.isNull && i.width * i.height > rect.width * rect.height * 0.25 }
+        }
+        .sorted { ($0.0.maxY, -$0.0.minX) > ($1.0.maxY, -$1.0.minX) }
+        .prefix(200)
+        .map { rect, kind in NativeFieldSuggestion(type: kind, rect: [rect.minX, rect.minY, rect.maxX, rect.maxY]) }
+    }
+}
+
+// MARK: - Auto-fill from profile
+
+struct ProfileSuggestion: Identifiable {
+    let id = UUID()
+    let annotation: PDFAnnotation
+    let fieldName: String
+    let label: String
+    let value: String
+    var include = true
+}
+
+enum FormProfileMatcher {
+    nonisolated(unsafe) private static let rules: [(KeyPath<FormProfile, String>, String, [String])] = [
+        (\.email, "Email", ["email", "e-mail", "e mail"]),
+        (\.phone, "Phone", ["phone", "telephone", "tel", "mobile", "cell"]),
+        (\.firstName, "First name", ["first name", "firstname", "given name", "fname", "first"]),
+        (\.lastName, "Last name", ["last name", "lastname", "surname", "family name", "lname", "last"]),
+        (\.street2, "Address line 2", ["address 2", "address line 2", "apt", "suite", "unit"]),
+        (\.street, "Street address", ["street", "address 1", "address line 1", "address", "addr"]),
+        (\.city, "City", ["city", "town"]),
+        (\.state, "State", ["state", "province", "region"]),
+        (\.postalCode, "ZIP code", ["zip", "postal", "postcode"]),
+        (\.country, "Country", ["country"]),
+        (\.company, "Company", ["company", "employer", "organization", "organisation", "business name"]),
+        (\.jobTitle, "Job title", ["job title", "position", "occupation"]),
+        (\.dateOfBirth, "Date of birth", ["date of birth", "birth date", "birthdate", "dob"]),
+        (\.fullName, "Full name", ["full name", "your name", "print name", "printed name", "applicant name", "name"]),
+    ]
+
+    static func normalize(_ text: String) -> String {
+        let spaced = text.replacingOccurrences(of: "([a-z])([A-Z])", with: "$1 $2", options: .regularExpression)
+        return spaced.lowercased().replacingOccurrences(of: "[_\\-\\.\\[\\]0-9]+", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Profile key label and value for a field label, if any rule matches.
+    static func match(_ label: String, profile: FormProfile) -> (String, String)? {
+        let text = " " + normalize(label) + " "
+        for (path, title, keys) in rules {
+            let value = profile[keyPath: path]
+            guard !value.isEmpty else { continue }
+            if keys.contains(where: { text.contains(" " + $0 + " ") }) { return (title, value) }
+        }
+        return nil
+    }
+
+    @MainActor
+    static func suggestions(in document: PDFDocument, profile: FormProfile) -> [ProfileSuggestion] {
+        guard !profile.isEmpty else { return [] }
+        var out: [ProfileSuggestion] = []
+        var seen = Set<String>()
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            for annotation in page.annotations where annotation.type == "Widget" && annotation.widgetFieldType == .text
+                && !annotation.isReadOnly && (annotation.widgetStringValue ?? "").isEmpty {
+                let name = annotation.fieldName ?? ""
+                guard !seen.contains(name) else { continue }
+                let label = [annotation.toolTip ?? "", name].first { !$0.isEmpty } ?? ""
+                if let (title, value) = match(label, profile: profile) ?? match(name, profile: profile) {
+                    seen.insert(name)
+                    out.append(ProfileSuggestion(annotation: annotation, fieldName: name, label: title, value: value))
+                }
+            }
+        }
+        return out
+    }
+}
+
+// MARK: - Live form logic (calculations and formats while filling)
+
+@MainActor
+enum FormLogic {
+    private static var observers: [ObjectIdentifier: [Any]] = [:]
+    /// Acrobat-style "Invalid value" alert; replaceable for tests.
+    static var presentError: (String) -> Void = { message in
+        let alert = NSAlert()
+        alert.messageText = "Invalid value"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.runModal()
+    }
+    private static var pending: Task<Void, Never>?
+
+    /// Recalculates after a field editor commits or a button/choice click,
+    /// for documents whose fields carry format/validate/calculate actions.
+    static func startObserving(_ state: AppState) {
+        let key = ObjectIdentifier(state)
+        guard observers[key] == nil else { return }
+        let schedule: @MainActor () -> Void = { [weak state] in
+            pending?.cancel()
+            pending = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                guard !Task.isCancelled, let state, let tab = state.activeTab, tab.protection.hasFormLogic,
+                      tab.allowsSaveEdits else { return }
+                await recalculate(tab, state: state)
+            }
+        }
+        let text = NotificationCenter.default.addObserver(forName: NSText.didEndEditingNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { schedule() }
+        }
+        let mouse = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { event in
+            MainActor.assumeIsolated { schedule() }
+            return event
+        }
+        observers[key] = [text, mouse as Any]
+    }
+
+    static func currentValues(_ document: PDFDocument) -> (values: [String: String], widgets: [String: [PDFAnnotation]]) {
+        var values: [String: String] = [:]
+        var widgets: [String: [PDFAnnotation]] = [:]
+        for index in 0..<document.pageCount {
+            for annotation in document.page(at: index)?.annotations ?? [] where annotation.type == "Widget" {
+                guard let name = annotation.fieldName else { continue }
+                widgets[name, default: []].append(annotation)
+                if annotation.widgetFieldType == .button {
+                    if annotation.buttonWidgetState == .onState { values[name] = annotation.buttonWidgetStateString }
+                    else if values[name] == nil { values[name] = "" }
+                } else {
+                    values[name] = annotation.widgetStringValue ?? ""
+                }
+            }
+        }
+        return (values, widgets)
+    }
+
+    /// Recomputes calculated fields and formats after a field commits.
+    static func recalculate(_ tab: DocumentTab, state: AppState, touched explicit: Set<String>? = nil) async {
+        guard tab.protection.hasFormLogic, let document = tab.pdfDocument else { return }
+        let before = currentValues(document).values
+        let previous = tab.protection.lastFieldValues ?? Dictionary(uniqueKeysWithValues: tab.protection.formFields.map { ($0.name, $0.value) })
+        let touched = explicit ?? Set(before.keys.filter { before[$0] != previous[$0] })
+        guard explicit != nil || !touched.isEmpty else { return }
+        let (values, widgets) = currentValues(document)
+        let params: [String: Any] = ["values": values, "touched": Array(touched)]
+        guard let result = try? await state.queryDocument("form_calculate", params: params, in: tab) else { return }
+        if let errors = result["errors"] as? [String: String], let first = errors.first {
+            presentError(first.value)
+            for name in errors.keys {
+                let restored = previous[name] ?? ""
+                widgets[name]?.forEach { $0.widgetStringValue = restored }
+            }
+        }
+        let display = result["display"] as? [String: String] ?? [:]
+        let calculated = result["calculated"] as? [String: String] ?? [:]
+        for (name, raw) in calculated {
+            let shown = display[name] ?? raw
+            widgets[name]?.forEach { if $0.widgetStringValue != shown { $0.widgetStringValue = shown } }
+        }
+        for (name, shown) in display where touched.contains(name) {
+            widgets[name]?.forEach { if $0.widgetStringValue != shown { $0.widgetStringValue = shown } }
+        }
+        tab.protection.lastFieldValues = currentValues(document).values
+        state.refreshUnsavedChanges(tab)
     }
 }

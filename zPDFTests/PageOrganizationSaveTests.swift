@@ -372,7 +372,10 @@ final class PageOrganizationSaveTests: XCTestCase {
         let tab = try XCTUnwrap(state.activeTab)
         while tab.saveChecking { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertFalse(try XCTUnwrap(tab.pdfDocument).isLocked)
-        XCTAssertEqual(tab.saveBlock, "UNSUPPORTED_ENCRYPTED_WRITE")
+        // Opening with the password yields a private decrypted editing revision;
+        // the encrypted original is kept to re-apply its security on Save.
+        XCTAssertNil(tab.saveBlock)
+        XCTAssertEqual(tab.protection.pending, .preserve)
         XCTAssertEqual(tab.pageCount, doc.pageCount)
         XCTAssertEqual(try Data(contentsOf: encrypted), bytes)
     }

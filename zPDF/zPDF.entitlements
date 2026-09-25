@@ -22,6 +22,9 @@
 	<key>com.apple.security.files.bookmarks.app-scope</key>
 	<true/>
 	<key>com.apple.security.device.audio-input</key>
+	<!-- Outgoing connections only for user-enabled RFC 3161 timestamp servers
+	     and OCSP/CRL downloads when signing (Settings > Signatures; off by default). -->
+	<key>com.apple.security.network.client</key>
 	<true/>
 </dict>
 </plist>

@@ -28,7 +28,9 @@ extension AppState {
         checkpointTasks.removeValue(forKey: tab.id)?.cancel()
         guard tabs.contains(where: { $0 === tab }), tab.saveBlock == nil,
               !tab.saveChecking, !tab.hasUncommittedFieldEdit,
-              tab.pdfDocument?.isEncrypted == false else { return }
+              tab.pdfDocument?.isEncrypted == false,
+              // Never persist the decrypted editing revision of an encrypted PDF.
+              tab.protection.original == nil, tab.protection.secrets.isEmpty else { return }
         checkpointTasks[tab.id] = Task { [weak self, weak tab] in
             do {
                 try await Task.sleep(for: .milliseconds(800))

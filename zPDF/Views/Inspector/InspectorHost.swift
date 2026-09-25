@@ -189,6 +189,7 @@ struct PanelToolButton: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .multilineTextAlignment(.center)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)

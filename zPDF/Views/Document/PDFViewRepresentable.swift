@@ -282,6 +282,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
         func beginAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
             guard appState.activeTab?.allowsSaveEdits == true,
                   appState.activeTab?.pdfDocument === pdfView.document else { return false }
+            // Fill & Sign / Prepare Form / Certificates tools (FormsCanvasInteraction).
+            if appState.signatureService.canvas.begin(event, in: pdfView, state: appState) { return true }
             // Content editing and redaction tools own the canvas through
             // ContentEditOverlay; PDFView keeps its own behavior otherwise.
             if appState.textEditingModeActive { return false }
@@ -302,12 +304,14 @@ struct PDFViewRepresentable: NSViewRepresentable {
         /// Continues a comment gesture. Returns true while one is in progress.
         @MainActor
         func continueAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
+            if appState.signatureService.canvas.drag(event, in: pdfView, state: appState) { return true }
             appState.comments.canvas.mouseDragged(event, in: pdfView)
         }
 
         /// Finishes a comment gesture (shape, stroke, move, resize).
         @MainActor
         func endAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
+            if appState.signatureService.canvas.end(event, in: pdfView, state: appState) { return true }
             appState.comments.canvas.mouseUp(event, in: pdfView)
         }
 
