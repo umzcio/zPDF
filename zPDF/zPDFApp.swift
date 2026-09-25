@@ -45,6 +45,7 @@ struct zPDFApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("Open…") { appState.openFilePanel() }
                     .zShortcut(.open)
+                DocumentCommands.createPDFMenu(appState)
                 Divider()
                 Button(appState.documentWindowIsKey && appState.activeTab != nil ? "Close Tab" : "Close Window") {
                     if appState.documentWindowIsKey && appState.activeTab != nil {
@@ -54,6 +55,14 @@ struct zPDFApp: App {
                     }
                 }
                 .zShortcut(.closeTab)
+                // Save lives here: a single `Window` scene has no .saveItem slot.
+                Divider()
+                Button("Save") { appState.saveActiveDocument() }
+                    .zShortcut(.save)
+                    .disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true)
+                Button("Save As…") { appState.saveActiveDocumentAs() }
+                    .zShortcut(.saveAs)
+                    .disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true || appState.isResolvingClose)
             }
             CommandGroup(after: .importExport) {
                 Menu("Export") {
@@ -103,15 +112,7 @@ struct zPDFApp: App {
                 Button("Print…") { appState.printActiveDocument() }
                     .zShortcut(.print)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil || appState.activeTab?.isSaving == true)
-            }
-            // View menu additions.
-            CommandGroup(replacing: .saveItem) {
-                Button("Save") { appState.saveActiveDocument() }
-                    .zShortcut(.save)
-                    .disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true)
-                Button("Save As…") { appState.saveActiveDocumentAs() }
-                    .zShortcut(.saveAs)
-                    .disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true || appState.isResolvingClose)
+                ViewCommands.printMenuExtras(appState)
             }
             CommandMenu("Navigate") {
                 Button("Previous View") { appState.navigateView(backward: true) }

@@ -326,7 +326,7 @@ struct OrganizePagesPanel: View {
                         PanelToolButton(title: "Blank Page", symbolName: "doc.badge.plus", isActive: false) {
                             appState.present(.insertPages(.blank))
                         }
-                        .help("Insert blank pages (⇧⌘B)")
+                        .help("Insert blank pages (⌥⌘B)")
                         PanelToolButton(title: "From File", symbolName: "doc.on.doc", isActive: false) {
                             appState.present(.insertPages(.file))
                         }

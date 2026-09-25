@@ -12,20 +12,6 @@ struct DocumentCommands: Commands {
     private var hasDocument: Bool { appState.documentWindowIsKey && appState.activeTab != nil }
 
     var body: some Commands {
-        CommandGroup(after: .newItem) {
-            Menu("Create PDF") {
-                Button("From Files…") { appState.present(.createPDF(.files)) }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
-                Button("From Web Page…") { appState.present(.createPDF(.web)) }
-                Button("From Clipboard") { Task { _ = await appState.createPDFFromClipboard() } }
-                    .keyboardShortcut("v", modifiers: [.command, .option])
-                Button("From Scanner…") { appState.present(.scanner) }
-                Divider()
-                Button("Blank PDF…") { appState.present(.createPDF(.blank)) }
-                Button("PDF Portfolio…") { appState.present(.createPDF(.portfolio)) }
-            }
-            .disabled(appState.isResolvingClose)
-        }
         CommandGroup(after: .importExport) {
             Button("Export Pages as Images…") { appState.present(.exportImages) }
                 .disabled(!hasDocument)
@@ -33,7 +19,7 @@ struct DocumentCommands: Commands {
         CommandMenu("Document") {
             Menu("Insert Pages") {
                 Button("Blank Page…") { appState.present(.insertPages(.blank)) }
-                    .keyboardShortcut("b", modifiers: [.command, .shift])
+                    .keyboardShortcut("b", modifiers: [.command, .option]) // ⇧⌘B is Read to End (Acrobat)
                 Button("From File…") { appState.present(.insertPages(.file)) }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
             }
@@ -93,5 +79,23 @@ struct DocumentCommands: Commands {
     private func rotate(current: Bool, _ angle: Int) {
         guard let tab = appState.activeTab else { return }
         Task { await appState.rotatePages(current ? [tab.currentPage - 1] : nil, by: angle, in: tab) }
+    }
+
+    /// File ▸ Create PDF. SwiftUI drops `after: .newItem` groups for a single
+    /// `Window` scene, so zPDFApp places this inside its File group.
+    @MainActor @ViewBuilder
+    static func createPDFMenu(_ appState: AppState) -> some View {
+        Menu("Create PDF") {
+            Button("From Files…") { appState.present(.createPDF(.files)) }
+                .keyboardShortcut("n", modifiers: [.command, .option])
+            Button("From Web Page…") { appState.present(.createPDF(.web)) }
+            Button("From Clipboard") { Task { _ = await appState.createPDFFromClipboard() } }
+                .keyboardShortcut("v", modifiers: [.command, .option])
+            Button("From Scanner…") { appState.present(.scanner) }
+            Divider()
+            Button("Blank PDF…") { appState.present(.createPDF(.blank)) }
+            Button("PDF Portfolio…") { appState.present(.createPDF(.portfolio)) }
+        }
+        .disabled(appState.isResolvingClose)
     }
 }

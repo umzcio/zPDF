@@ -33,9 +33,12 @@ struct SignaturesSidebar: View {
                             .font(.system(size: 10.5))
                             .foregroundStyle(DesignTokens.Colors.accent)
                     }
-                    if protection.signatures.isEmpty {
-                        Text("This document has no signatures or signature fields.")
-                            .font(.system(size: 11)).foregroundStyle(DesignTokens.Colors.mutedText)
+                    if protection.signatures.isEmpty && protection.certification == nil {
+                        SidebarEmptyState(symbolName: "signature", message: "No signatures",
+                                          detail: "This document has no digital signatures or signature fields.",
+                                          actionTitle: ToolID.signWithCertificate.isImplemented ? "Sign with Certificate…" : nil,
+                                          action: { appState.openTool(.signWithCertificate) })
+                            .frame(maxWidth: .infinity, minHeight: 320)
                     }
                     ForEach(protection.signatures) { signature in
                         SignatureRow(signature: signature, expanded: expanded.contains(signature.id),
@@ -62,7 +65,7 @@ struct SignaturesSidebar: View {
 
     private var summary: String {
         let signed = protection.signatures.filter(\.signed)
-        if signed.isEmpty { return protection.signatures.isEmpty ? "Signatures" : "Unsigned signature fields" }
+        if signed.isEmpty { return protection.signatures.isEmpty ? "Not signed" : "Unsigned signature fields" }
         if signed.contains(where: { $0.validity == .invalid }) { return "At least one signature is invalid" }
         if signed.contains(where: { $0.validity == .unknownSigner }) { return "Signed; signer identity unknown" }
         return "Signed and all signatures are valid"

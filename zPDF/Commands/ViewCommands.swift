@@ -10,31 +10,6 @@ struct ViewCommands: Commands {
     private var viewing: DocumentViewingState? { appState.activeTab.map { appState.features.viewing(for: $0) } }
 
     var body: some Commands {
-        CommandGroup(after: .printItem) {
-            Button("Print Selected Area…") { appState.beginPrintAreaSelection() }
-                .disabled(!hasDocument)
-            Divider()
-            Menu("Share") {
-                Button(AppCommandID.share.title) {
-                    if let tab = appState.activeTab { ShareService.share(tab, appState: appState) }
-                }
-                .zShortcut(.share)
-                Button("Email…") {
-                    if let tab = appState.activeTab { ShareService.share(tab, appState: appState, service: .composeEmail) }
-                }
-                Button("AirDrop…") {
-                    if let tab = appState.activeTab { ShareService.share(tab, appState: appState, service: .sendViaAirDrop) }
-                }
-                Button("Copy Document") {
-                    if let tab = appState.activeTab { ShareService.copyToPasteboard(tab, appState: appState) }
-                }
-            }
-            .disabled(!hasDocument)
-            Divider()
-            Button(AppCommandID.documentProperties.title) { appState.showDocumentProperties() }
-                .zShortcut(.documentProperties)
-                .disabled(!hasDocument)
-        }
         CommandGroup(after: .textEditing) {
             Button(AppCommandID.advancedSearch.title) { appState.features.showingAdvancedSearch = true }
                 .zShortcut(.advancedSearch)
@@ -176,5 +151,36 @@ private struct HelpMenuItems: View {
             SettingsNavigation.shared.request(.keyboard)
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
+    }
+}
+
+extension ViewCommands {
+    /// File-menu items that follow Print (SwiftUI drops `after: .printItem`
+    /// for a single `Window` scene; zPDFApp places these in its Print group).
+    @MainActor @ViewBuilder
+    static func printMenuExtras(_ appState: AppState) -> some View {
+        Button("Print Selected Area…") { appState.beginPrintAreaSelection() }
+            .disabled(!(appState.documentWindowIsKey && appState.activeTab != nil))
+        Divider()
+        Menu("Share") {
+            Button(AppCommandID.share.title) {
+                if let tab = appState.activeTab { ShareService.share(tab, appState: appState) }
+            }
+            .zShortcut(.share)
+            Button("Email…") {
+                if let tab = appState.activeTab { ShareService.share(tab, appState: appState, service: .composeEmail) }
+            }
+            Button("AirDrop…") {
+                if let tab = appState.activeTab { ShareService.share(tab, appState: appState, service: .sendViaAirDrop) }
+            }
+            Button("Copy Document") {
+                if let tab = appState.activeTab { ShareService.copyToPasteboard(tab, appState: appState) }
+            }
+        }
+        .disabled(!(appState.documentWindowIsKey && appState.activeTab != nil))
+        Divider()
+        Button(AppCommandID.documentProperties.title) { appState.showDocumentProperties() }
+            .zShortcut(.documentProperties)
+            .disabled(!(appState.documentWindowIsKey && appState.activeTab != nil))
     }
 }

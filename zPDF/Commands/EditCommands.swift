@@ -36,7 +36,7 @@ struct EditCommands: Commands {
             .disabled(!canEdit)
             Menu("Redact") {
                 Button("Mark Text & Areas for Redaction") { open(.redact, tool: .redact) }
-                    .keyboardShortcut("r", modifiers: [.command, .shift])
+                    .keyboardShortcut("x", modifiers: [.command, .shift]) // ⇧⌘R rotates pages (Acrobat)
                 Button("Mark Current Page for Redaction") {
                     openPanel(.redact)
                     appState.contentEditing.markPages(.current)

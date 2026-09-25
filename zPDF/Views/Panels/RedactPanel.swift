@@ -49,7 +49,7 @@ struct RedactPanel: View {
                                 isActive: controller.isActive && controller.tool == .redact) {
                     controller.toggle(.redact)
                 }
-                .help("Mark text by dragging across it, or drag a rectangle (⇧⌘R)")
+                .help("Mark text by dragging across it, or drag a rectangle (⇧⌘X)")
                 PanelToolButton(title: "Whole Pages", symbolName: "doc.badge.ellipsis", isActive: showingPageMarks) {
                     showingPageMarks.toggle()
                 }
