@@ -53,8 +53,8 @@ class Tracker:
         self.prev = last_startxref(self.base)
         self.size = int(pdf.trailer.get("/Size", 0))
         self.snapshot = {}
-        for obj in pdf.objects:
-            if obj.is_indirect and not self._skipped(obj):
+        for obj in pdf.objects:  # unused object numbers are None
+            if obj is not None and obj.is_indirect and not self._skipped(obj):
                 try:
                     self.snapshot[obj.objgen] = _fingerprint(obj)
                 except pikepdf.PdfError:
@@ -70,7 +70,7 @@ class Tracker:
     def changed_objects(self, pdf):
         changed = []
         for obj in pdf.objects:
-            if not obj.is_indirect or self._skipped(obj):
+            if obj is None or not obj.is_indirect or self._skipped(obj):
                 continue
             key = obj.objgen
             if key[0] == 0:

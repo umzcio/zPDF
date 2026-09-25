@@ -195,6 +195,26 @@ class SignatureTests(Base):
             self.assertIn("/N", widget.AP)
             self.assertEqual(pdf.Root.AcroForm.SigFlags, 3)
 
+    def test_signing_object_stream_and_linearized_pdfs(self):
+        """Browser/Office/Docs exports use object streams, xref streams and often
+        linearization; pikepdf lists unused object numbers there as None."""
+        for label, opts in [("objstreams", dict(object_stream_mode=pikepdf.ObjectStreamMode.generate)),
+                            ("linearized", dict(linearize=True))]:
+            with self.subTest(label):
+                src = self.tmp / f"{label}.pdf"
+                with pikepdf.open(ROOT / "zPDFTests/Fixtures/irs-1040-worksheet-b.pdf") as pdf:
+                    pdf.save(src, **opts)
+                original = src.read_bytes()
+                out, _ = self.run_ops(src, [{"op": "sign", "identity": self.ident(), "page": 0,
+                                              "rect": [100, 100, 300, 160], "reason": "I approve"}],
+                                      name=f"{label}-signed.pdf")
+                self.assertTrue(out.read_bytes().startswith(original), "signing appends to the original bytes")
+                sig = self.query(out)["signatures"][0]
+                self.assertTrue(sig["signed"] and sig["integrity"] and sig["covers_document"], sig)
+                hanko = pyhanko_check(out, [self.cert_der])
+                if hanko is not None:
+                    self.assertTrue(hanko[0]["intact"] and hanko[0]["valid"], hanko)
+
     def test_second_signature_keeps_first_valid(self):
         src = self.fixture("uscis-i9.pdf")
         one, _ = self.run_ops(src, [{"op": "sign", "identity": self.ident(), "page": 0, "rect": [40, 40, 200, 80]}], name="one.pdf")
