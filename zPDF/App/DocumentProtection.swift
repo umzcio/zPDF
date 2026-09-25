@@ -135,6 +135,8 @@ final class DocumentProtectionState {
     var pending: PendingSecurity = .none
     /// Encrypted, but editing is restricted until the permissions password is entered.
     var editingRestricted = false
+    /// Encrypted and digitally signed: kept read-only so Save can't break signatures.
+    var signedEncrypted = false
     var openPassword: String?
 
     var signatures: [SignatureStatus] = []
@@ -225,6 +227,16 @@ extension AppState {
         let editable = info.ownerPasswordMatched || info.allows("modify_other")
         tab.protection.editingRestricted = !editable
         guard editable else { return }
+        // Re-encrypting on Save rewrites the file, which would break existing
+        // signatures: signed encrypted documents stay read-only.
+        if await Task.detached(operation: { SignedPDF.mayBeSigned(output.url) }).value {
+            let check = try? await NativeDocumentBridge.query(source: output.url, hash: output.hash, name: "security_info")
+            if check?["signed"] as? Bool == true {
+                tab.protection.editingRestricted = false
+                tab.protection.signedEncrypted = true
+                return
+            }
+        }
         let revision = try await DocumentEditSource.adopt(output, name: url.lastPathComponent)
         let document = try engine.openDocument(at: revision.url)
         tab.protection.original = original
@@ -476,6 +488,10 @@ extension AppState {
             }
             tab.protection.signatures = items
             tab.protection.certification = report["certification"] as? Int
+            if tab.protection.certification == 1, tab.saveBlock == nil, !tab.hasUnsavedChanges {
+                // Certified with no changes allowed (DocMDP P=1): read-only, as in Acrobat.
+                tab.saveBlock = "CERTIFIED_NO_CHANGES"
+            }
             tab.protection.hasDSS = report["has_dss"] as? Bool ?? false
             tab.protection.validatedHash = hash
             tab.protection.validationError = nil

@@ -234,7 +234,8 @@ struct CertificateSecuritySheet: View {
                         }
                         .toggleStyle(.checkbox)
                     }
-                    .frame(height: 170)
+                    .listStyle(.bordered(alternatesRowBackgrounds: true))
+                    .frame(height: min(CGFloat(candidates.count) * 44 + 8, 190))
                 }
                 Button("Add Certificate File…") { addCertificate() }
                     .help("Add a recipient from a .cer, .crt, .der or .pem file")

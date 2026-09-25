@@ -418,6 +418,7 @@ private struct AutofillSheet: View {
                         .toggleStyle(.checkbox)
                     }
                 }
+                .listStyle(.bordered(alternatesRowBackgrounds: true))
                 .frame(height: 260)
             }
         } buttons: {
@@ -458,6 +459,7 @@ private struct ListSelectionSheet: View {
                                                         set: { on in if on { selection.insert(option.export) } else { selection.remove(option.export) } }))
                         .toggleStyle(.checkbox)
                 }
+                .listStyle(.bordered(alternatesRowBackgrounds: true))
                 .frame(height: 220)
                 if let error { PanelErrorText(message: error) }
             }
