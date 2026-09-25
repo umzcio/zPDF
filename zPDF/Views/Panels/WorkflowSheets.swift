@@ -16,6 +16,7 @@ enum WorkflowSheet: Identifiable {
     case outputPreview
     case compareResults(ComparisonResult)
     case scanner
+    case portfolio
 
     var id: String {
         switch self {
@@ -32,6 +33,7 @@ enum WorkflowSheet: Identifiable {
         case .outputPreview: "preview"
         case .compareResults(let result): "compare-\(result.id)"
         case .scanner: "scanner"
+        case .portfolio: "portfolio"
         }
     }
 
@@ -80,6 +82,7 @@ struct WorkflowSheetHost: View {
         case .reduceFileSize: ReduceFileSizeSheet(tab: tab)
         case .exportImages: ExportImagesSheet(tab: tab)
         case .outputPreview: OutputPreviewSheet(tab: tab)
+        case .portfolio: PortfolioSheet(tab: tab)
         default: EmptyView()
         }
     }
@@ -101,7 +104,7 @@ extension WorkflowSheet {
     /// Sheets that only read the document (allowed on read-only documents).
     var isReadOnlySafe: Bool {
         switch self {
-        case .exportImages, .outputPreview: true
+        case .exportImages, .outputPreview, .portfolio: true
         default: false
         }
     }

@@ -273,7 +273,13 @@ final class WebPDFRenderer: NSObject, WKNavigationDelegate {
         return document.string?.isEmpty == false || (try? output.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) ?? 0 > 2000
     }
 
-    @objc private func printOperationDidRun(_ operation: NSPrintOperation, success: Bool, contextInfo: UnsafeMutableRawPointer?) {
+    /// AppKit may finish a print job on its own thread; resume on the main actor.
+    @objc nonisolated private func printOperationDidRun(_ operation: NSPrintOperation, success: Bool,
+                                                        contextInfo: UnsafeMutableRawPointer?) {
+        Task { @MainActor in self.finishPrint(success) }
+    }
+
+    private func finishPrint(_ success: Bool) {
         printed?.resume(returning: success)
         printed = nil
     }

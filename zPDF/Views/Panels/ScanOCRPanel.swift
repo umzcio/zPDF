@@ -225,10 +225,32 @@ fileprivate extension Array {
 struct ScanDetectionBanner: View {
     @Environment(AppState.self) private var appState
     @State private var visibleFor: UUID?
+    @State private var portfolio: (tab: UUID, count: Int, isPortfolio: Bool)?
 
     var body: some View {
         Group {
-            if let tab = appState.activeTab, visibleFor == tab.id, !ScanDetector.dismissed.contains(tab.id) {
+            if let tab = appState.activeTab, let portfolio, portfolio.tab == tab.id, !ScanDetector.dismissed.contains(tab.id) {
+                HStack(spacing: 10) {
+                    Image(systemName: portfolio.isPortfolio ? "folder" : "paperclip").foregroundStyle(DesignTokens.Colors.accent)
+                    Text(portfolio.isPortfolio ? "This PDF Portfolio contains \(portfolio.count) file\(portfolio.count == 1 ? "" : "s")."
+                         : "This PDF has \(portfolio.count) attached file\(portfolio.count == 1 ? "" : "s").")
+                        .font(.system(size: 12))
+                    Spacer()
+                    Button(portfolio.isPortfolio ? "Show Files" : "Show Attachments") { appState.present(.portfolio) }
+                        .controlSize(.small)
+                        .help("List, open or save the embedded files")
+                    Button {
+                        ScanDetector.dismissed.insert(tab.id)
+                        self.portfolio = nil
+                    } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.plain)
+                        .help("Dismiss")
+                        .accessibilityLabel("Dismiss portfolio notice")
+                }
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(DesignTokens.Colors.accentTint)
+                .overlay(alignment: .bottom) { Divider() }
+            } else if let tab = appState.activeTab, visibleFor == tab.id, !ScanDetector.dismissed.contains(tab.id) {
                 HStack(spacing: 10) {
                     Image(systemName: "doc.viewfinder").foregroundStyle(DesignTokens.Colors.accent)
                     Text("This document looks scanned. Recognize text to make it searchable and selectable.")
@@ -260,7 +282,13 @@ struct ScanDetectionBanner: View {
             guard let tab = appState.activeTab, tab.editSource != nil, !ScanDetector.dismissed.contains(tab.id),
                   let document = tab.pdfDocument else { return }
             try? await Task.sleep(for: .milliseconds(400))
-            if appState.activeTab === tab, ScanDetector.looksScanned(document), appState.activePanel != .scanOCR {
+            guard appState.activeTab === tab else { return }
+            if let info = await PortfolioInspector.files(in: tab, appState: appState), info.portfolio || !info.files.isEmpty,
+               info.portfolio || info.files.count > 0 && ScanDetector.attachmentsWorthMentioning {
+                portfolio = (tab.id, info.files.count, info.portfolio)
+                return
+            }
+            if ScanDetector.looksScanned(document), appState.activePanel != .scanOCR {
                 visibleFor = tab.id
             }
         }

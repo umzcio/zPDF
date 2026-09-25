@@ -235,6 +235,8 @@ extension AppState {
 @MainActor
 enum ScanDetector {
     static var dismissed: Set<UUID> = []
+    /// Plain attachments are listed elsewhere (Attachments panel); only portfolios get a banner.
+    static let attachmentsWorthMentioning = false
 
     /// True when the first pages carry no text but do show content — typical
     /// of scans. Cheap: PDFKit text plus a tiny thumbnail check.

@@ -244,7 +244,7 @@ def _merge_fields(pdf, src, new_pages, used_names):
     foreign = src.Root.get("/AcroForm")
     if foreign is not None:
         if "/DA" not in acro and "/DA" in foreign:
-            acro.DA = foreign.DA
+            acro.DA = pikepdf.String(bytes(foreign.DA))
         if "/DR" in foreign:
             dr = copy_from(pdf, src, foreign.DR)
             if "/DR" not in acro:

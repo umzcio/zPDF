@@ -140,7 +140,9 @@ enum CompareService {
         var mapping: [Int: Int] = [:]
         var usedNew = Set<Int>()
         for page in 0..<oldCount {
-            if let best = votes[page]?.max(by: { $0.value < $1.value })?.key, !usedNew.contains(best) {
+            // Most shared words wins; ties go to the page nearest the same position.
+            if let best = votes[page]?.max(by: { ($0.value, -abs($0.key - page)) < ($1.value, -abs($1.key - page)) })?.key,
+               !usedNew.contains(best) {
                 mapping[page] = best; usedNew.insert(best)
             }
         }

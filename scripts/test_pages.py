@@ -72,6 +72,17 @@ class InsertTests(Base):
         self.assertGreater(len(list(page.get_objects())), 0)
         doc.close()
 
+    def test_insert_form_into_document_without_acroform(self):
+        target = blank_pdf(self.tmp / "t.pdf")
+        form = self.fixture("uscis-i9.pdf")
+        out, result = self.run_ops(target, [{"op": "insert_pages", "path": str(form), "at": 0}])
+        info = result["results"][0]
+        self.assertEqual(info["renamed"], 0)
+        self.assertGreater(info["fields"], 0)
+        with pikepdf.open(out) as pdf:
+            self.assertIn("/DA", pdf.Root.AcroForm)
+            self.assertEqual(len(pdf.Root.AcroForm.Fields), info["fields"])
+
     def test_insert_pdf_links(self):
         target = blank_pdf(self.tmp / "t.pdf", pages=1)
         other = text_pdf(self.tmp / "o.pdf", ["ONE", "TWO", "THREE"])
