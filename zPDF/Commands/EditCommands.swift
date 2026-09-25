@@ -61,7 +61,7 @@ struct EditCommands: Commands {
         if appState.activePanel != panel { appState.openTool(tool) }
     }
 
-    private func open(_ panel: InspectorPanel, tool: CanvasTool) {
+    private func open(_ panel: InspectorPanel, tool: EditCanvasTool) {
         openPanel(panel)
         appState.contentEditing.activate(tool)
     }

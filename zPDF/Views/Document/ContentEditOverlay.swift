@@ -170,7 +170,7 @@ final class ContentEditOverlay: NSView {
         return path
     }
 
-    private func drawContent(on page: PDFPage, tool: CanvasTool) {
+    private func drawContent(on page: PDFPage, tool: EditCanvasTool) {
         guard let controller, let content = controller.content(for: page) else { return }
         let key = ObjectIdentifier(page)
         let selection = controller.selection

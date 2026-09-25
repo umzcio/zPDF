@@ -4,7 +4,7 @@ import XCTest
 
 /// Builds small PDFs from object bodies (for features PDFKit can't author,
 /// such as optional-content layers).
-enum RawPDF {
+enum NavRawPDF {
     static func make(_ objects: [String], root: Int = 1) -> Data {
         var data = Data("%PDF-1.7\n".utf8)
         var offsets: [Int] = []
@@ -113,7 +113,7 @@ final class NavigationPanelTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("layers.pdf")
-        try RawPDF.layered().write(to: url)
+        try NavRawPDF.layered().write(to: url)
         let state = AppState()
         let tab = try await TestSupport.open(url, in: state)
         let layers = try await state.documentQuery("layers", in: tab, as: LayersResult.self)

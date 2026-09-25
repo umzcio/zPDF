@@ -244,24 +244,24 @@ struct BookmarksSidebar: View {
     private func contextMenu(_ id: UUID) -> NSMenu {
         let menu = NSMenu()
         let item = OutlineTree.find(id, in: model.items)
-        menu.addItem(ClosureMenuItem("Go to Bookmark") { if let item { navigate(item) } })
+        menu.addItem(SidebarClosureMenuItem("Go to Bookmark") { if let item { navigate(item) } })
         guard canEdit else { return menu }
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem("Rename") { model.renameRequest = id })
-        menu.addItem(ClosureMenuItem("New Bookmark Below") { model.selection = [id]; addBookmark() })
-        menu.addItem(ClosureMenuItem("New Child Bookmark") { model.selection = [id]; addBookmark(asChild: true) })
-        menu.addItem(ClosureMenuItem("Set Destination to Current View") { model.selection = [id]; setDestinationToCurrentView() })
+        menu.addItem(SidebarClosureMenuItem("Rename") { model.renameRequest = id })
+        menu.addItem(SidebarClosureMenuItem("New Bookmark Below") { model.selection = [id]; addBookmark() })
+        menu.addItem(SidebarClosureMenuItem("New Child Bookmark") { model.selection = [id]; addBookmark(asChild: true) })
+        menu.addItem(SidebarClosureMenuItem("Set Destination to Current View") { model.selection = [id]; setDestinationToCurrentView() })
         menu.addItem(.separator())
-        let bold = ClosureMenuItem("Bold") { toggleStyle(id, bold: true) }
+        let bold = SidebarClosureMenuItem("Bold") { toggleStyle(id, bold: true) }
         bold.state = item?.bold == true ? .on : .off
         menu.addItem(bold)
-        let italic = ClosureMenuItem("Italic") { toggleStyle(id, bold: false) }
+        let italic = SidebarClosureMenuItem("Italic") { toggleStyle(id, bold: false) }
         italic.state = item?.italic == true ? .on : .off
         menu.addItem(italic)
         let colors = NSMenu()
         for (name, value) in [("Default", nil), ("Red", [204, 30, 30]), ("Orange", [214, 110, 0]), ("Green", [20, 130, 60]),
                               ("Blue", [20, 90, 200]), ("Purple", [120, 50, 170])] as [(String, [Int]?)] {
-            let entry = ClosureMenuItem(name) { setColor(id, value) }
+            let entry = SidebarClosureMenuItem(name) { setColor(id, value) }
             entry.state = item?.color == value ? .on : .off
             colors.addItem(entry)
         }
@@ -269,7 +269,7 @@ struct BookmarksSidebar: View {
         colorItem.submenu = colors
         menu.addItem(colorItem)
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem("Delete") {
+        menu.addItem(SidebarClosureMenuItem("Delete") {
             if !model.selection.contains(id) { model.selection = [id] }
             deleteSelection()
         })
@@ -283,7 +283,7 @@ extension Notification.Name {
 }
 
 /// NSMenuItem that runs a Swift closure.
-final class ClosureMenuItem: NSMenuItem {
+final class SidebarClosureMenuItem: NSMenuItem {
     private let handler: () -> Void
     init(_ title: String, key: String = "", handler: @escaping () -> Void) {
         self.handler = handler

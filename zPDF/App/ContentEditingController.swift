@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// Only one canvas interaction is live at a time: a tool is active while
 /// `AppState.textEditingModeActive` is on, which every tool switch, tab
 /// switch and panel close already resets.
-enum CanvasTool: String, CaseIterable, Identifiable {
+enum EditCanvasTool: String, CaseIterable, Identifiable {
     case edit, addText, addImage, link, crop, redact
 
     var id: String { rawValue }
@@ -73,7 +73,7 @@ final class ContentEditingController {
     @ObservationIgnored weak var appState: AppState?
     @ObservationIgnored let overlay = ContentEditOverlay()
 
-    var tool: CanvasTool?
+    var tool: EditCanvasTool?
     var selection: CanvasSelection?
     var isBusy = false
     /// Short feedback shown in the panel (substitutions, counts).
@@ -129,7 +129,7 @@ final class ContentEditingController {
 
     // MARK: - Tool lifecycle
 
-    func activate(_ newTool: CanvasTool) {
+    func activate(_ newTool: EditCanvasTool) {
         guard let appState, let tab = appState.activeTab, tab.allowsSaveEdits else { return }
         if tool == newTool && appState.textEditingModeActive { return }
         finishEditing(commit: true)
@@ -151,7 +151,7 @@ final class ContentEditingController {
     }
 
     /// Toggle a tool: activating the active tool turns canvas editing off.
-    func toggle(_ newTool: CanvasTool) {
+    func toggle(_ newTool: EditCanvasTool) {
         if tool == newTool && isActive { deactivate() } else { activate(newTool) }
     }
 

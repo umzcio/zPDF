@@ -45,7 +45,7 @@ struct RedactPanel: View {
     private var markSection: some View {
         PanelSection(title: "Mark for redaction") {
             PanelToolGrid {
-                PanelToolButton(title: "Text & Areas", symbolName: CanvasTool.redact.symbolName,
+                PanelToolButton(title: "Text & Areas", symbolName: EditCanvasTool.redact.symbolName,
                                 isActive: controller.isActive && controller.tool == .redact) {
                     controller.toggle(.redact)
                 }
@@ -56,7 +56,7 @@ struct RedactPanel: View {
                 .help("Mark entire pages for redaction")
             }
             if controller.isActive && controller.tool == .redact {
-                PanelNote(CanvasTool.redact.hint)
+                PanelNote(EditCanvasTool.redact.hint)
             }
             if showingPageMarks {
                 VStack(alignment: .leading, spacing: 8) {

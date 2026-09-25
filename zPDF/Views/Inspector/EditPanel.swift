@@ -50,7 +50,7 @@ struct EditPanel: View {
     private var toolSection: some View {
         PanelSection(title: "Tools") {
             PanelToolGrid {
-                ForEach([CanvasTool.edit, .addText, .addImage, .link, .crop]) { tool in
+                ForEach([EditCanvasTool.edit, .addText, .addImage, .link, .crop]) { tool in
                     PanelToolButton(title: tool.shortTitle, symbolName: tool.symbolName,
                                     isActive: controller.isActive && controller.tool == tool) {
                         if tool == .addImage {
