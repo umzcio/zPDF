@@ -161,7 +161,7 @@ final class PrintPresetStore {
     private(set) var presets: [String: PrintOptions] = [:]
     @ObservationIgnored private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         if let data = defaults.data(forKey: Self.key), let stored = try? JSONDecoder().decode([String: PrintOptions].self, from: data) {
             presets = stored

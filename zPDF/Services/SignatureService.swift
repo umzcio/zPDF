@@ -215,7 +215,7 @@ final class SignatureService {
 
     let store: SecureFileStore
 
-    init(directory: URL? = nil, defaults: UserDefaults = .standard) {
+    init(directory: URL? = nil, defaults: UserDefaults = AppEnvironment.defaults) {
         let store = SecureFileStore(directory: directory ?? SecureFileStore.defaultDirectory)
         self.store = store
         trust = TrustStore(store: store)
@@ -414,8 +414,7 @@ struct SecureFileStore: Sendable {
     let directory: URL
 
     static var defaultDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
+        let base = AppEnvironment.supportDirectory
         return base.appendingPathComponent("zPDF/Signing", isDirectory: true)
     }
 

@@ -251,7 +251,7 @@ final class ShortcutStore {
     /// nil value = explicitly no shortcut.
     private(set) var overrides: [AppCommandID: ShortcutBinding?] = [:]
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         if let data = defaults.data(forKey: Self.defaultsKey),
            let stored = try? JSONDecoder().decode([String: ShortcutBinding?].self, from: data) {

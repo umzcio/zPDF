@@ -327,7 +327,7 @@ final class SearchIndexStore {
     private(set) var progress: Double = 0
 
     nonisolated private static var directory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let base = AppEnvironment.supportDirectory
         return base.appendingPathComponent("zPDF/SearchIndexes", isDirectory: true)
     }
     nonisolated private static var manifest: URL { directory.appendingPathComponent("folders.json") }

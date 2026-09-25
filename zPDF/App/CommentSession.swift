@@ -22,7 +22,7 @@ final class CommentToolStyles {
     @ObservationIgnored private let key = "zpdf.comments.v1.toolStyles"
     private var custom: [String: CommentStyle] = [:]
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         if let data = defaults.data(forKey: key), let decoded = try? JSONDecoder().decode([String: CommentStyle].self, from: data) {
             custom = decoded

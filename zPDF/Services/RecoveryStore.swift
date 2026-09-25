@@ -50,9 +50,7 @@ actor RecoveryStore {
     }
 
     static func defaultDirectory() throws -> URL {
-        try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
-                                    appropriateFor: nil, create: true)
-            .appendingPathComponent("zPDF/Recovery", isDirectory: true)
+        AppEnvironment.supportDirectory.appendingPathComponent("zPDF/Recovery", isDirectory: true)
     }
 
     func list() throws -> [RecoveryCheckpoint] {

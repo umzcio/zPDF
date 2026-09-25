@@ -291,7 +291,7 @@ final class ActionStore {
     private(set) var custom: [SavedAction] = []
     @ObservationIgnored private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         if let data = defaults.data(forKey: Self.key), let stored = try? JSONDecoder().decode([SavedAction].self, from: data) {
             custom = stored
@@ -347,7 +347,7 @@ final class CustomCommandStore {
     private(set) var commands: [CustomCommand] = []
     @ObservationIgnored private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         if let data = defaults.data(forKey: Self.key), let stored = try? JSONDecoder().decode([CustomCommand].self, from: data) {
             commands = stored

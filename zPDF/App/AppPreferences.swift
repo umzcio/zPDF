@@ -195,7 +195,7 @@ final class AppPreferences {
         return unique.count >= 2 ? unique : defaultZoomSteps
     }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         func raw(_ key: String) -> String { defaults.string(forKey: Self.keyPrefix + key) ?? "" }
         func bool(_ key: String, _ fallback: Bool) -> Bool {

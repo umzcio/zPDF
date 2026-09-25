@@ -191,9 +191,7 @@ final class CustomStampLibrary {
     @ObservationIgnored private let folder: URL
 
     init(folder: URL? = nil) {
-        let base = folder ?? (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("zPDF/Stamps", isDirectory: true)
-            ?? FileManager.default.temporaryDirectory.appendingPathComponent("zPDF-Stamps"))
+        let base = folder ?? AppEnvironment.supportDirectory.appendingPathComponent("zPDF/Stamps", isDirectory: true)
         self.folder = base
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         if let data = try? Data(contentsOf: base.appendingPathComponent("stamps.json")),

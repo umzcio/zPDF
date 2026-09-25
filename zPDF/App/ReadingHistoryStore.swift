@@ -15,7 +15,7 @@ final class ReadingHistoryStore {
     private let sessionKey = "zpdf.openSession.v1"
     private var positions: [String: Position]
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         positions = defaults.data(forKey: positionsKey).flatMap {
             try? JSONDecoder().decode([String: Position].self, from: $0)

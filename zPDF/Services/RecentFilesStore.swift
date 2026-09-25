@@ -21,7 +21,7 @@ final class RecentFilesStore {
         didSet { trimAndPersist() }
     }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = AppEnvironment.defaults) {
         self.defaults = defaults
         load()
     }
