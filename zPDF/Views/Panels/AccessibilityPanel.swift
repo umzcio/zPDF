@@ -26,6 +26,7 @@ struct AccessibilityPanel: View {
             tagsSection
             readSection
             if let report { pdfuaSection(report) }
+            PanelHelpLink(topic: "accessibility")
         }
         .task(id: tab?.editSource?.hash) {
             // Re-run a previous check after edits so the report stays current.
@@ -211,14 +212,10 @@ struct AccessibilityPanel: View {
                     .help("View and edit the tag tree: type, order, alternate text and language")
                 PanelRow(title: "Alternate Text for Figures…", symbolName: "photo.badge.checkmark") { showingAltText = true }
                     .help("Describe images for people who can't see them")
-                Toggle(isOn: Binding(get: { viewing?.readingOrderOverlay ?? false },
-                                     set: { viewing?.readingOrderOverlay = $0 })) {
-                    Label("Show Reading Order on Page", systemImage: "list.number").font(.system(size: 12))
-                }
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .padding(.horizontal, 9).padding(.vertical, 7)
-                .help("Number the tagged content on the current page in reading order (⌘⌥R)")
+                PanelToggleRow(title: "Show Reading Order on Page", symbolName: "list.number",
+                               isOn: Binding(get: { viewing?.readingOrderOverlay ?? false },
+                                             set: { viewing?.readingOrderOverlay = $0 }))
+                    .help("Number the tagged content on the current page in reading order (⌥⌘R)")
             }
             .disabled(tab == nil)
             if viewing?.readingOrderOverlay == true, let tab {
@@ -251,11 +248,8 @@ struct AccessibilityPanel: View {
                     .help("Stop reading (⇧⌘E)")
             }
             .disabled(tab == nil)
-            Toggle(isOn: Binding(get: { viewing?.reflowActive ?? false }, set: { viewing?.reflowActive = $0 })) {
-                Label("Reflow Text", systemImage: "text.alignleft").font(.system(size: 12))
-            }
-            .toggleStyle(.switch)
-            .controlSize(.mini)
+            PanelToggleRow(title: "Reflow Text", symbolName: "text.alignleft",
+                           isOn: Binding(get: { viewing?.reflowActive ?? false }, set: { viewing?.reflowActive = $0 }))
             .disabled(tab == nil)
             .help("Show the page as readable, resizable text (⌘4)")
             PanelNote("Voice, speed and word highlighting are in Settings ▸ Reading.")

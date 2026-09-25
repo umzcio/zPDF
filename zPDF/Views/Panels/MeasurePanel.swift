@@ -62,6 +62,7 @@ struct MeasurePanel: View {
             .font(.system(size: 12))
 
             measurementsSection(preferences: preferences)
+            PanelHelpLink(topic: "measure")
         }
         .task(id: tab?.editSource?.hash) { await loadDocumentItems() }
         .onChange(of: session.pendingCalibration?.tabID) { _, value in showingCalibration = value != nil }

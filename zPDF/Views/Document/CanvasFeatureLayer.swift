@@ -23,6 +23,11 @@ struct CanvasFeatureLayer: View {
                 ReflowView(tab: tab) { viewing.reflowActive = false }
             }
         }
+        .overlay(alignment: .bottom) {
+            if tab.saveBlock == "XFA_EDIT_BLOCKED", preferences.showXFANotice {
+                XFANoticeBanner(tab: tab).padding(.bottom, 12)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
             if viewing.panZoomActive && !viewing.reflowActive {
                 PanZoomPanel(tab: tab, viewStore: appState.pdfViewStore) { viewing.panZoomActive = false }

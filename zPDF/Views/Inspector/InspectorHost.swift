@@ -183,6 +183,7 @@ struct PanelToolButton: View {
             VStack(spacing: 5) {
                 Image(systemName: symbolName)
                     .font(.system(size: 17))
+                    .frame(height: 22) // equal row heights whatever the symbol
                 Text(title)
                     .font(.system(size: 10.5))
                     .multilineTextAlignment(.center)

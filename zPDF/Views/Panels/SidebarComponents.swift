@@ -254,3 +254,30 @@ enum PDFKitViewHelpers {
     }
 }
 
+
+/// Switch row aligned with PanelRow: icon, title, trailing switch.
+struct PanelToggleRow: View {
+    let title: String
+    let symbolName: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: symbolName)
+                .font(.system(size: 13))
+                .foregroundStyle(DesignTokens.Colors.mutedText)
+                .frame(width: 16)
+                .accessibilityHidden(true)
+            Text(title).font(.system(size: 12)).foregroundStyle(DesignTokens.Colors.text)
+            Spacer(minLength: 4)
+            Toggle(title, isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
+        .onTapGesture { isOn.toggle() }
+    }
+}

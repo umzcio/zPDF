@@ -126,6 +126,7 @@ enum AppCommandID: String, CaseIterable, Identifiable, Codable {
         case .previousDocument: .init(special: "tab", [.control, .shift])
         case .nextDocument: .init(special: "tab", [.control])
         case .addBookmark: .init("b")
+        case .readingOrder: .init("r", [.command, .option])
         default: nil
         }
     }

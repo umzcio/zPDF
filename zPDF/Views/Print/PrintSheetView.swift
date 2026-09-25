@@ -68,6 +68,7 @@ struct PrintSheetView: View {
                 Text("Selected area").tag(PrintOptions.PageScope.area).disabled(area == nil)
             }
             .pickerStyle(.radioGroup)
+            .labelsHidden()
             if options.scope == .range {
                 TextField("Pages", text: $options.range, prompt: Text("e.g. 1-3, 5"))
                     .help("Page numbers and ranges separated by commas")

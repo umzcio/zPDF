@@ -65,6 +65,7 @@ struct AutomationPanel: View {
                     .help("List, read and delete the scripts in this document")
                 PanelNote("zPDF never runs document JavaScript. The inspector shows every script so you can review or remove it.")
             }
+            PanelHelpLink(topic: "action-wizard")
         }
         .task(id: tab?.id) { if let tab { available = await appState.availableOperations(in: tab) } }
         .sheet(item: $editing) { action in
