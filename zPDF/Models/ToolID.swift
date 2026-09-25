@@ -83,7 +83,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .createPDF: true
 
-        case .editPDF: false
+        case .editPDF: true
 
         case .sendForComments: false
 
@@ -93,7 +93,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .protect: false
 
-        case .redact: false
+        case .redact: true
 
         case .optimizePDF: true
 
@@ -117,7 +117,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .archivePDFA: true
 
-        case .batesNumbering: false
+        case .batesNumbering: true
         }
     }
 

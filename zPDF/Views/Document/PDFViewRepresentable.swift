@@ -14,11 +14,8 @@
 //  Armed form-field placement (phase 3) uses the same mouse-down
 //  hit-testing: Prepare Form's add-field tools drop a widget PDFAnnotation
 //  at the click point via AppState.armedFormFieldTool.
-//  Text-editing mode (phase 4) also routes through the mouse-down
-//  hit-testing: while AppState.textEditingModeActive is on, a click asks
-//  the engine for the page's text runs and selects the one whose bounds
-//  contain the page point (AppState.selectedTextRun), consuming the event
-//  so PDFView does not start a text selection.
+//  Content editing and redaction canvas tools are handled by
+//  ContentEditOverlay (a subview installed by ContentEditingController).
 //  Phase: 1–4 — REAL.
 //
 
@@ -276,19 +273,9 @@ struct PDFViewRepresentable: NSViewRepresentable {
         func beginAnnotationInteraction(with event: NSEvent, in pdfView: PDFView) -> Bool {
             guard appState.activeTab?.allowsSaveEdits == true,
                   appState.activeTab?.pdfDocument === pdfView.document else { return false }
-            // The Edit panel's text-editing mode selects the text run
-            // under the click and consumes the event (phase 4).
-            if appState.textEditingModeActive {
-                guard let document = pdfView.document else { return false }
-                let viewPoint = pdfView.convert(event.locationInWindow, from: nil)
-                guard let page = pdfView.page(for: viewPoint, nearest: true) else { return false }
-                let pagePoint = pdfView.convert(viewPoint, to: page)
-                let runs = appState.engine.textRuns(onPageAt: document.index(for: page),
-                                                    in: document)
-                // Clicking empty space clears the selection.
-                appState.selectedTextRun = runs.first { $0.bounds.contains(pagePoint) }
-                return true
-            }
+            // Content editing and redaction tools own the canvas through
+            // ContentEditOverlay; PDFView keeps its own behavior otherwise.
+            if appState.textEditingModeActive { return false }
             // An armed Prepare Form tool places a widget and consumes the
             // click (phase 3).
             if let fieldKind = appState.armedFormFieldTool {

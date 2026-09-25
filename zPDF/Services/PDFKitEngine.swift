@@ -10,8 +10,7 @@
 //  name tree via CGPDFDocument (PDFKit exposes no embedded-file API).
 //  Phase: 3 — AcroForm enumeration/filling over widget PDFAnnotations
 //  (fieldName/widgetStringValue/buttonWidgetState/choices).
-//  Phase: 4 — page content editing (textRuns / replaceTextRun) is real via
-//  ContentStreamEditor's content-stream parser + incremental-update writer.
+//  Page content editing runs as native transforms (see DocumentTransforms).
 //  TODO(phase-5): applyRedactions, optimize/compress.
 //
 
@@ -40,6 +39,8 @@ final class PDFKitEngine: PDFEngine {
         guard let document = PDFDocument(url: url) else {
             throw PDFEngineError.cannotOpenDocument(url)
         }
+        // Redaction marks draw as outlines until they are applied.
+        document.delegate = RedactionMarkAppearance.shared
         return document
     }
 
@@ -392,20 +393,5 @@ final class PDFKitEngine: PDFEngine {
         // TODO(phase-5): draw opaque rectangles into the content stream and
         // strip the underlying text objects. Not possible with PDFKit alone.
         throw PDFEngineError.unsupportedOperation("Redaction burn-in")
-    }
-
-    // MARK: - Content editing (phase 4)
-
-    /// Real implementation: ContentStreamEditor re-parses the page's
-    /// content stream(s) via CGPDF and interprets BT/ET text objects.
-    func textRuns(onPageAt index: Int, in document: EngineDocument) -> [EditableTextRun] {
-        ContentStreamEditor.textRuns(onPageAt: index, in: document)
-    }
-
-    /// Real implementation: ContentStreamEditor rewrites the run's string
-    /// operand(s) and appends an incremental update, then swaps the edited
-    /// page into this same live document so PDFKit re-renders/re-extracts.
-    func replaceTextRun(_ run: EditableTextRun, with newText: String, in document: EngineDocument) throws {
-        try ContentStreamEditor.replaceTextRun(run, with: newText, in: document)
     }
 }
