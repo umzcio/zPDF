@@ -10,8 +10,11 @@ final class DocumentUndoHistory {
         let contents: String?
         let value: String?
         let button: PDFWidgetCellState
+        /// Comment geometry/style (nil for widgets), so moves and style edits undo.
+        var appearance: CommentAppearance? = nil
         func matches(_ other: Self) -> Bool {
             annotation === other.annotation && contents == other.contents && value == other.value && button == other.button
+                && appearance == other.appearance
         }
     }
     private struct PageState {
@@ -35,7 +38,8 @@ final class DocumentUndoHistory {
             pages = (0..<document.pageCount).compactMap { index in
                 guard let page = document.page(at: index) else { return nil }
                 return PageState(page: page, rotation: page.rotation, annotations: page.annotations.map {
-                    AnnotationState(annotation: $0, contents: $0.contents, value: $0.widgetStringValue, button: $0.buttonWidgetState)
+                    AnnotationState(annotation: $0, contents: $0.contents, value: $0.widgetStringValue, button: $0.buttonWidgetState,
+                                    appearance: CommentAppearance($0))
                 })
             }
         }
@@ -60,6 +64,7 @@ final class DocumentUndoHistory {
                 }
                 for item in state.annotations {
                     if item.annotation.contents != item.contents { item.annotation.contents = item.contents }
+                    if let appearance = item.appearance, CommentAppearance(item.annotation) != appearance { appearance.apply(to: item.annotation) }
                     if item.annotation.type == "Widget" {
                         if item.annotation.widgetFieldType == .button {
                             if item.annotation.buttonWidgetState != item.button { item.annotation.buttonWidgetState = item.button }

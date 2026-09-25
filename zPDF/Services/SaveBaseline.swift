@@ -56,7 +56,7 @@ final class SaveBaseline {
             }
             if annotation.type == "Stamp" { parts.append("s" + (annotation.stampName ?? "")) }
             if annotation.type == "Text" { parts.append("i\(annotation.iconType.rawValue)") }
-            parts.append("h\(annotation.shouldDisplay)\(annotation.shouldPrint)")
+            parts.append("h\(CommentVisibility.savedDisplay(annotation))\(annotation.shouldPrint)")
             if let extra = annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/ZPDFRevision")) as? String {
                 parts.append("r" + extra)
             }
@@ -133,6 +133,24 @@ final class SaveBaseline {
 
     func sourceIndex(for page: PDFPage) -> Int? { pages.firstIndex { $0.page === page } }
 
+    /// Source pages in file order (comment threads read their /Annots).
+    var sourcePages: [PDFPage] { pages.map(\.page) }
+
+    /// The captured annotation at a source position.
+    func annotation(page: Int, index: Int) -> PDFAnnotation? {
+        guard pages.indices.contains(page), pages[page].annotations.indices.contains(index) else { return nil }
+        return pages[page].annotations[index].0
+    }
+
+    /// Source position of a captured annotation (or of the one it replaces).
+    func position(of annotation: PDFAnnotation) -> (page: Int, index: Int)? {
+        let target = AnnotationReplacement.original(of: annotation) ?? annotation
+        for (pageIndex, page) in pages.enumerated() {
+            if let index = page.annotations.firstIndex(where: { $0.0 === target }) { return (pageIndex, index) }
+        }
+        return nil
+    }
+
     /// `materialize: false` only classifies edits (dirty tracking); Save,
     /// transforms, exports and recovery need the scratch annotation file.
     func changes(in document: PDFDocument, materialize: Bool = true) throws -> NativeSaveChanges {
@@ -147,6 +165,17 @@ final class SaveBaseline {
         var generic = GenericAnnotations()
         var selections: [NativePageSelection] = []
         var seen: Set<Int> = []
+        // New comments that a new reply points at must be grafted generically
+        // (the engine links replies by the parent's /ZPDFCommentID).
+        var replyParents: Set<String> = []
+        for index in 0..<document.pageCount {
+            for annotation in document.page(at: index)?.annotations ?? [] {
+                if let target = (annotation.value(forAnnotationKey: GenericAnnotations.replyKey) as? String)?
+                    .split(separator: "|").first, target.hasPrefix("new:") {
+                    replyParents.insert(String(target.dropFirst(4)))
+                }
+            }
+        }
         for outputIndex in 0..<document.pageCount {
             guard let page = document.page(at: outputIndex),
                   let index = pages.firstIndex(where: { $0.page === page }),
@@ -157,9 +186,14 @@ final class SaveBaseline {
                   page.string ?? "" == baseline.text else { throw unsupported() }
             selections.append(NativePageSelection(sourceIndex: index, rotationDelta: rotation))
             let current = Dictionary(uniqueKeysWithValues: page.annotations.map { (ObjectIdentifier($0), $0) })
+            // App-drawn stand-ins for loaded comments update the original in place.
+            var replaced: [ObjectIdentifier: PDFAnnotation] = [:]
+            for annotation in page.annotations {
+                if let original = AnnotationReplacement.original(of: annotation) { replaced[ObjectIdentifier(original)] = annotation }
+            }
             for (annotationIndex, entry) in baseline.annotations.enumerated() {
                 let supportsComment = ["Text", "Highlight", "Underline"].contains(entry.1.type)
-                guard let annotation = current[ObjectIdentifier(entry.0)] else {
+                guard let annotation = current[ObjectIdentifier(entry.0)] ?? replaced[ObjectIdentifier(entry.0)] else {
                     // Widgets belong to the form tree; removing one is a form edit.
                     guard entry.1.type != "Widget" else { throw unsupported() }
                     generic.delete(page: index, index: annotationIndex, subtype: entry.1.type)
@@ -184,7 +218,8 @@ final class SaveBaseline {
                 generic.update(annotation, page: index, index: annotationIndex, subtype: entry.1.type)
             }
             let existing = Set(baseline.annotations.map { ObjectIdentifier($0.0) })
-            for annotation in page.annotations where !existing.contains(ObjectIdentifier(annotation)) {
+            for annotation in page.annotations where !existing.contains(ObjectIdentifier(annotation))
+                && !AnnotationReplacement.original(of: annotation).map({ existing.contains(ObjectIdentifier($0)) }).orFalse {
                 // PDFKit creates a companion popup for a new note. Its contents
                 // belong to the parent; the native annotate command creates the
                 // comment itself, not this PDFKit presentation object.
@@ -212,7 +247,9 @@ final class SaveBaseline {
                 // Rectangular notes/markup keep the facade path; everything
                 // else (quads, replies, other subtypes) is a generic addition.
                 let isReply = annotation.value(forAnnotationKey: GenericAnnotations.replyKey) != nil
-                guard !kind.isEmpty, item.quads.isEmpty, !isReply else {
+                let hasNewReplies = (annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/ZPDFCommentID")) as? String)
+                    .map { replyParents.contains($0) } ?? false
+                guard !kind.isEmpty, item.quads.isEmpty, !isReply, !hasNewReplies else {
                     generic.add(annotation, page: index)
                     continue
                 }
@@ -257,8 +294,15 @@ struct GenericAnnotations {
     mutating func add(_ annotation: PDFAnnotation, page: Int) {
         var item = NativeAnnotationItem(action: "add", page: page, index: nil, subtype: annotation.type)
         if let reply = annotation.value(forAnnotationKey: Self.replyKey) as? String {
-            let parts = reply.split(separator: ":").compactMap { Int($0) }
-            if parts.count == 2 { item.replyTo = parts }
+            // "page:index" | "new:<comment id>", optionally "|Group" (grouped markup).
+            let fields = reply.split(separator: "|")
+            let target = fields.first.map(String.init) ?? ""
+            if fields.dropFirst().contains("Group") { item.replyType = "Group" }
+            if target.hasPrefix("new:") { item.replyToComment = String(target.dropFirst(4)) }
+            else {
+                let parts = target.split(separator: ":").compactMap { Int($0) }
+                if parts.count == 2 { item.replyTo = parts }
+            }
         }
         pending.append((items.count, page, annotation))
         items.append(item)
@@ -287,6 +331,7 @@ struct GenericAnnotations {
             let key = "k\(n)"
             copy.setValue(key, forAnnotationKey: Self.scratchKey)
             copy.setValue(nil as String?, forAnnotationKey: Self.replyKey)
+            CommentVisibility.copyPresentation(from: entry.annotation, to: copy)
             page.addAnnotation(copy)
             items[entry.item].scratchPage = scratchIndex
             items[entry.item].scratchKey = key
@@ -296,4 +341,8 @@ struct GenericAnnotations {
         }
         return lease
     }
+}
+
+private extension Optional where Wrapped == Bool {
+    var orFalse: Bool { self ?? false }
 }
