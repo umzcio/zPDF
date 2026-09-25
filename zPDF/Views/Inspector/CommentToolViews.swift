@@ -129,8 +129,8 @@ struct CommentPropertiesView: View {
                         GridRow {
                             label("Opacity")
                             HStack(spacing: 8) {
-                                Slider(value: Binding(get: { style.opacity }, set: { style.opacity = $0; push(commit: false) }),
-                                       in: 0.1...1, step: 0.05) { editing in if !editing { push() } }
+                                Slider(value: Binding(get: { style.opacity }, set: { style.opacity = ($0 * 100).rounded() / 100; push(commit: false) }),
+                                       in: 0.1...1) { editing in if !editing { push() } }
                                     .controlSize(.small)
                                     .accessibilityLabel("Opacity")
                                     .accessibilityValue("\(Int(style.opacity * 100)) percent")
@@ -294,16 +294,28 @@ struct ColorSwatches: View {
                 swatch(nil)
             }
             ForEach(CommentColor.palette.prefix(allowsNone ? 6 : 7), id: \.self) { color in swatch(color) }
-            ColorPicker(accessibilityName, selection: Binding(
-                get: { Color(nsColor: (selection ?? .white).nsColor) },
-                set: { selection = CommentColor(NSColor($0))?.opaque }), supportsOpacity: false)
-                .labelsHidden()
-                .controlSize(.mini)
-                .frame(width: 20)
-                .help("Other color…")
+            Button {
+                ColorPanelBridge.shared.present(initial: selection ?? .black) { selection = $0 }
+            } label: {
+                Circle()
+                    .fill(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center))
+                    .overlay(Circle().strokeBorder(DesignTokens.Colors.hairline, lineWidth: 1))
+                    .frame(width: 16, height: 16)
+                    .padding(2)
+                    .overlay(Circle().strokeBorder(isCustom ? DesignTokens.Colors.accent : .clear, lineWidth: 2))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Other color…")
+            .accessibilityLabel("Other \(accessibilityName.lowercased())")
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityName)
+    }
+
+    private var isCustom: Bool {
+        guard let selection else { return false }
+        return !CommentColor.palette.prefix(allowsNone ? 6 : 7).contains(selection.opaque)
     }
 
     private func swatch(_ color: CommentColor?) -> some View {
@@ -461,22 +473,15 @@ struct CommentReviewTools: View {
         let hasTab = appState.activeTab != nil
         let editable = appState.canEditComments
         PanelSection(title: "Review") {
-            Toggle(isOn: Binding(get: { session.showsComments }, set: { appState.setCommentsVisible($0) })) {
-                Label("Show comments on page", systemImage: "eye")
-                    .font(.system(size: 12))
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .help("Hide or show every comment on the page. Hiding never changes the file.")
-            Toggle(isOn: Binding(get: { session.filtersCanvas }, set: { session.filtersCanvas = $0; appState.refreshCommentVisibility() })) {
-                Label("Filter page like the list", systemImage: "line.3.horizontal.decrease.circle")
-                    .font(.system(size: 12))
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .disabled(!session.showsComments)
-            .help("Only show comments that match the Comments list's type, reviewer and status filters.")
             VStack(spacing: 0) {
+                switchRow("Show comments on page", symbol: "eye",
+                          isOn: Binding(get: { session.showsComments }, set: { appState.setCommentsVisible($0) }),
+                          help: "Hide or show every comment on the page (⇧⌘8). Hiding never changes the file.")
+                switchRow("Filter page like the list", symbol: "line.3.horizontal.decrease.circle",
+                          isOn: Binding(get: { session.filtersCanvas }, set: { session.filtersCanvas = $0; appState.refreshCommentVisibility() }),
+                          help: "Only show comments that match the Comments list's type, reviewer and status filters.")
+                    .disabled(!session.showsComments)
+                Divider().padding(.vertical, 4)
                 PanelRow(title: "Import Comments…", symbolName: "square.and.arrow.down") {
                     Task { await appState.importComments() }
                 }
@@ -523,6 +528,48 @@ struct CommentReviewTools: View {
         .sheet(item: $session.comparison) { comparison in
             CommentComparisonView(comparison: comparison)
         }
+    }
+}
+
+@MainActor private func switchRow(_ title: String, symbol: String, isOn: Binding<Bool>, help: String) -> some View {
+    HStack(spacing: 9) {
+        Image(systemName: symbol)
+            .font(.system(size: 13))
+            .foregroundStyle(DesignTokens.Colors.mutedText)
+            .frame(width: 16)
+            .accessibilityHidden(true)
+        Text(title)
+            .font(.system(size: 12))
+            .foregroundStyle(DesignTokens.Colors.text)
+        Spacer(minLength: 8)
+        Toggle(title, isOn: isOn)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+    }
+    .padding(.horizontal, 9)
+    .padding(.vertical, 5)
+    .help(help)
+}
+
+/// Opens the shared system color panel and reports picks to one closure.
+@MainActor
+final class ColorPanelBridge: NSObject {
+    static let shared = ColorPanelBridge()
+    private var onPick: ((CommentColor) -> Void)?
+
+    func present(initial: CommentColor, onPick: @escaping (CommentColor) -> Void) {
+        self.onPick = onPick
+        let panel = NSColorPanel.shared
+        panel.showsAlpha = false
+        panel.setTarget(self)
+        panel.setAction(#selector(changed(_:)))
+        panel.color = initial.nsColor
+        panel.orderFront(nil)
+    }
+
+    @objc private func changed(_ sender: NSColorPanel) {
+        if let color = CommentColor(sender.color)?.opaque { onPick?(color) }
     }
 }
 

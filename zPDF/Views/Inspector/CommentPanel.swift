@@ -292,6 +292,15 @@ struct CommentRowView: View {
                 typeBadge
                 VStack(alignment: .leading, spacing: 3) {
                     header
+                    if comment.status != .none {
+                        Label(comment.status.title, systemImage: comment.status.symbolName)
+                            .labelStyle(.titleAndIcon)
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundStyle(statusColor)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Capsule().fill(statusColor.opacity(0.12)))
+                            .help(comment.statusAuthor.map { "\(comment.status.title) — set by \($0)" } ?? comment.status.title)
+                    }
                     if let quotedText = comment.quotedText, !quotedText.isEmpty {
                         Text("“\(quotedText)”")
                             .font(.system(size: 10.5))
@@ -402,15 +411,6 @@ struct CommentRowView: View {
                 .foregroundStyle(DesignTokens.Colors.mutedText)
                 .lineLimit(1)
             Spacer(minLength: 4)
-            if comment.status != .none {
-                Label(comment.status.title, systemImage: comment.status.symbolName)
-                    .labelStyle(.titleAndIcon)
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundStyle(statusColor)
-                    .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(Capsule().fill(statusColor.opacity(0.12)))
-                    .help(comment.statusAuthor.map { "\(comment.status.title) — set by \($0)" } ?? comment.status.title)
-            }
             if depth == 0 {
                 Button {
                     appState?.setCommentMarked(!comment.isMarked, for: comment)
