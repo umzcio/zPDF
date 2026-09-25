@@ -11,6 +11,8 @@ final class FeatureState {
     var propertiesTabID: UUID?
     var propertiesInitialPane: DocumentPropertiesPane = .description
     var printTabID: UUID?
+    /// Options the next print dialog starts with (e.g. from a custom command).
+    var printInitialOptions: PrintOptions?
     var showingAdvancedSearch = false
     var helpTopic: HelpTopicID?
     var showingOnboarding = false
@@ -18,7 +20,7 @@ final class FeatureState {
     var xmpTabID: UUID?
 
     /// Per-document viewing state (cover page, split view, guides...).
-    private(set) var viewing: [UUID: DocumentViewingState] = [:]
+    @ObservationIgnored private(set) var viewing: [UUID: DocumentViewingState] = [:]
 
     func viewing(for tab: DocumentTab) -> DocumentViewingState {
         if let existing = viewing[tab.id] { return existing }
@@ -28,6 +30,32 @@ final class FeatureState {
     }
 
     func forget(_ tabID: UUID) { viewing[tabID] = nil }
+
+    let readAloud = ReadAloudController()
+    /// Marquee chosen for File ▸ Print Selected Area.
+    var printArea: (tabID: UUID, page: Int, rect: CGRect)?
+    /// True while the marquee for printing is armed on the canvas.
+    var selectingPrintArea = false
+    @ObservationIgnored private var marqueeTool: MarqueeCanvasTool?
+
+    func marquee(_ appState: AppState) -> MarqueeCanvasTool {
+        if let marqueeTool { return marqueeTool }
+        let tool = MarqueeCanvasTool(appState: appState)
+        marqueeTool = tool
+        return tool
+    }
+    let measure = MeasureSession()
+    let autoScroll = AutoScrollController()
+    @ObservationIgnored private var measureCanvasTool: MeasureCanvasTool?
+
+    func measureTool(_ appState: AppState) -> MeasureCanvasTool {
+        if let measureCanvasTool { return measureCanvasTool }
+        let tool = MeasureCanvasTool(appState: appState)
+        measureCanvasTool = tool
+        return tool
+    }
+    /// Reading order of one page, drawn by the canvas overlay.
+    var readingOrder: (tabID: UUID, page: Int, items: [ReadingOrderItem])?
 
     /// Tabs whose document-defined initial view was already applied.
     @ObservationIgnored var appliedInitialView: Set<UUID> = []
@@ -43,6 +71,7 @@ final class DocumentViewingState {
     var horizontalGuides: [Int: [CGFloat]] = [:]
     var verticalGuides: [Int: [CGFloat]] = [:]
     var loupeActive = false
+    var panZoomActive = false
     var reflowActive = false
     var readingOrderOverlay = false
 }

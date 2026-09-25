@@ -9,10 +9,17 @@ struct FeatureHost: ViewModifier {
     func body(content: Content) -> some View {
         @Bindable var features = appState.features
         content
-            .sheet(item: Binding(get: { appState.tab(withID: features.propertiesTabID) },
-                                 set: { features.propertiesTabID = $0?.id })) { tab in
-                DocumentPropertiesView(tab: tab, pane: features.propertiesInitialPane)
-                    .environment(appState)
+            .sheet(item: Binding(get: { currentSheet }, set: { if $0 == nil { dismissSheets() } })) { sheet in
+                switch sheet {
+                case .properties(let tab):
+                    DocumentPropertiesView(tab: tab, pane: features.propertiesInitialPane).environment(appState)
+                case .print(let tab):
+                    PrintSheetView(tab: tab).environment(appState)
+                case .onboarding:
+                    OnboardingView().environment(appState)
+                case .whatsNew:
+                    WhatsNewView().environment(appState)
+                }
             }
             .onChange(of: appState.activeTab?.pdfDocument) { _, _ in applyInitialView() }
             .onChange(of: appState.tabs.map(\.id)) { _, ids in
@@ -21,7 +28,69 @@ struct FeatureHost: ViewModifier {
                     features.forget(id)
                 }
             }
-            .onAppear { applyInitialView() }
+            .onAppear {
+                applyInitialView()
+                startServices()
+            }
+            .onChange(of: features.showingAdvancedSearch) { _, show in
+                if show { openWindow(id: "advanced-search"); features.showingAdvancedSearch = false }
+            }
+            .onChange(of: features.helpTopic) { _, topic in
+                if topic != nil { openWindow(id: "help") }
+            }
+    }
+
+    @Environment(\.openWindow) private var openWindow
+
+    /// Services provider, spelling preferences, first-run tour / What's New.
+    private func startServices() {
+        guard !FeatureHost.started else { return }
+        FeatureHost.started = true
+        let provider = ServicesProvider()
+        provider.appState = appState
+        FeatureHost.servicesProvider = provider
+        NSApp.servicesProvider = provider
+        NSUpdateDynamicServices()
+        SpellingCoordinator.shared.start(appState.preferences)
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        let preferences = appState.preferences
+        if !preferences.hasCompletedOnboarding {
+            appState.features.showingOnboarding = true
+        } else if preferences.showWhatsNewAfterUpdates && preferences.lastSeenWhatsNew != WhatsNew.version {
+            appState.features.showingWhatsNew = true
+        }
+    }
+
+    @MainActor private static var started = false
+    @MainActor private static var servicesProvider: ServicesProvider?
+
+    private enum FeatureSheet: Identifiable {
+        case properties(DocumentTab), print(DocumentTab), onboarding, whatsNew
+        var id: String {
+            switch self {
+            case .properties(let tab): "properties-\(tab.id)"
+            case .print(let tab): "print-\(tab.id)"
+            case .onboarding: "onboarding"
+            case .whatsNew: "whatsNew"
+            }
+        }
+    }
+
+    private var currentSheet: FeatureSheet? {
+        let features = appState.features
+        if let tab = appState.tab(withID: features.propertiesTabID) { return .properties(tab) }
+        if let tab = appState.tab(withID: features.printTabID) { return .print(tab) }
+        if features.showingOnboarding { return .onboarding }
+        if features.showingWhatsNew { return .whatsNew }
+        return nil
+    }
+
+    private func dismissSheets() {
+        let features = appState.features
+        features.propertiesTabID = nil
+        features.printTabID = nil
+        features.showingOnboarding = false
+        features.showingWhatsNew = false
     }
 
     /// Applies /PageLayout, /PageMode and /OpenAction the first time a

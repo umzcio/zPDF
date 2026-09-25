@@ -87,7 +87,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .sendForComments: false
 
-        case .share: false
+        case .share: true
 
         case .sendForSignature: false
 
@@ -107,13 +107,13 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .scanAndOCR: false
 
-        case .measureObjects: false
+        case .measureObjects: true
 
         case .printProduction: false
 
-        case .actionWizard: false
+        case .actionWizard: true
 
-        case .accessibilityCheck: false
+        case .accessibilityCheck: true
 
         case .archivePDFA: false
 

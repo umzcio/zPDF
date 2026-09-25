@@ -67,7 +67,10 @@ final class ToolIDTests: XCTestCase {
     }
 
     func testToolbarShowsSupportedWorkflows() {
-        XCTAssertEqual(InspectorPanel.toolbarOrder,
-                       [.comment, .fillSign, .organize, .export])
+        // The primary workflows lead; newly implemented tools follow in catalog order.
+        XCTAssertEqual(Array(InspectorPanel.toolbarOrder.prefix(4)), [.comment, .fillSign, .organize, .export])
+        XCTAssertEqual(Set(InspectorPanel.toolbarOrder).count, InspectorPanel.toolbarOrder.count)
+        XCTAssertTrue(ToolID.available.allSatisfy(\.isImplemented))
+        XCTAssertFalse(ToolID.allCases.filter { !$0.isImplemented }.contains { ToolID.available.contains($0) })
     }
 }

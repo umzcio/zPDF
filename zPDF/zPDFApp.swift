@@ -44,7 +44,7 @@ struct zPDFApp: App {
             // main window's existing unsaved-changes delegate.
             CommandGroup(replacing: .newItem) {
                 Button("Open…") { appState.openFilePanel() }
-                    .keyboardShortcut("o", modifiers: .command)
+                    .zShortcut(.open)
                 Divider()
                 Button(appState.documentWindowIsKey && appState.activeTab != nil ? "Close Tab" : "Close Window") {
                     if appState.documentWindowIsKey && appState.activeTab != nil {
@@ -53,7 +53,7 @@ struct zPDFApp: App {
                         NSApp.keyWindow?.performClose(nil)
                     }
                 }
-                .keyboardShortcut("w", modifiers: .command)
+                .zShortcut(.closeTab)
             }
             CommandGroup(after: .importExport) {
                 Menu("Export") {
@@ -74,13 +74,13 @@ struct zPDFApp: App {
             }
             CommandGroup(after: .textEditing) {
                 Button("Find in PDF…") { appState.searchFocusRequest += 1 }
-                    .keyboardShortcut("f", modifiers: .command)
+                    .zShortcut(.find)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
                 Button("Next Match") { appState.activeTab?.goToNextMatch() }
-                    .keyboardShortcut("g", modifiers: .command)
+                    .zShortcut(.findNext)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab?.currentMatch == nil)
                 Button("Previous Match") { appState.activeTab?.goToPreviousMatch() }
-                    .keyboardShortcut("g", modifiers: [.command, .shift])
+                    .zShortcut(.findPrevious)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab?.currentMatch == nil)
             }
             CommandGroup(replacing: .undoRedo) {
@@ -102,61 +102,63 @@ struct zPDFApp: App {
             }
             CommandGroup(replacing: .printItem) {
                 Button("Print…") { appState.printActiveDocument() }
-                    .keyboardShortcut("p", modifiers: .command)
+                    .zShortcut(.print)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil || appState.activeTab?.isSaving == true)
             }
             // View menu additions.
             CommandGroup(replacing: .saveItem) {
                 Button("Save") { appState.saveActiveDocument() }
-                    .keyboardShortcut("s", modifiers: .command)
+                    .zShortcut(.save)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true)
                 Button("Save As…") { appState.saveActiveDocumentAs() }
-                    .keyboardShortcut("s", modifiers: [.command, .shift])
+                    .zShortcut(.saveAs)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab?.allowsSaveEdits != true || appState.isResolvingClose)
             }
             CommandMenu("Navigate") {
                 Button("Previous View") { appState.navigateView(backward: true) }
-                    .keyboardShortcut("[", modifiers: .command)
+                    .zShortcut(.previousView)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab?.viewHistory.canGoBack != true)
                 Button("Next View") { appState.navigateView(backward: false) }
-                    .keyboardShortcut("]", modifiers: .command)
+                    .zShortcut(.nextView)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab?.viewHistory.canGoForward != true)
                 Divider()
                 Button("Previous Page") { appState.navigatePage(.previous) }
-                    .keyboardShortcut(.pageUp, modifiers: .command)
+                    .zShortcut(.previousPage)
                     .disabled(!appState.documentWindowIsKey || (appState.activeTab?.currentPage ?? 1) <= 1)
                 Button("Next Page") { appState.navigatePage(.next) }
-                    .keyboardShortcut(.pageDown, modifiers: .command)
+                    .zShortcut(.nextPage)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil
                               || (appState.activeTab?.currentPage ?? 1) >= (appState.activeTab?.pageCount ?? 1))
                 Button("First Page") { appState.navigatePage(.first) }
+                    .zShortcut(.firstPage)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
                 Button("Last Page") { appState.navigatePage(.last) }
+                    .zShortcut(.lastPage)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
                 Button("Go to Page…") { appState.pageFocusRequest += 1 }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                    .zShortcut(.goToPage)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
                 Divider()
                 Button("Previous Document") { appState.cycleDocument(backward: true) }
-                    .keyboardShortcut(.tab, modifiers: [.control, .shift])
+                    .zShortcut(.previousDocument)
                     .disabled(!appState.documentWindowIsKey || appState.tabs.count < 2)
                 Button("Next Document") { appState.cycleDocument(backward: false) }
-                    .keyboardShortcut(.tab, modifiers: .control)
+                    .zShortcut(.nextDocument)
                     .disabled(!appState.documentWindowIsKey || appState.tabs.count < 2)
             }
             CommandGroup(after: .sidebar) {
                 Button("All Tools") { appState.toggleAllTools() }
-                    .keyboardShortcut("s", modifiers: [.command, .control])
+                    .zShortcut(.allTools)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
                 Divider()
                 Button("Zoom In") { appState.stepDocumentZoom(.in) }
-                    .keyboardShortcut("=", modifiers: .command)
+                    .zShortcut(.zoomIn)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
                 Button("Zoom Out") { appState.stepDocumentZoom(.out) }
-                    .keyboardShortcut("-", modifiers: .command)
+                    .zShortcut(.zoomOut)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
                 Button("Actual Size") { appState.activeTab?.setZoom(1.0) }
-                    .keyboardShortcut("0", modifiers: .command)
+                    .zShortcut(.actualSize)
                     .disabled(!appState.documentWindowIsKey || appState.activeTab == nil)
             }
         }
@@ -165,6 +167,8 @@ struct zPDFApp: App {
                 .environment(appState)
                 .modifier(AppAppearanceModifier(preferences: appState.preferences))
         }
+        // Help, Advanced Search and extra document windows (FeatureWindows.swift).
+        FeatureWindows(appState: appState)
     }
 }
 

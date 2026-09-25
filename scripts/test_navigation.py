@@ -427,5 +427,23 @@ class JavaScriptTests(Base):
             self.run_ops(out2, [{"op": "remove_javascript", "ids": ["open"]}])
 
 
+class PrintingAndAutomationTests(Base):
+    def test_keep_pages_and_optional_steps(self):
+        src = headings_pdf(self.tmp / "h.pdf")
+        out, result = self.run_ops(src, [{"op": "keep_pages", "pages": [1]}])
+        self.assertEqual(result["page_count"], 1)
+        self.assertIn("Methods", pdfium.PdfDocument(str(out))[0].get_textpage().get_text_range())
+        with self.assertRaises(EngineError):
+            self.run_ops(src, [{"op": "keep_pages", "pages": [5]}])
+        # Not-applicable steps are skipped; real errors still fail closed.
+        out, result = self.run_ops(src, [{"op": "optional", "step": {"op": "flatten_layers"}},
+                                         {"op": "watermark", "text": "OK"}])
+        self.assertTrue(result["results"][0]["skipped"])
+        with self.assertRaises(EngineError):
+            self.run_ops(src, [{"op": "optional", "step": {"op": "keep_pages", "pages": [9]}}])
+        with self.assertRaises(EngineError):
+            self.run_ops(src, [{"op": "optional", "step": {"op": "optional", "step": {"op": "finalize"}}}])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
