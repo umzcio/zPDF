@@ -359,12 +359,20 @@ struct FieldPropertiesView: View {
             Toggle("Read only", isOn: $draft.readonly).help("People filling the form can’t change this field")
             Toggle("Hidden", isOn: $draft.hidden).help("Hide the field on screen and in print")
             Toggle("Printable", isOn: $draft.printable).help("Include the field when printing")
-            if let widget = field.widgets.first {
+            if !draft.widgets.isEmpty {
                 PanelFormRow(label: "Position") {
-                    Text("x \(Int(widget.rect.minX))  y \(Int(widget.rect.minY))  \(Int(widget.rect.width))×\(Int(widget.rect.height)) pt")
-                        .monospacedDigit().foregroundStyle(DesignTokens.Colors.mutedText)
+                    HStack(spacing: 4) {
+                        coordinate("X", \.origin.x)
+                        coordinate("Y", \.origin.y)
+                    }
                 }
-                .help("Page \(widget.page + 1). Drag a new field to change size, or use Duplicate for other pages.")
+                PanelFormRow(label: "Size") {
+                    HStack(spacing: 4) {
+                        coordinate("W", \.size.width)
+                        coordinate("H", \.size.height)
+                    }
+                }
+                .help("Page \(draft.widgets[0].page + 1), in points. You can also drag the field on the page.")
             }
         }
         .toggleStyle(.checkbox)
@@ -414,6 +422,14 @@ struct FieldPropertiesView: View {
             }
         }
         .font(.system(size: 11))
+    }
+
+    private func coordinate(_ label: String, _ path: WritableKeyPath<CGRect, CGFloat>) -> some View {
+        TextField(label, value: Binding(get: { Double(draft.widgets[0].rect[keyPath: path]) },
+                                        set: { draft.widgets[0].rect[keyPath: path] = CGFloat($0) }),
+                  format: .number.precision(.fractionLength(0...1)))
+            .frame(width: 58)
+            .accessibilityLabel("\(label) in points")
     }
 
     private func colorRow(_ label: String, value: Binding<[Double]?>, allowsNone: Bool = true) -> some View {
@@ -702,6 +718,11 @@ struct FieldPropertiesView: View {
             changes["new_name"] = newName
         }
         if draft.tooltip != field.tooltip { changes["tooltip"] = draft.tooltip }
+        if let rect = draft.widgets.first?.rect, rect != field.widgets.first?.rect {
+            guard rect.width >= 4, rect.height >= 4 else { error = "Fields must be at least 4 points wide and high."; return }
+            changes["rect"] = [rect.minX, rect.minY, rect.maxX, rect.maxY]
+            changes["widget"] = 0
+        }
         if draft.required != field.required { changes["required"] = draft.required }
         if draft.readonly != field.readonly { changes["readonly"] = draft.readonly }
         if draft.hidden != field.hidden { changes["hidden"] = draft.hidden }

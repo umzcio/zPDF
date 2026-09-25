@@ -151,11 +151,16 @@ extension AppState {
         if let name = request.name, !name.isEmpty { op["name"] = name }
         if let certify = request.certify { op["certify"] = certify }
         if let image = request.image { op["image"] = image.base64EncodedString() }
-        if let url = request.timestampURL, !url.isEmpty { op["timestamp_url"] = url }
+        if let url = request.timestampURL, !url.isEmpty {
+            op["timestamp_url"] = url
+            if let roots = SystemTrustRoots.pemFile() { op["tls_roots"] = roots.path }
+        }
         var ops: [[String: Any]] = [op]
         try await applyDocumentTransform(ops, to: tab, actionName: request.certify == nil ? "Sign Document" : "Certify Document")
         if request.addLTV {
-            ops = [["op": "add_ltv", "allow_network": request.fetchRevocation]]
+            var ltv: [String: Any] = ["op": "add_ltv", "allow_network": request.fetchRevocation]
+            if request.fetchRevocation, let roots = SystemTrustRoots.pemFile() { ltv["tls_roots"] = roots.path }
+            ops = [ltv]
             try? await applyDocumentTransform(ops, to: tab, actionName: "Add Validation Information")
         }
         signatureService.preferences.lastDigitalID = request.identity.id
@@ -165,8 +170,9 @@ extension AppState {
     }
 
     func addLongTermValidation(_ tab: DocumentTab) async throws {
-        try await applyDocumentTransform([["op": "add_ltv", "allow_network": signatureService.preferences.fetchRevocation]],
-                                         to: tab, actionName: "Add Validation Information")
+        var op: [String: Any] = ["op": "add_ltv", "allow_network": signatureService.preferences.fetchRevocation]
+        if signatureService.preferences.fetchRevocation, let roots = SystemTrustRoots.pemFile() { op["tls_roots"] = roots.path }
+        try await applyDocumentTransform([op], to: tab, actionName: "Add Validation Information")
         refreshFormModel(tab)
     }
 

@@ -426,6 +426,12 @@ final class FormsSignaturesTests: XCTestCase {
         XCTAssertEqual(PDFDocument(url: copy)?.pageCount, 1)
     }
 
+    func testSystemRootsExportForEngineHTTPS() throws {
+        let url = try XCTUnwrap(SystemTrustRoots.pemFile())
+        let pem = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertGreaterThan(pem.components(separatedBy: "-----BEGIN CERTIFICATE-----").count, 20)
+    }
+
     func testProfileMatching() {
         var profile = FormProfile()
         profile.email = "me@example.test"

@@ -17,12 +17,25 @@ final class FormsCanvasInteraction: NSObject, NSTextFieldDelegate {
     private var editorOrigin: CGPoint = .zero
     private var editorReplacing: PDFAnnotation?
     private weak var editorState: AppState?
+    /// A Fill & Sign mark or Prepare Form widget being dragged to a new place.
+    private struct Move {
+        let annotation: PDFAnnotation
+        weak var page: PDFPage?
+        let pageIndex: Int
+        let grab: CGPoint
+        let original: CGRect
+        let field: String?
+        var moved = false
+    }
+    private var move: Move?
 
     nonisolated override init() { super.init() }
 
     static let typewriterIntent = "/FreeTextTypeWriter"
 
     func cancel() {
+        if let move, move.moved, move.field != nil { move.annotation.bounds = move.original }
+        move = nil
         if let preview, let page = dragPage { page.removeAnnotation(preview) }
         preview = nil
         dragStart = nil
@@ -39,9 +52,22 @@ final class FormsCanvasInteraction: NSObject, NSTextFieldDelegate {
         let point = view.convert(viewPoint, to: page)
         if editor != nil { endEditing(commit: true) }
         guard let tool = service.armedTool else {
+            guard let annotation = page.annotation(at: point) else { return false }
             // Double-click a Fill & Sign text box to edit it again.
-            if event.clickCount == 2, let annotation = page.annotation(at: point), Self.isFillText(annotation) {
+            if event.clickCount == 2, Self.isFillText(annotation) {
                 beginEditing(at: annotation.bounds.origin, on: page, in: view, state: state, replacing: annotation)
+                return true
+            }
+            // Drag Fill & Sign marks; in Prepare Form, click selects a field and drag moves it.
+            if Self.isMovableMark(annotation) {
+                move = Move(annotation: annotation, page: page, pageIndex: document.index(for: page), grab: point,
+                            original: annotation.bounds, field: nil)
+                return true
+            }
+            if state.activePanel == .prepareForm, annotation.type == "Widget", let name = annotation.fieldName {
+                service.onFieldPlaced?(name)
+                move = Move(annotation: annotation, page: page, pageIndex: document.index(for: page), grab: point,
+                            original: annotation.bounds, field: name)
                 return true
             }
             return false
@@ -71,6 +97,15 @@ final class FormsCanvasInteraction: NSObject, NSTextFieldDelegate {
     }
 
     func drag(_ event: NSEvent, in view: PDFView, state: AppState) -> Bool {
+        if var current = move, let page = current.page {
+            let point = view.convert(view.convert(event.locationInWindow, from: nil), to: page)
+            let dx = point.x - current.grab.x, dy = point.y - current.grab.y
+            guard current.moved || hypot(dx, dy) > 2 else { return true }
+            current.moved = true
+            move = current
+            current.annotation.bounds = Self.clamp(current.original.offsetBy(dx: dx, dy: dy), to: page.bounds(for: .cropBox))
+            return true
+        }
         guard let start = dragStart, let page = dragPage, let tool = state.signatureService.armedTool else { return false }
         let point = view.convert(view.convert(event.locationInWindow, from: nil), to: page)
         if let preview { page.removeAnnotation(preview) }
@@ -99,6 +134,28 @@ final class FormsCanvasInteraction: NSObject, NSTextFieldDelegate {
     }
 
     func end(_ event: NSEvent, in view: PDFView, state: AppState) -> Bool {
+        if let current = move {
+            move = nil
+            guard current.moved else { return true }
+            if let field = current.field, let tab = state.activeTab {
+                // Widgets belong to the form tree: restore PDFKit's copy and move
+                // the field natively (one Undo step), as Save can't carry bounds edits.
+                let target = current.annotation.bounds
+                current.annotation.bounds = current.original
+                let info = tab.protection.formFields.first { $0.name == field }
+                let index = info?.widgets.firstIndex { $0.page == current.pageIndex
+                    && abs($0.rect.minX - current.original.minX) < 1 && abs($0.rect.minY - current.original.minY) < 1 } ?? 0
+                state.runDocumentTransform([["op": "update_form_field", "name": field, "widget": index,
+                                             "rect": [target.minX, target.minY, target.maxX, target.maxY]]],
+                                           actionName: "Move Field", in: tab) { [weak state] _ in
+                    state?.refreshFormModel(tab)
+                    state?.signatureService.onFieldPlaced?(field)
+                }
+            } else {
+                state.noteAnnotationsChanged()
+            }
+            return true
+        }
         guard let start = dragStart, let page = dragPage, let tool = state.signatureService.armedTool else { return false }
         if let preview { page.removeAnnotation(preview) }
         preview = nil
@@ -153,6 +210,17 @@ final class FormsCanvasInteraction: NSObject, NSTextFieldDelegate {
     }
 
     // MARK: Fill & Sign marks
+
+    /// Marks placed by Fill & Sign (text, check, cross, dot, line).
+    static func isMovableMark(_ annotation: PDFAnnotation) -> Bool {
+        if isFillText(annotation) { return true }
+        switch annotation.type {
+        case "Ink": return ["Check mark", "Cross mark"].contains(annotation.contents ?? "")
+        case "Circle": return annotation.contents == "Dot"
+        case "Line": return annotation.contents == "Line"
+        default: return false
+        }
+    }
 
     static func isFillText(_ annotation: PDFAnnotation) -> Bool {
         guard annotation.type == "FreeText" else { return false }
@@ -210,6 +278,7 @@ final class FormsCanvasInteraction: NSObject, NSTextFieldDelegate {
         line.endPoint = CGPoint(x: end.x - bounds.minX, y: end.y - bounds.minY)
         line.color = state.signatureService.fillColor
         let border = PDFBorder(); border.lineWidth = 1; line.border = border
+        line.contents = "Line"
         line.shouldPrint = true
         page.addAnnotation(line)
     }

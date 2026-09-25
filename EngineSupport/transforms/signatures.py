@@ -250,9 +250,11 @@ def _signature_dictionary(pdf, subfilter, info, certify):
 @op("sign", incremental=True)
 def sign(ctx, identity, field=None, page=None, rect=None, name=None, reason="", location="", contact="",
          appearance=None, image=None, certify=None, timestamp_url=None, subfilter="pades",
-         reserve=None, date_text=None, _fetch=None):
+         reserve=None, date_text=None, tls_roots=None, _fetch=None):
     """Sign the document. Must be the last operation of its list."""
     pdf = ctx.pdf
+    if C is not None and tls_roots:
+        C.TLS_ROOTS = tls_roots
     require(C is not None, "DEPENDENCY_UNAVAILABLE", "Digital signatures are unavailable in this build.")
     require(ctx.tracker is not None, "UNSUPPORTED_OPERATION", "Signing needs an unencrypted document.")
     require(isinstance(identity, dict) and identity.get("p12"), "INVALID_ARGUMENT", "Choose a digital ID.")
@@ -329,10 +331,12 @@ def sign(ctx, identity, field=None, page=None, rect=None, name=None, reason="", 
 # ------------------------------------------------------------------ LTV
 
 @op("add_ltv", incremental=True)
-def add_ltv(ctx, extra_certificates=None, allow_network=False, _fetch=None):
+def add_ltv(ctx, extra_certificates=None, allow_network=False, tls_roots=None, _fetch=None):
     """Embed a Document Security Store with every chain/timestamp certificate
     and any revocation data that can be obtained."""
     pdf = ctx.pdf
+    if C is not None and tls_roots:
+        C.TLS_ROOTS = tls_roots
     require(ctx.tracker is not None and incremental.is_signed(pdf), "NOT_SIGNED", "Sign the document first.")
     data = ctx.tracker.base
     certs, vri = [], {}

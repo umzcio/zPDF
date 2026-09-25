@@ -347,6 +347,26 @@ extension AppState {
     }
 }
 
+/// The macOS system root certificates as a PEM bundle for the engine's
+/// HTTPS requests (timestamp servers, OCSP/CRL), written once per launch.
+enum SystemTrustRoots {
+    nonisolated(unsafe) private static var cached: URL?
+
+    static func pemFile() -> URL? {
+        if let cached, FileManager.default.fileExists(atPath: cached.path) { return cached }
+        var anchors: CFArray?
+        guard SecTrustCopyAnchorCertificates(&anchors) == errSecSuccess, let list = anchors as? [SecCertificate] else { return nil }
+        let pem = list.map { certificate -> String in
+            let base64 = (SecCertificateCopyData(certificate) as Data).base64EncodedString(options: [.lineLength64Characters, .endLineWithLineFeed])
+            return "-----BEGIN CERTIFICATE-----\n\(base64)\n-----END CERTIFICATE-----\n"
+        }.joined()
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("zpdf-system-roots.pem")
+        guard (try? Data(pem.utf8).write(to: url, options: .atomic)) != nil else { return nil }
+        cached = url
+        return url
+    }
+}
+
 /// Certificate path validation with macOS Security: user-trusted certificates
 /// are anchors in addition to the system roots.
 enum CertificateTrust {

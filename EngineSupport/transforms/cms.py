@@ -25,6 +25,9 @@ from engine.errors import EngineError, require
 
 HASHES = {"sha256": hashes.SHA256, "sha384": hashes.SHA384, "sha512": hashes.SHA512, "sha1": hashes.SHA1}
 USER_AGENT = "zPDF"
+# PEM bundle of the macOS system roots, exported by the app (the bundled
+# OpenSSL has no system trust store). Used for HTTPS timestamp/revocation.
+TLS_ROOTS = None
 
 
 # --------------------------------------------------------------------- IDs
@@ -208,8 +211,12 @@ def _http(url, body, content_type, fetch=None, timeout=20):
     request = urllib.request.Request(url, data=body, method="POST" if body is not None else "GET",
                                      headers={"Content-Type": content_type, "User-Agent": USER_AGENT} if body is not None
                                      else {"User-Agent": USER_AGENT})
+    context = None
+    if url.startswith("https://"):
+        import ssl
+        context = ssl.create_default_context(cafile=TLS_ROOTS) if TLS_ROOTS else ssl.create_default_context()
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
             return response.read(4 * 1024 * 1024)
     except OSError as exc:
         raise EngineError("NETWORK_FAILED", f"Could not reach {url.split('/')[2] if '//' in url else url}.") from exc
