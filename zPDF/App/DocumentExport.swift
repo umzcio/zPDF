@@ -149,9 +149,9 @@ extension AppState {
         return operation
     }
 
+    /// ⌘P opens zPDF's print dialog, which prints a materialized copy with
+    /// current edits (PrintSheetView / PrintService).
     func printActiveDocument() {
-        guard let tab = activeTab else { return }
-        do { _ = try printOperation(for: tab).run() }
-        catch { saveError = OpenError(fileName: tab.displayName, message: error.localizedDescription) }
+        showPrintDialog()
     }
 }

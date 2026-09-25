@@ -250,6 +250,15 @@ struct PDFViewRepresentable: NSViewRepresentable {
             appState.rememberReadingState(tab)
         }
 
+        /// External links follow Settings ▸ Security (see LinkPolicy).
+        nonisolated func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
+            // PDFKit calls its delegate on the main thread.
+            nonisolated(unsafe) let view = sender
+            MainActor.assumeIsolated {
+                LinkPolicy.open(url, preferences: appState.preferences, window: view.window)
+            }
+        }
+
         func invalidate() {
             let center = NotificationCenter.default
             observers.forEach { center.removeObserver($0) }

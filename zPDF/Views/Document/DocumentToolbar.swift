@@ -68,6 +68,7 @@ struct DocumentToolbar: View {
                 .accessibilityValue(appState.sidebarVisible ? "Expanded" : "Collapsed")
                 .disabled(tab == nil)
                 Spacer(minLength: 0)
+                ShareToolbarButton()
                 Button {
                     showingSearch = true
                 } label: {
@@ -466,8 +467,7 @@ struct DocumentToolbar: View {
     // MARK: - Actions
 
     private func zoom(_ direction: ZoomDirection) {
-        guard let tab else { return }
-        tab.setZoom(ZoomController.steppedZoom(from: tab.zoomFactor, direction: direction))
+        appState.stepDocumentZoom(direction)
     }
 
     private func fitWidth() {

@@ -35,6 +35,7 @@ struct DocumentQuickTools: View {
                  help: "Fill form fields") {
                 appState.openTool(.fillAndSign)
             }.disabled(!canEdit)
+            FavoriteQuickTools()
             tool("More tools", symbol: "ellipsis", selected: false,
                  help: "All tools (⌃⌘S)", action: appState.showAllTools)
         }

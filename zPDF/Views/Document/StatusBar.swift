@@ -102,6 +102,16 @@ private struct StatusNavigationControls: View {
     @FocusState private var pageFocused: Bool
     @FocusState private var zoomFocused: Bool
 
+    /// "Page iv (4 of 12)" when the PDF defines page labels (Settings ▸
+    /// Page Display ▸ Show page labels), otherwise "Page 4 of 12".
+    private var pageLabelText: String {
+        let number = "\(tab.currentPage) of \(max(tab.pageCount, 1))"
+        guard appState.preferences.showPageLabels,
+              let label = tab.pdfDocument?.page(at: tab.currentPage - 1)?.label,
+              !label.isEmpty, label != "\(tab.currentPage)" else { return "Page \(number)" }
+        return "Page \(label) (\(number))"
+    }
+
     private var requestedPage: Int? {
         guard let value = Int(pageText.trimmingCharacters(in: .whitespaces)),
               (1...max(1, tab.pageCount)).contains(value) else { return nil }
@@ -123,8 +133,7 @@ private struct StatusNavigationControls: View {
                 pageText = "\(tab.currentPage)"
                 showingPage = true
             } label: {
-                Text(tab.pageLabel(at: tab.currentPage - 1).map { "Page \($0) (\(tab.currentPage) of \(max(tab.pageCount, 1)))" }
-                     ?? "Page \(tab.currentPage) of \(max(tab.pageCount, 1))")
+                Text(pageLabelText)
                     .frame(height: 22).contentShape(Rectangle())
             }
             .buttonStyle(.plain)

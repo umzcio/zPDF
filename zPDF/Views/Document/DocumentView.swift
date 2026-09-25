@@ -92,7 +92,7 @@ struct DocumentView: View {
                 // Prototype "organizing" mode swaps the canvas for a page grid.
                 OrganizePagesView(tab: tab)
             } else {
-                ZStack {
+                SplitCanvas(tab: tab) { ZStack {
                     PDFViewRepresentable(
                         document: tab.pdfDocument,
                         displayMode: tab.viewMode.pdfDisplayMode,
@@ -104,6 +104,7 @@ struct DocumentView: View {
                             tab.currentPage = newPage
                         }
                     )
+                    CanvasFeatureLayer(tab: tab)
                     if appState.signatureService.armedSignature != nil {
                         SignaturePlacementOverlay(viewStore: appState.pdfViewStore,
                                                   signatureService: appState.signatureService)
@@ -113,7 +114,7 @@ struct DocumentView: View {
                     if appState.signatureService.armedSignature != nil {
                         placementBanner
                     }
-                }
+                } }
             }
         } else {
             emptyCanvas

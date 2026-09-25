@@ -30,8 +30,17 @@ extension AppState {
         selectTab(tabs[(index + (backward ? tabs.count - 1 : 1)) % tabs.count])
     }
 
+    /// Zoom In/Out through the stops in Settings ▸ Page Display ▸ Zoom Steps.
     func stepDocumentZoom(_ direction: ZoomDirection) {
         guard let tab = activeTab else { return }
-        tab.setZoom(ZoomController.steppedZoom(from: tab.zoomFactor, direction: direction))
+        tab.setZoom(Self.steppedZoom(from: tab.zoomFactor, direction: direction, steps: preferences.zoomSteps))
+    }
+
+    nonisolated static func steppedZoom(from current: Double, direction: ZoomDirection, steps: [Double]) -> Double {
+        let stops = steps.isEmpty ? ZoomController.steps : steps.sorted()
+        switch direction {
+        case .in: return stops.first { $0 > current + 0.001 } ?? ZoomController.maximumZoom
+        case .out: return stops.last { $0 < current - 0.001 } ?? ZoomController.minimumZoom
+        }
     }
 }
