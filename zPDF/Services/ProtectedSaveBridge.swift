@@ -68,10 +68,39 @@ final class EncryptedOriginal: Sendable {
 }
 
 /// Everything Save needs besides the pending edits, captured on the main actor.
+/// Recipients chosen for certificate security (DER certificates + permissions).
+struct CertificateRecipients: Sendable, Equatable {
+    var certificates: [Data]
+    var settings: SecuritySettings
+}
+
+/// Receives the file key of certificate security written by Save, so the
+/// saved file can be reopened for editing without asking for a digital ID.
+final class SecurityOutcome: @unchecked Sendable {
+    private let lock = NSLock()
+    private var key: String?
+    var fileKey: String? {
+        get { lock.withLock { key } }
+        set { lock.withLock { key = newValue } }
+    }
+}
+
 struct ProtectedSaveContext: Sendable {
     var original: EncryptedOriginal?
     var secrets: [String: SecuritySettings] = [:]
-    var mayHaveSecurity: Bool { original != nil || !secrets.isEmpty }
+    var certificateRecipients: [String: CertificateRecipients] = [:]
+    /// File key of the original certificate-secured document (kept on Save).
+    var certificateKey: String?
+    var outcome = SecurityOutcome()
+    var mayHaveSecurity: Bool { original != nil || !secrets.isEmpty || !certificateRecipients.isEmpty }
+}
+
+enum CertificateSecurity {
+    /// PDFs protected with the public-key (Adobe.PubSec) security handler.
+    static func isCertificateSecured(_ url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url, options: .alwaysMapped) else { return false }
+        return data.range(of: Data("/Adobe.PubSec".utf8)) != nil || data.range(of: Data("/Adobe#2EPubSec".utf8)) != nil
+    }
 }
 
 enum SignedPDF {
@@ -162,11 +191,25 @@ extension SaveHelper {
             op["permissions"] = settings.permissionsJSON
             op["method"] = settings.method.rawValue
             op["encrypt_metadata"] = settings.encryptMetadata
+        case "Certificate":
+            if let token = marker["token"] as? String, let chosen = context.certificateRecipients[token] {
+                op["recipients"] = chosen.certificates.map { $0.base64EncodedString() }
+                op["permissions"] = chosen.settings.permissionsJSON
+                op["encrypt_metadata"] = chosen.settings.encryptMetadata
+            } else if let key = context.certificateKey, let original = context.original {
+                op["certificate_key"] = key
+                op["original"] = original.url.path
+            } else {
+                throw NativeSaveError(code: "SECURITY_UNAVAILABLE", message: "The recipients for this document’s certificate security are no longer available. Choose them again in Protect before saving.")
+            }
         default:
             break
         }
         let output = directory.appendingPathComponent("secured-\(UUID().uuidString.prefix(8)).pdf")
-        let (sha, _) = try transform(source, hash: hash, ops: [op], to: output)
+        let (sha, result) = try transform(source, hash: hash, ops: [op], to: output)
+        if let results = result["results"] as? [[String: Any]], let key = results.first?["file_key"] as? String {
+            context.outcome.fileKey = key
+        }
         return (output, sha)
     }
 

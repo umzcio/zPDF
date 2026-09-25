@@ -7,16 +7,18 @@
 //  security presets, removing security, and sanitizing. Security is
 //  recorded on the editing revision and applied when the file is saved;
 //  documents opened with a password keep their encryption on Save.
-//  Certificate (public-key) encryption is not offered: QPDF, which writes
-//  zPDF's encrypted files, has no public-key security handler.
+//  Certificate (public-key) security encrypts for chosen recipients'
+//  certificates (Adobe.PubSec, AES-256; see EngineSupport/transforms/pubsec.py).
 //
 
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ProtectPanel: View {
     @Environment(AppState.self) private var appState
     @State private var showsPasswordSheet = false
+    @State private var showsCertificateSheet = false
     @State private var preset: SecurityPreset?
     @State private var showsRemove = false
     @State private var removePassword = ""
@@ -34,6 +36,10 @@ struct ProtectPanel: View {
                                   prominent: !currentlyProtected) {
                     preset = nil
                     showsPasswordSheet = true
+                }
+                PanelActionButton(title: "Encrypt with certificates…", symbolName: "person.badge.key",
+                                  help: "Only people whose certificates you choose can open the PDF, using their digital IDs") {
+                    showsCertificateSheet = true
                 }
                 if !appState.signatureService.securityPresets.isEmpty {
                     Menu {
@@ -81,6 +87,9 @@ struct ProtectPanel: View {
         .sheet(isPresented: $showsPasswordSheet) {
             if let tab { PasswordSecuritySheet(tab: tab, preset: preset).environment(appState) }
         }
+        .sheet(isPresented: $showsCertificateSheet) {
+            if let tab { CertificateSecuritySheet(tab: tab).environment(appState) }
+        }
         .alert("Remove security?", isPresented: $showsRemove) {
             if needsPermissionsPassword {
                 SecureField("Permissions password", text: $removePassword)
@@ -99,7 +108,7 @@ struct ProtectPanel: View {
 
     private var currentlyProtected: Bool {
         switch tab?.protection.pending ?? .none {
-        case .preserve, .password: true
+        case .preserve, .password, .certificate, .certificatePreserve: true
         default: false
         }
     }
@@ -125,6 +134,13 @@ struct ProtectPanel: View {
         case .password(let settings):
             PanelStatusCard(symbolName: "lock.badge.clock", title: "New security will be applied on Save",
                             detail: settingsSummary(settings), tone: .good)
+        case .certificate(let recipients):
+            PanelStatusCard(symbolName: "person.badge.key.fill", title: "Certificate security will be applied on Save",
+                            detail: "\(recipients.certificates.count) recipient\(recipients.certificates.count == 1 ? "" : "s") can open it with their digital IDs.",
+                            tone: .good)
+        case .certificatePreserve:
+            PanelStatusCard(symbolName: "person.badge.key.fill", title: "Encrypted for certificates (AES-256)",
+                            detail: "Saving keeps the same recipients.", tone: .good)
         }
     }
 
@@ -175,6 +191,116 @@ extension SecuritySettings.Changes {
         case .fill: "Filling in form fields and signing"
         case .comments: "Commenting, filling in fields, and signing"
         case .any: "Any except extracting pages"
+        }
+    }
+}
+
+// MARK: - Certificate security sheet
+
+struct CertificateSecuritySheet: View {
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+    let tab: DocumentTab
+
+    struct Candidate: Identifiable, Equatable {
+        var id: String
+        var name: String
+        var detail: String
+        var der: Data
+        var mine: Bool
+    }
+
+    @State private var candidates: [Candidate] = []
+    @State private var selected: Set<String> = []
+    @State private var settings = SecuritySettings()
+    @State private var error: String?
+    @State private var applying = false
+
+    var body: some View {
+        FormsSheet(title: "Certificate Security",
+                   subtitle: "Choose who can open this PDF. Each recipient opens it with the digital ID that matches their certificate.", width: 520) {
+            VStack(alignment: .leading, spacing: 12) {
+                if candidates.isEmpty {
+                    Text("No certificates yet. Create a digital ID in Certificates, or add a certificate someone shared with you.")
+                        .foregroundStyle(DesignTokens.Colors.mutedText)
+                } else {
+                    List(candidates) { candidate in
+                        Toggle(isOn: Binding(get: { selected.contains(candidate.id) },
+                                             set: { if $0 { selected.insert(candidate.id) } else { selected.remove(candidate.id) } })) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(candidate.name + (candidate.mine ? " (you)" : "")).font(.system(size: 12, weight: .medium))
+                                Text(candidate.detail).font(.caption).foregroundStyle(DesignTokens.Colors.mutedText).lineLimit(1)
+                            }
+                        }
+                        .toggleStyle(.checkbox)
+                    }
+                    .frame(height: 170)
+                }
+                Button("Add Certificate File…") { addCertificate() }
+                    .help("Add a recipient from a .cer, .crt, .der or .pem file")
+                Divider()
+                Toggle("Restrict what recipients can do", isOn: $settings.restrictPermissions)
+                if settings.restrictPermissions {
+                    Picker("Printing allowed", selection: $settings.printing) {
+                        ForEach(SecuritySettings.Printing.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    Picker("Changes allowed", selection: $settings.changes) {
+                        ForEach(SecuritySettings.Changes.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    Toggle("Allow copying of text and images", isOn: $settings.allowCopy)
+                }
+                if !candidates.contains(where: { $0.mine && selected.contains($0.id) }) {
+                    PanelErrorText(message: "Include one of your own digital IDs, or you won’t be able to open the saved file.")
+                }
+                if let error { PanelErrorText(message: error) }
+            }
+        } buttons: {
+            if applying { ProgressView().controlSize(.small) }
+            Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+            Button("Apply") { apply() }
+                .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+                .disabled(selected.isEmpty || applying)
+                .help("Security is applied when you save the document")
+        }
+        .onAppear(perform: load)
+    }
+
+    private func load() {
+        let service = appState.signatureService
+        var list: [Candidate] = service.digitalIDs.filter { $0.algorithm.hasPrefix("RSA") }.map {
+            Candidate(id: $0.sha256, name: $0.name, detail: [$0.email, $0.selfSigned ? "Self-signed" : $0.issuer].filter { !$0.isEmpty }.joined(separator: " · "),
+                      der: $0.certificate, mine: true)
+        }
+        for trusted in service.trust.certificates where !list.contains(where: { $0.id == trusted.sha256 }) {
+            list.append(Candidate(id: trusted.sha256, name: trusted.name, detail: trusted.issuer, der: trusted.der, mine: false))
+        }
+        candidates = list
+        if selected.isEmpty, let mine = list.first(where: \.mine) { selected = [mine.id] }
+    }
+
+    private func addCertificate() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = ["cer", "crt", "der", "pem"].compactMap { UTType(filenameExtension: $0) } + [.x509Certificate]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            do {
+                let added = try await appState.signatureService.trust.add(fileAt: url)
+                load()
+                selected.insert(added.sha256)
+            } catch { self.error = error.localizedDescription }
+        }
+    }
+
+    private func apply() {
+        let chosen = candidates.filter { selected.contains($0.id) }.map(\.der)
+        applying = true
+        error = nil
+        Task {
+            defer { applying = false }
+            do {
+                try await appState.applyCertificateSecurity(CertificateRecipients(certificates: chosen, settings: settings), to: tab)
+                dismiss()
+            } catch { self.error = error.localizedDescription }
         }
     }
 }

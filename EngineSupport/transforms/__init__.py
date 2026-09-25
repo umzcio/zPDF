@@ -26,7 +26,7 @@ REWRITE = set()
 
 # Every module in this package registers its operations/queries on import;
 # adding a feature never requires editing this file.
-_HELPERS = {"fonts", "cms", "incremental", "appearance", "formcalc"}
+_HELPERS = {"fonts", "cms", "incremental", "appearance", "formcalc", "pubsec"}
 
 
 def op(name, incremental=False, rewrite=False):
@@ -165,6 +165,7 @@ def run(source, destination, ops, password=None):
             options = dict(ctx.save_options)
             writer = options.pop("writer", None)
             options.pop("validate_password", None)
+            validator = options.pop("validator", None)
             encryption = options.pop("encryption", None)
             if encryption is not None:
                 options["encryption"] = encryption
@@ -185,7 +186,13 @@ def run(source, destination, ops, password=None):
         validate_password = ctx.save_options.get("validate_password", password)
         if isinstance(encryption, pikepdf.Encryption):
             validate_password = encryption.user or encryption.owner
-        pages = _validate(candidate, validate_password, ctx.expected_pages)
+        if validator is not None:
+            # Output QPDF can't open directly (certificate security): the op
+            # produces a readable copy to validate instead.
+            readable = validator(candidate, Path(workdir))
+            pages = _validate(readable, None, ctx.expected_pages)
+        else:
+            pages = _validate(candidate, validate_password, ctx.expected_pages)
         os.replace(candidate, destination)
     return {"sha256": digest(destination), "bytes": destination.stat().st_size,
             "page_count": pages, "results": ctx.results}

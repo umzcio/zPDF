@@ -319,6 +319,8 @@ final class AppState {
     var conversionExport: ConversionExport?
 
     var passwordPrompt: ((URL) -> String?)?
+    /// Test seam for certificate-secured PDFs (DocumentProtection).
+    @ObservationIgnored var certificatePrompt: ((URL, [DigitalID]) -> (DigitalID, String)?)?
 
     private func requestPassword(for url: URL) -> String? {
         if let passwordPrompt { return passwordPrompt(url) }
@@ -348,6 +350,11 @@ final class AppState {
         }
         do {
             let openedHash = SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
+            // Certificate (public-key) security: decrypt with a digital ID (DocumentProtection).
+            if CertificateSecurity.isCertificateSecured(url) {
+                openCertificateSecured(url, openedHash: openedHash, restoringSession: restoringSession)
+                return
+            }
             let document = try engine.openDocument(at: url)
             var password: String?
             if document.isLocked {

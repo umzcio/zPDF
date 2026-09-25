@@ -16,6 +16,8 @@ when the document is saved, published or exported:
 * None – saved without encryption (requires the permissions password when
   the original was encrypted).
 """
+import os
+
 import pikepdf
 from pikepdf import Name
 
@@ -146,7 +148,8 @@ def _foreign(target, source, value):
 
 @op("apply_security", rewrite=True)
 def apply_security(ctx, user_password=None, owner_password=None, permissions=None, method="aes256",
-                   encrypt_metadata=True, original=None, original_password=None):
+                   encrypt_metadata=True, original=None, original_password=None, recipients=None,
+                   certificate_key=None):
     """Apply the recorded security while writing the final file."""
     pdf = ctx.pdf
     recorded = marker(pdf)
@@ -179,7 +182,70 @@ def apply_security(ctx, user_password=None, owner_password=None, permissions=Non
         ctx.save_options["encryption"] = encryption
         ctx.save_options["validate_password"] = user_password or owner
         return {"mode": "Password", "method": "AES-128" if method == "aes128" else "AES-256"}
-    raise EngineError("UNSUPPORTED_OPERATION", "Certificate security is not supported.")
+    if mode == "Certificate":
+        return _apply_certificate_security(ctx, recipients, permissions, encrypt_metadata, certificate_key, original)
+    raise EngineError("UNSUPPORTED_OPERATION", "Unknown security mode.")
+
+
+def _apply_certificate_security(ctx, recipients, permissions, encrypt_metadata, certificate_key, original):
+    """New recipients (fresh seed) or, with `certificate_key` + `original`,
+    the original document's recipients and file key unchanged."""
+    import base64
+    from transforms import pubsec
+    if certificate_key:
+        require(original, "INVALID_ARGUMENT", "The original encrypted document is required.")
+        key = base64.b64decode(certificate_key)
+        source, _, blobs, _, cfm, meta = pubsec.open_encrypted(original, ctx.workdir)
+        source.close()
+        require(cfm == "/AESV3", "UNSUPPORTED_OPERATION",
+                "This document's certificate security uses AES-128; choose new recipients to save it with AES-256.")
+        encrypt_metadata = meta
+    else:
+        require(recipients, "INVALID_ARGUMENT", "Choose at least one recipient certificate.")
+        seed = os.urandom(20)
+        blobs = [pubsec.build_recipients([base64.b64decode(c) for c in recipients], seed,
+                                         pubsec.permission_value(permissions))]
+        key = pubsec.file_key(seed, blobs, bool(encrypt_metadata))
+
+    def writer(ctx_, candidate):
+        pubsec.write_encrypted(ctx_.pdf, candidate, key, blobs, bool(encrypt_metadata))
+
+    def validator(candidate, workdir):
+        readable = workdir / "certificate-check.pdf"
+        pubsec.decrypt_file(candidate, readable, workdir, key=key)
+        return readable
+
+    ctx.save_options["writer"] = writer
+    ctx.save_options["validator"] = validator
+    return {"mode": "Certificate", "file_key": base64.b64encode(key).decode(), "recipients": len(recipients or [])}
+
+
+def decrypt_certificate_file(source, destination, p12_b64=None, password="", key_b64=None, token=""):
+    """crypto command: private decrypted copy of a certificate-secured PDF."""
+    import base64
+    import tempfile
+    from pathlib import Path
+    from transforms import pubsec
+    from transforms import cms as C
+    destination = Path(destination)
+    require(not destination.exists(), "DESTINATION_EXISTS", "Output already exists.")
+    with tempfile.TemporaryDirectory(prefix="zpdf-pubsec-", dir=destination.parent) as workdir:
+        work = Path(workdir)
+        if key_b64:
+            key, permissions = pubsec.decrypt_file(source, work / "plain.pdf", work, key=base64.b64decode(key_b64))
+        else:
+            private_key, cert, _ = C.load_identity(p12_b64, password)
+            from cryptography.hazmat.primitives import serialization
+            key, permissions = pubsec.decrypt_file(source, work / "plain.pdf", work, private_key=private_key,
+                                                   certificate=cert.public_bytes(serialization.Encoding.DER))
+        with pikepdf.open(work / "plain.pdf") as plain:
+            pages = len(plain.pages)
+            _set_marker(plain, "Certificate", token, {"method": "AES-256 certificate"})
+            plain.save(work / "marked.pdf")
+        os.replace(work / "marked.pdf", destination)
+    return {"file_key": base64.b64encode(key).decode(), "permissions": permissions, "page_count": pages,
+            "can_modify": bool(permissions & (1 << 3)), "can_copy": bool(permissions & (1 << 4)),
+            "can_print": bool(permissions & (1 << 2))}
 
 
 @query("check_password")

@@ -403,6 +403,66 @@ class SecurityTests(Base):
             self.assertFalse(pdf.is_encrypted)
             self.assertNotIn("/ZPDFSecurity", pdf.Root)
 
+    def test_certificate_security_roundtrip(self):
+        import base64, json, os, subprocess
+        from transforms import cms as C, security
+        ident = C.create_identity("Recipient", email="r@example.test", password="pw-123456")
+        src = self.fixture("uscis-i9.pdf")
+        marked, _ = self.run_ops(src, [{"op": "set_security", "mode": "Certificate", "token": "c"}], name="m.pdf")
+        enc, result = self.run_ops(marked, [{"op": "apply_security", "recipients": [ident["certificate"]],
+                                             "permissions": {"print": "low", "copy": False}}], name="cert.pdf")
+        data = enc.read_bytes()
+        self.assertIn(b"/Adobe.PubSec", data)
+        self.assertNotIn(b"Employment Eligibility", data, "text must not be readable without the key")
+        with self.assertRaises(pikepdf.PdfError):
+            pikepdf.open(enc)
+        # Decrypt with the recipient's digital ID, then with the file key.
+        out = self.tmp / "plain.pdf"
+        info = security.decrypt_certificate_file(str(enc), str(out), p12_b64=ident["p12"], password="pw-123456", token="t")
+        self.assertEqual(info["page_count"], 4)
+        self.assertFalse(info["can_copy"])
+        self.assertTrue(info["can_print"])
+        self.assertEqual(len(fields_of(out)), len(fields_of(src)))
+        self.assertIn("Employment Eligibility", text_of(out))
+        key = result["results"][0]["file_key"]
+        again = self.tmp / "plain2.pdf"
+        self.assertEqual(security.decrypt_certificate_file(str(enc), str(again), key_b64=key)["file_key"], key)
+        other = C.create_identity("Stranger", password="pw-123456")
+        with self.assertRaises(EngineError) as ctx:
+            security.decrypt_certificate_file(str(enc), str(self.tmp / "no.pdf"), p12_b64=other["p12"], password="pw-123456")
+        self.assertEqual(ctx.exception.code, "NOT_A_RECIPIENT")
+        # Editing and saving keeps the same recipients and key.
+        edited, _ = self.run_ops(out, [{"op": "watermark", "text": "EDITED"}], name="edited.pdf")
+        kept, kept_result = self.run_ops(edited, [{"op": "apply_security", "certificate_key": key, "original": str(enc)}],
+                                         name="kept.pdf")
+        self.assertEqual(kept_result["results"][0]["file_key"], key)
+        final = self.tmp / "final.pdf"
+        security.decrypt_certificate_file(str(kept), str(final), p12_b64=ident["p12"], password="pw-123456")
+        self.assertIn("EDITED", text_of(final))
+        # Independent check: pyHanko decrypts the file with the recipient's key.
+        hanko = os.environ.get("ZPDF_PYHANKO_PYTHON")
+        if hanko:
+            p12 = self.tmp / "id.p12"
+            p12.write_bytes(base64.b64decode(ident["p12"]))
+            script = (
+                "import sys\n"
+                "from pyhanko.pdf_utils.reader import PdfFileReader\n"
+                "from pyhanko.pdf_utils.crypt import SimpleEnvelopeKeyDecrypter\n"
+                "r = PdfFileReader(open(sys.argv[1], 'rb'))\n"
+                "d = SimpleEnvelopeKeyDecrypter.load_pkcs12(sys.argv[2], b'pw-123456')\n"
+                "print(r.decrypt_pubkey(d).status)\n"
+                "print(r.root['/AcroForm']['/Fields'][0]['/T'])\n"
+                "page = r.root['/Pages']['/Kids'][0]\n"
+                "c = page['/Contents']\n"
+                "c = c[0] if isinstance(c, list) else c\n"
+                "print(len(c.data))\n")
+            run = subprocess.run([hanko, "-c", script, str(enc), str(p12)], capture_output=True, text=True, timeout=120)
+            self.assertEqual(run.returncode, 0, run.stderr[-1500:])
+            self.assertIn("USER", run.stdout)
+            with pikepdf.open(src) as plain:
+                first = str(plain.Root.AcroForm.Fields[0].T)
+            self.assertIn(first, run.stdout, "pyHanko decrypts strings to the original values")
+
     def test_aes128_and_owner_only(self):
         src = self.fixture("ordinary-edge.pdf")
         marked, _ = self.run_ops(src, [{"op": "set_security", "mode": "Password"}], name="m.pdf")

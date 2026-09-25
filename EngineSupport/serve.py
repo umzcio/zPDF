@@ -32,9 +32,10 @@ DOCUMENT_COMMANDS = {"transform", "query", "publish", "crypto"}
 def crypto_command(args):
     """Digital-ID helpers that involve no document (app transport only)."""
     import transforms  # noqa: F401  (package path setup)
-    from transforms import cms
+    from transforms import cms, security
     commands = {"create_identity": cms.create_identity, "inspect_identity": cms.inspect_identity,
-                "describe_certificate": cms.describe_certificate}
+                "describe_certificate": cms.describe_certificate,
+                "decrypt_certificate_file": security.decrypt_certificate_file}
     name = args["name"]
     if name not in commands:
         raise EngineError("UNSUPPORTED_OPERATION", "Unknown digital ID command.")

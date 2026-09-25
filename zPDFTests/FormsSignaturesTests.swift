@@ -121,6 +121,40 @@ final class FormsSignaturesTests: XCTestCase {
         XCTAssertNotNil(restricted.editSource)
     }
 
+    func testCertificateSecuritySaveReopenWithDigitalID() async throws {
+        let url = try fixture("uscis-i9")
+        let store = FileManager.default.temporaryDirectory.appendingPathComponent("zpdf-signing-test-\(UUID())")
+        directories.append(store)
+        let state = AppState(signatureService: SignatureService(directory: store))
+        let identity = try await state.signatureService.createDigitalID(name: "Recipient", email: "r@example.test",
+                                                                        organization: "", password: "id-password")
+        let tab = try await TestSupport.open(url, in: state)
+        try await state.applyCertificateSecurity(CertificateRecipients(certificates: [identity.certificate], settings: SecuritySettings()),
+                                                 to: tab)
+        try await TestSupport.save(state, tab)
+        XCTAssertTrue(CertificateSecurity.isCertificateSecured(url))
+        XCTAssertFalse(String(decoding: try Data(contentsOf: url), as: UTF8.self).contains("Employment Eligibility"))
+        XCTAssertTrue(tab.allowsSaveEdits, "The saved file reopens for editing with its file key")
+        XCTAssertEqual(tab.protection.pending, .certificatePreserve)
+        let field = try XCTUnwrap(tab.pdfDocument?.page(at: 0)?.annotations.first { $0.widgetFieldType == .text && !$0.isReadOnly })
+        field.widgetStringValue = "Certificate edit"
+        state.refreshUnsavedChanges(tab)
+        try await TestSupport.save(state, tab)
+        XCTAssertTrue(CertificateSecurity.isCertificateSecured(url))
+        state.closeDecision = { _ in .discard }
+        await withCheckedContinuation { c in state.requestCloseAll { _ in c.resume() } }
+
+        let reader = AppState(signatureService: SignatureService(directory: store))
+        reader.certificatePrompt = { _, ids in (ids[0], "id-password") }
+        reader.openDocument(at: url)
+        for _ in 0..<500 where reader.activeTab?.editSource == nil { try await Task.sleep(for: .milliseconds(20)) }
+        let reopened = try XCTUnwrap(reader.activeTab)
+        try await TestSupport.settled(reopened)
+        XCTAssertTrue(reopened.allowsSaveEdits)
+        XCTAssertEqual(reopened.pdfDocument?.page(at: 0)?.annotations.first { $0.fieldName == field.fieldName }?.widgetStringValue,
+                       "Certificate edit")
+    }
+
     // MARK: Digital signatures
 
     func testCreateIDSignValidateThenFillIncrementally() async throws {
