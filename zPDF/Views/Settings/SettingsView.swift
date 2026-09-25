@@ -1,7 +1,7 @@
 import SwiftUI
 
 private enum SettingsCategory: String, CaseIterable, Identifiable {
-    case appearance = "Appearance", documents = "Documents", display = "Page Display", commenting = "Commenting", forms = "Forms", accessibility = "Accessibility"
+    case appearance = "Appearance", documents = "Documents", display = "Page Display", commenting = "Commenting", forms = "Forms", signatures = "Signatures", accessibility = "Accessibility"
     var id: String { rawValue }
     var symbol: String {
         switch self {
@@ -10,6 +10,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .display: "rectangle.on.rectangle"
         case .commenting: "text.bubble"
         case .forms: "list.bullet.rectangle"
+        case .signatures: "signature"
         case .accessibility: "accessibility"
         }
     }
@@ -19,7 +20,8 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .documents: "general history recent files clear restore reopen startup tabs remember reading position page zoom"
         case .display: "default zoom actual size fit page width single continuous facing gaps sidebar"
         case .commenting: "author name highlight underline sticky note colors keep tool selected automatically comments"
-        case .forms: "field highlighting fill editable readonly read-only XFA password"
+        case .forms: "field highlighting fill editable readonly read-only XFA password profile auto-fill autofill name address email phone"
+        case .signatures: "digital id certificate trust trusted timestamp tsa ltv revocation ocsp crl sign signing reason location pades"
         case .accessibility: "keyboard voiceover contrast transparency motion system"
         }
     }
@@ -153,8 +155,11 @@ struct SettingsView: View {
         case .forms:
             Toggle("Highlight editable form fields", isOn: $preferences.highlightFormFields)
                 .accessibilityLabel("Highlight editable form fields")
-            Text("Highlights help locate form fields and are not saved into the PDF. Encrypted files and XFA forms remain read-only.")
+            Text("Highlights help locate form fields and are not saved into the PDF.")
                 .font(.callout).foregroundStyle(.secondary)
+            FormsProfileSettingsRows()
+        case .signatures:
+            SignatureSettingsRows()
         case .accessibility:
             accessibilityToggle("Increase contrast", detail: "Make interface text and controls easier to distinguish.",
                                 value: $preferences.increaseContrast,

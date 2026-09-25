@@ -1,6 +1,39 @@
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import PDFKit
 import SwiftUI
 import Vision
+
+/// 2-D barcode module matrices for barcode fields (QR Code, PDF417), encoded
+/// with Core Image's standard generators and drawn by the engine as vectors.
+enum BarcodeEncoder {
+    static func matrix(for text: String, symbology: String) -> [[Int]]? {
+        let data = Data(text.utf8)
+        let output: CIImage?
+        if symbology == "pdf417" {
+            let filter = CIFilter.pdf417BarcodeGenerator()
+            filter.message = data
+            output = filter.outputImage
+        } else {
+            let filter = CIFilter.qrCodeGenerator()
+            filter.message = data
+            filter.correctionLevel = "M"
+            output = filter.outputImage
+        }
+        guard let image = output else { return nil }
+        let context = CIContext(options: [.useSoftwareRenderer: true])
+        let extent = image.extent.integral
+        let width = Int(extent.width), height = Int(extent.height)
+        guard width > 0, height > 0, width * height < 250_000 else { return nil }
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        context.render(image, toBitmap: &pixels, rowBytes: width * 4, bounds: extent, format: .RGBA8,
+                       colorSpace: CGColorSpaceCreateDeviceRGB())
+        // Core Image rows are bottom-up; the engine expects the top row first.
+        return (0..<height).reversed().map { y in
+            (0..<width).map { x in pixels[(y * width + x) * 4] < 128 ? 1 : 0 }
+        }
+    }
+}
 
 struct DraftFormField: Identifiable {
     let id = UUID()
@@ -382,11 +415,11 @@ enum FormFieldAuthoring {
 /// become text fields or check boxes, and long horizontal rules become
 /// answer lines. Printed text regions are excluded.
 enum ScannedFieldDetector {
-    static func isRaster(_ page: PDFPage) -> Bool {
+    @MainActor static func isRaster(_ page: PDFPage) -> Bool {
         (page.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).count < 20
     }
 
-    static func detect(on page: PDFPage) async -> [NativeFieldSuggestion] {
+    @MainActor static func detect(on page: PDFPage) async -> [NativeFieldSuggestion] {
         let box = page.bounds(for: .cropBox)
         guard box.width > 0, box.height > 0, page.rotation % 360 == 0 else { return [] }
         let scale: CGFloat = 2
@@ -547,9 +580,34 @@ enum FormProfileMatcher {
 
 @MainActor
 enum FormLogic {
-    /// Recomputes calculated fields and formats after a field commits.
-    static func recalculate(_ tab: DocumentTab, state: AppState, touched: Set<String>? = nil) async {
-        guard tab.protection.hasFormLogic, let document = tab.pdfDocument else { return }
+    private static var observers: [ObjectIdentifier: [Any]] = [:]
+    private static var pending: Task<Void, Never>?
+
+    /// Recalculates after a field editor commits or a button/choice click,
+    /// for documents whose fields carry format/validate/calculate actions.
+    static func startObserving(_ state: AppState) {
+        let key = ObjectIdentifier(state)
+        guard observers[key] == nil else { return }
+        let schedule: @MainActor () -> Void = { [weak state] in
+            pending?.cancel()
+            pending = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                guard !Task.isCancelled, let state, let tab = state.activeTab, tab.protection.hasFormLogic,
+                      tab.allowsSaveEdits else { return }
+                await recalculate(tab, state: state)
+            }
+        }
+        let text = NotificationCenter.default.addObserver(forName: NSText.didEndEditingNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { schedule() }
+        }
+        let mouse = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { event in
+            MainActor.assumeIsolated { schedule() }
+            return event
+        }
+        observers[key] = [text, mouse as Any]
+    }
+
+    static func currentValues(_ document: PDFDocument) -> (values: [String: String], widgets: [String: [PDFAnnotation]]) {
         var values: [String: String] = [:]
         var widgets: [String: [PDFAnnotation]] = [:]
         for index in 0..<document.pageCount {
@@ -558,13 +616,24 @@ enum FormLogic {
                 widgets[name, default: []].append(annotation)
                 if annotation.widgetFieldType == .button {
                     if annotation.buttonWidgetState == .onState { values[name] = annotation.buttonWidgetStateString }
+                    else if values[name] == nil { values[name] = "" }
                 } else {
                     values[name] = annotation.widgetStringValue ?? ""
                 }
             }
         }
-        var params: [String: Any] = ["values": values]
-        if let touched { params["touched"] = Array(touched) }
+        return (values, widgets)
+    }
+
+    /// Recomputes calculated fields and formats after a field commits.
+    static func recalculate(_ tab: DocumentTab, state: AppState, touched explicit: Set<String>? = nil) async {
+        guard tab.protection.hasFormLogic, let document = tab.pdfDocument else { return }
+        let before = currentValues(document).values
+        let previous = tab.protection.lastFieldValues ?? Dictionary(uniqueKeysWithValues: tab.protection.formFields.map { ($0.name, $0.value) })
+        let touched = explicit ?? Set(before.keys.filter { before[$0] != previous[$0] })
+        guard explicit != nil || !touched.isEmpty else { return }
+        let (values, widgets) = currentValues(document)
+        let params: [String: Any] = ["values": values, "touched": Array(touched)]
         guard let result = try? await state.queryDocument("form_calculate", params: params, in: tab) else { return }
         if let errors = result["errors"] as? [String: String], let first = errors.first {
             let alert = NSAlert()
@@ -573,8 +642,8 @@ enum FormLogic {
             alert.alertStyle = .warning
             alert.runModal()
             for name in errors.keys {
-                let previous = tab.protection.formFields.first { $0.name == name }?.value ?? ""
-                widgets[name]?.forEach { $0.widgetStringValue = previous }
+                let restored = previous[name] ?? ""
+                widgets[name]?.forEach { $0.widgetStringValue = restored }
             }
         }
         let display = result["display"] as? [String: String] ?? [:]
@@ -583,9 +652,10 @@ enum FormLogic {
             let shown = display[name] ?? raw
             widgets[name]?.forEach { if $0.widgetStringValue != shown { $0.widgetStringValue = shown } }
         }
-        for (name, shown) in display where touched?.contains(name) ?? false {
+        for (name, shown) in display where touched.contains(name) {
             widgets[name]?.forEach { if $0.widgetStringValue != shown { $0.widgetStringValue = shown } }
         }
+        tab.protection.lastFieldValues = currentValues(document).values
         state.refreshUnsavedChanges(tab)
     }
 }

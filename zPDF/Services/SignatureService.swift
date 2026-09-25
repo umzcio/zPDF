@@ -199,7 +199,11 @@ final class SignatureService {
     /// Legacy tap-to-place state kept for the DocumentView overlay; new
     /// placement goes through `armedTool` and the canvas hook.
     var armedSignature: SavedSignature?
-    var armedTool: FormsCanvasTool?
+    var armedTool: FormsCanvasTool? { didSet { if armedTool == nil { radioGroupTarget = nil } } }
+    /// A signature field chosen elsewhere (Signatures sidebar) for the Sign panel to open.
+    var pendingSignField: (page: Int, field: String)?
+    /// When set, the next radio button placed joins this group.
+    var radioGroupTarget: String?
     /// Fill & Sign text defaults.
     var fillTextSize: CGFloat = 12
     var fillColor: NSColor = .black

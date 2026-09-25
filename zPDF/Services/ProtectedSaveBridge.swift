@@ -183,7 +183,7 @@ extension SaveHelper {
             let type = kind?["kind"] as? String
             let options = kind?["options"] as? [String] ?? []
             let needsNative = type != nil && (hasLogic || type == "radio" || type == "list" || type == "barcode"
-                || (type == "combo" && !edit.value.isEmpty && !options.contains(edit.value)))
+                || (type == "combo" && kind?["editable"] as? Bool == true && !edit.value.isEmpty && !options.contains(edit.value)))
             if needsNative { native.append(edit) } else { facade.append(edit) }
         }
         guard !native.isEmpty else { return (source, expectedHash, changes) }

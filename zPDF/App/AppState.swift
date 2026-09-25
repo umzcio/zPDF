@@ -387,7 +387,8 @@ final class AppState {
                     tab.saveBlock = info.writeBlock
                     if info.writeBlock == "UNSUPPORTED_ENCRYPTED_WRITE" {
                         // Forms & Signatures: edit through a decrypted private revision.
-                        try await prepareEncryptedEditing(tab, url: url, password: password ?? "", hash: info.sourceHash)
+                        // A failure leaves the document read-only, exactly as before.
+                        try? await prepareEncryptedEditing(tab, url: url, password: password ?? "", hash: info.sourceHash)
                     } else if info.writeBlock == nil {
                         let source = try await DocumentEditSource.capture(url, expectedHash: info.sourceHash)
                         let editableDocument = try engine.openDocument(at: source.url)

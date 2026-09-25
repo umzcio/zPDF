@@ -67,7 +67,11 @@ final class ToolIDTests: XCTestCase {
     }
 
     func testToolbarShowsSupportedWorkflows() {
-        XCTAssertEqual(InspectorPanel.toolbarOrder,
+        XCTAssertEqual(Array(InspectorPanel.toolbarOrder.prefix(4)),
                        [.comment, .fillSign, .organize, .export])
+        // Every listed workflow belongs to an implemented tool.
+        XCTAssertTrue(InspectorPanel.toolbarOrder.allSatisfy { panel in
+            ToolID.allCases.contains { $0.isImplemented && $0.inspectorPanel == panel }
+        })
     }
 }

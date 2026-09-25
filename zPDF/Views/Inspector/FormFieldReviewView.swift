@@ -12,6 +12,7 @@ struct FormFieldReviewView: View {
     @State private var drawType: String?
     @State private var loading = false
     @State private var error: String?
+    @State private var usedVision = false
 
     private var selectedIndex: Int? { fields.firstIndex { $0.id == selected } }
 
@@ -74,7 +75,8 @@ struct FormFieldReviewView: View {
                         Button("Remove field", role: .destructive) { fields.remove(at: i); selected = fields.first?.id }
                     }
                     Spacer(minLength: 0)
-                    Text("Detection uses printed boxes and lines. Scanned pages need manual placement.")
+                    Text(usedVision ? "Suggestions on scanned pages come from image analysis. Check each one before adding."
+                         : "Detection uses printed boxes and lines, and image analysis on scanned pages.")
                         .font(.callout).foregroundStyle(DesignTokens.Colors.mutedText)
                 }.padding(16).frame(width: 340)
             }
@@ -105,7 +107,12 @@ struct FormFieldReviewView: View {
                 guard let source = tab.editSource, let index = tab.saveBaseline?.sourceIndex(for: page) else {
                     throw NativeSaveError(code: "SOURCE_UNAVAILABLE", message: "Wait for the document to finish opening, then try again.")
                 }
-                let suggestions = try await NativeSaveBridge.detectFields(source.url, expectedHash: source.hash, page: index)
+                var suggestions = try await NativeSaveBridge.detectFields(source.url, expectedHash: source.hash, page: index)
+                // Scanned pages have no vector rules: use Apple Vision on the rendered page.
+                if suggestions.isEmpty || ScannedFieldDetector.isRaster(page) {
+                    usedVision = true
+                    suggestions += await ScannedFieldDetector.detect(on: page)
+                }
                 guard !Task.isCancelled else { return }
                 let occupied = page.annotations.filter { $0.type == "Widget" }.map(\.bounds)
                 for suggestion in suggestions {

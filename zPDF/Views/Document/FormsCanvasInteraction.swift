@@ -133,8 +133,9 @@ final class FormsCanvasInteraction: NSObject, NSTextFieldDelegate {
                                                     y: start.y - kind.defaultSize.height / 2),
                                     size: kind.defaultSize), to: crop)
             guard rect.width >= 6, rect.height >= 6 else { NSSound.beep(); return true }
+            let group = kind == .radio ? state.signatureService.radioGroupTarget : nil
             state.signatureService.armedTool = nil
-            state.placeFormField(kind, page: pageIndex, rect: rect)
+            state.placeFormField(kind, page: pageIndex, rect: rect, joining: group)
         case .certificateSignature:
             let rect = Self.rect(from: start, to: point, within: crop)
             guard rect.width >= 30, rect.height >= 14 else {
@@ -346,8 +347,19 @@ extension AppState {
     }
 
     /// Adds a Prepare Form field with sensible defaults and selects it.
-    func placeFormField(_ kind: FormFieldKind, page: Int, rect: CGRect) {
+    func placeFormField(_ kind: FormFieldKind, page: Int, rect: CGRect, joining group: String? = nil) {
         guard let tab = activeTab else { return }
+        if kind == .radio, let group, let existing = tab.protection.formFields.first(where: { $0.name == group && $0.kind == "radio" }) {
+            var number = existing.exports.count + 1
+            while existing.exports.contains("Choice\(number)") { number += 1 }
+            runDocumentTransform([["op": "add_form_field", "type": "radio", "name": group, "page": page,
+                                   "rect": [rect.minX, rect.minY, rect.maxX, rect.maxY], "export_value": "Choice\(number)"]],
+                                 actionName: "Add Radio Button", in: tab) { [weak self] _ in
+                self?.refreshFormModel(tab)
+                self?.signatureService.onFieldPlaced?(group)
+            }
+            return
+        }
         let base: String
         switch kind {
         case .radio: base = "Group"

@@ -142,6 +142,10 @@ final class DocumentProtectionState {
 
     var hasFormLogic = false
     var formFields: [FormFieldInfo] = []
+    var calculationOrder: [String] = []
+    var tabOrder: [String] = []
+    /// On-screen values at the last calculation (to find edited fields).
+    @ObservationIgnored var lastFieldValues: [String: String]?
     @ObservationIgnored var profiledHash: String?
 
     var isSigned: Bool { signatures.contains(where: \.signed) }
@@ -162,7 +166,11 @@ extension AppState {
         Task {
             if let info = try? await queryDocument("form_fields", in: tab), tab.editSource === source {
                 tab.protection.formFields = (info["fields"] as? [[String: Any]] ?? []).map(FormFieldInfo.init)
+                tab.protection.lastFieldValues = nil
+                tab.protection.calculationOrder = info["calculation_order"] as? [String] ?? []
+                tab.protection.tabOrder = info["tab_order"] as? [String] ?? []
                 tab.protection.hasFormLogic = info["has_logic"] as? Bool ?? false
+                if tab.protection.hasFormLogic { FormLogic.startObserving(self) }
             }
             if let info = try? await queryDocument("security_info", in: tab), tab.editSource === source {
                 let marker = info["marker"] as? [String: Any]

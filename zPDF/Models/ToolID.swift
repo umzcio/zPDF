@@ -91,17 +91,17 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .sendForSignature: false
 
-        case .protect: false
+        case .protect: true
 
         case .redact: false
 
         case .optimizePDF: false
 
-        case .certificates: false
+        case .certificates: true
 
-        case .prepareForm: false
+        case .prepareForm: true
 
-        case .signWithCertificate: false
+        case .signWithCertificate: true
 
         case .compareFiles: false
 

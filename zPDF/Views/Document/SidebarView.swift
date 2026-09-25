@@ -28,7 +28,7 @@ enum DocumentPanel: String, CaseIterable, Identifiable {
 
         case .destinations: false
 
-        case .signatures: false
+        case .signatures: true
 
         case .articles: false
         }

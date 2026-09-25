@@ -188,8 +188,9 @@ final class AppRecoveryTests: XCTestCase {
         let app = state(defaults: defaults, recoveryDirectory: directory.appendingPathComponent("Recovery"))
         app.passwordPrompt = { _ in "reader" }
         let tab = try await opened(locked, in: app)
-        XCTAssertEqual(tab.saveBlock, "UNSUPPORTED_ENCRYPTED_WRITE")
-        XCTAssertTrue(try XCTUnwrap(tab.pdfDocument).isEncrypted)
+        // Encrypted documents open for editing through a private decrypted
+        // revision, which must never be written to the recovery store.
+        XCTAssertNotNil(tab.protection.original)
         tab.hasUnsavedChanges = true
         app.scheduleRecovery(for: tab)
         XCTAssertNil(app.checkpointTasks[tab.id])
