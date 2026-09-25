@@ -132,6 +132,7 @@ final class AppState {
     // MARK: - Navigation state
 
     var documentPanel: DocumentPanel?
+    @ObservationIgnored var commentsPanelAutoOpened = false
     let readingPresentation = ReadingPresentationState()
     /// Viewing/navigation/search/print/help feature state (FeatureState.swift).
     let features = FeatureState()
@@ -667,7 +668,11 @@ final class AppState {
         if tool == .exportPDF { showConversionExport(); return }
         if tool == .compressPDF { present(.reduceFileSize); return }
         if tool == .createPDF { present(.createPDF(.files)); return }
-        if tool == .comment { documentPanel = .comments }
+        closeAutoOpenedComments()
+        if tool == .comment, documentPanel != .comments {
+            documentPanel = .comments
+            commentsPanelAutoOpened = true
+        }
         activePanel = tool.inspectorPanel
         if tool == .batesNumbering { contentEditing.designRequest = .bates }
         sidebarVisible = true
@@ -676,7 +681,15 @@ final class AppState {
     /// The rail toggles document panels independently of the editing sidebar.
     func toggleDocumentPanel(_ panel: DocumentPanel) {
         guard activeTab != nil, commitFieldEditing() else { return }
+        commentsPanelAutoOpened = false
         documentPanel = documentPanel == panel ? nil : panel
+    }
+
+    /// The Comment tool shows the comment list alongside it; leaving the tool
+    /// puts the list away again unless the user opened it themselves.
+    private func closeAutoOpenedComments() {
+        if commentsPanelAutoOpened, documentPanel == .comments { documentPanel = nil }
+        commentsPanelAutoOpened = false
     }
 
     func showAllTools() {
@@ -685,6 +698,7 @@ final class AppState {
         armedAnnotationTool = nil
         armedFormFieldTool = nil
         textEditingModeActive = false
+        closeAutoOpenedComments()
         activePanel = nil
         sidebarVisible = true
     }

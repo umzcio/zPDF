@@ -31,8 +31,8 @@ struct DocumentView: View {
                 HSplitView {
                     if appState.sidebarVisible {
                         ToolsView()
-                            .frame(minWidth: 220, idealWidth: DesignTokens.Layout.sidebarWidth,
-                                   maxWidth: 320, maxHeight: .infinity)
+                            .frame(minWidth: 280, idealWidth: DesignTokens.Layout.sidebarWidth,
+                                   maxWidth: 420, maxHeight: .infinity)
                     }
                     VStack(spacing: 0) {
                         if let block = appState.activeTab?.saveBlock {

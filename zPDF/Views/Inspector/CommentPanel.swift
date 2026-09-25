@@ -128,10 +128,15 @@ private struct CommentReviewList: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("No comments yet")
                             .font(.callout).foregroundStyle(DesignTokens.Colors.mutedText)
-                        Text("Open the Comment tool to highlight, draw, stamp or attach files.")
-                            .font(.system(size: 11)).foregroundStyle(DesignTokens.Colors.mutedText)
-                        Button("Open Comment Tools") { appState.openTool(.comment) }
-                            .controlSize(.small)
+                        if appState.activePanel == .comment {
+                            Text("Choose a tool in the Comment panel, then click or drag on the page.")
+                                .font(.system(size: 11)).foregroundStyle(DesignTokens.Colors.mutedText)
+                        } else {
+                            Text("Open the Comment tool to highlight, draw, stamp or attach files.")
+                                .font(.system(size: 11)).foregroundStyle(DesignTokens.Colors.mutedText)
+                            Button("Open Comment Tools") { appState.openTool(.comment) }
+                                .controlSize(.small)
+                        }
                     }
                 } else {
                     HStack(spacing: 6) {

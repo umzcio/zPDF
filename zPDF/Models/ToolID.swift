@@ -175,7 +175,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .createPDF: "Convert files or scans to PDF"
         case .combineFiles: "Merge multiple files into one PDF"
         case .editPDF: "Change text, images, and pages"
-        case .exportPDF: "Save pages as images or plain text"
+        case .exportPDF: "Convert to Word, Excel, HTML, Markdown or images"
         case .organizePages: "Reorder, rotate, delete, or extract pages"
         case .compressPDF: "Reduce file size for sharing"
         case .comment: "Annotate with highlights and notes"

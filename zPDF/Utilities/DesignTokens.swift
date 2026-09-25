@@ -172,7 +172,7 @@ enum DesignTokens {
         static let railWidth: CGFloat = 56
         static let tabStripHeight: CGFloat = 36
         static let toolbarHeight: CGFloat = 44
-        static let sidebarWidth: CGFloat = 224
+        static let sidebarWidth: CGFloat = 300
         static let inspectorWidth: CGFloat = 280
         static let statusBarHeight: CGFloat = 24
         static let homeSidebarWidth: CGFloat = 190
