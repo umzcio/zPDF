@@ -463,6 +463,10 @@ final class AppState {
     @discardableResult
     func saveDocument(_ tab: DocumentTab) -> Task<Bool, Never> {
         if let existing = saves[tab.id] { return existing }
+        if hasStaleBarcodes(tab) {
+            // Saved barcodes always encode the form's current values.
+            return Task { try? await updateBarcodes(in: tab); return await beginSave(tab, destination: nil, saveAs: tab.requiresSaveAs).value }
+        }
         return beginSave(tab, destination: nil, saveAs: tab.requiresSaveAs)
     }
 
@@ -471,6 +475,9 @@ final class AppState {
         guard saves[tab.id] == nil else {
             saveError = OpenError(fileName: tab.displayName, message: "Wait for the current Save to finish before using Save As.")
             return Task { false }
+        }
+        if hasStaleBarcodes(tab) {
+            return Task { try? await updateBarcodes(in: tab); return await beginSave(tab, destination: destination, saveAs: true).value }
         }
         return beginSave(tab, destination: destination, saveAs: true)
     }

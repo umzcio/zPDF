@@ -88,14 +88,25 @@ extension AppState {
         }
     }
 
+    /// The data each barcode field should encode, from its source fields' on-screen values.
+    private func barcodeData(in tab: DocumentTab) -> [(field: FormFieldInfo, data: String, stored: String)] {
+        guard let document = tab.pdfDocument else { return [] }
+        let values = FormLogic.currentValues(document).values
+        return tab.protection.formFields.filter { $0.kind == "barcode" }.map { field in
+            (field, field.barcodeFields.map { values[$0] ?? "" }.joined(separator: "\t"), values[field.name] ?? "")
+        }
+    }
+
+    /// True when a barcode's stored data no longer matches its source fields.
+    func hasStaleBarcodes(_ tab: DocumentTab) -> Bool {
+        tab.allowsSaveEdits && barcodeData(in: tab).contains { $0.data != $0.stored }
+    }
+
     /// Re-encodes barcode fields from the on-screen values of their source fields.
     func updateBarcodes(in tab: DocumentTab) async throws {
-        guard let document = tab.pdfDocument else { return }
-        let values = FormLogic.currentValues(document).values
-        let items: [[String: Any]] = tab.protection.formFields.filter { $0.kind == "barcode" }.map { field in
-            let data = field.barcodeFields.map { values[$0] ?? "" }.joined(separator: "\t")
-            return ["name": field.name, "value": data,
-                    "matrix": BarcodeEncoder.matrix(for: data, symbology: field.barcodeSymbology) ?? []]
+        let items: [[String: Any]] = barcodeData(in: tab).map { entry in
+            ["name": entry.field.name, "value": entry.data,
+             "matrix": BarcodeEncoder.matrix(for: entry.data, symbology: entry.field.barcodeSymbology) ?? []]
         }
         guard !items.isEmpty else { return }
         try await applyDocumentTransform([["op": "update_barcodes", "items": items]], to: tab, actionName: "Update Barcodes")

@@ -406,6 +406,28 @@ final class FormsSignaturesTests: XCTestCase {
         XCTAssertEqual(saved["Code"]?.value, "Ada")
     }
 
+    func testSaveRefreshesStaleBarcodesAutomatically() async throws {
+        let url = try fixture("ordinary-edge")
+        let state = try makeState()
+        let tab = try await TestSupport.open(url, in: state)
+        try await state.applyDocumentTransform([
+            ["op": "add_form_field", "type": "text", "name": "Name", "page": 0, "rect": [72, 450, 172, 472]],
+            ["op": "add_form_field", "type": "barcode", "name": "Code", "page": 0, "rect": [300, 400, 396, 496],
+             "barcode": ["symbology": "qr", "fields": ["Name"]]],
+        ], to: tab, actionName: "Prepare")
+        state.refreshFormModel(tab)
+        for _ in 0..<200 where !tab.protection.formFields.contains(where: { $0.kind == "barcode" }) {
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        try XCTUnwrap(tab.pdfDocument?.page(at: 0)?.annotations.first { $0.fieldName == "Name" }).widgetStringValue = "Grace"
+        state.refreshUnsavedChanges(tab)
+        XCTAssertTrue(state.hasStaleBarcodes(tab), "the barcode no longer matches its source field")
+        try await TestSupport.save(state, tab)   // no explicit Update Barcodes
+        let saved = try await fields(url)
+        XCTAssertEqual(saved["Code"]?.value, "Grace")
+        XCTAssertFalse(state.hasStaleBarcodes(tab))
+    }
+
     func testScannedPageDetectionFindsBoxesAndLines() async throws {
         let size = CGSize(width: 612, height: 792)
         let image = NSImage(size: size, flipped: false) { rect in
