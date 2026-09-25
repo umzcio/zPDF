@@ -735,6 +735,20 @@ def preflight(ctx, profile="commercial"):
             "warnings": sum(r["severity"] == "warning" for r in results)}
 
 
+@op("set_trim_to_crop")
+def set_trim_to_crop(ctx, pages=None):
+    """Give pages without a TrimBox (or ArtBox) a TrimBox equal to the CropBox."""
+    pdf = ctx.pdf
+    indexes = range(len(pdf.pages)) if pages is None else pages
+    changed = 0
+    for index in indexes:
+        page = pdf.pages[index]
+        if "/TrimBox" not in page.obj and "/ArtBox" not in page.obj:
+            page.obj.TrimBox = pikepdf.Array(list(page_box(page, "/CropBox")))
+            changed += 1
+    return {"pages": changed}
+
+
 @op("remove_javascript")
 def remove_javascript(ctx):
     return {"removed": _strip_javascript(ctx.pdf)}

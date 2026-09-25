@@ -33,6 +33,7 @@ struct DocumentTabStrip: View {
                                 TabItem(tab: tab, isActive: tab.id == appState.activeTabID
                                         && appState.railSelection == .document)
                                     .id(tab.id)
+                                    .modifier(PageTabDropTarget(tab: tab))
                             }
                         }
                     }

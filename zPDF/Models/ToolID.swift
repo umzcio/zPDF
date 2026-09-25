@@ -81,7 +81,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .compressPDF: true
         case .exportPDF: true
 
-        case .createPDF: false
+        case .createPDF: true
 
         case .editPDF: false
 
@@ -95,7 +95,7 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .redact: false
 
-        case .optimizePDF: false
+        case .optimizePDF: true
 
         case .certificates: false
 
@@ -103,19 +103,19 @@ enum ToolID: String, CaseIterable, Identifiable {
 
         case .signWithCertificate: false
 
-        case .compareFiles: false
+        case .compareFiles: true
 
-        case .scanAndOCR: false
+        case .scanAndOCR: true
 
         case .measureObjects: false
 
-        case .printProduction: false
+        case .printProduction: true
 
         case .actionWizard: false
 
         case .accessibilityCheck: false
 
-        case .archivePDFA: false
+        case .archivePDFA: true
 
         case .batesNumbering: false
         }
@@ -146,7 +146,7 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .editPDF: "Edit PDF"
         case .exportPDF: "Export PDF"
         case .organizePages: "Organize Pages"
-        case .compressPDF: "Compress PDF"
+        case .compressPDF: "Reduce File Size"
         case .comment: "Comment"
         case .sendForComments: "Send for Comments"
         case .share: "Share"

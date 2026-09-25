@@ -222,7 +222,7 @@ struct DocumentToolbar: View {
                 .help("Go to page (⇧⌘N)")
                 .onSubmit {
                     guard let tab else { return }
-                    tab.goToPage(Int(pageText) ?? tab.currentPage)
+                    tab.goToPage(tab.pageNumber(for: pageText) ?? tab.currentPage)
                     pageText = "\(tab.currentPage)"
                     pageFocused = false
                     // Let SwiftUI finish resigning the page field before

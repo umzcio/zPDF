@@ -12,7 +12,9 @@
 
 import AppKit
 import Foundation
+import ImageIO
 import PDFKit
+import UniformTypeIdentifiers
 
 /// Formats in the Export panel's "Convert to" radio list (prototype order).
 enum ExportFormat: String, CaseIterable, Identifiable {
@@ -141,3 +143,106 @@ final class BasicExportService: ExportService {
         }
     }
 }
+
+// MARK: - Page images (all pages or a range, JPEG/PNG/TIFF, DPI, color)
+
+enum PageImageFormat: String, CaseIterable, Identifiable {
+    case jpeg, png, tiff
+    var id: String { rawValue }
+    var title: String { self == .jpeg ? "JPEG" : rawValue.uppercased() }
+    var fileExtension: String { self == .jpeg ? "jpg" : rawValue }
+    var type: UTType { self == .jpeg ? .jpeg : self == .png ? .png : .tiff }
+}
+
+enum PageImageColor: String, CaseIterable, Identifiable {
+    case rgb, gray, cmyk
+    var id: String { rawValue }
+    var title: String { self == .rgb ? "RGB" : self == .gray ? "Grayscale" : "CMYK" }
+    var space: CGColorSpace? {
+        switch self {
+        case .rgb: CGColorSpace(name: CGColorSpace.sRGB)
+        case .gray: CGColorSpace(name: CGColorSpace.genericGrayGamma2_2)
+        case .cmyk: CGColorSpace(name: CGColorSpace.genericCMYK)
+        }
+    }
+}
+
+enum PageImageExporter {
+    /// Renders one page upright at `dpi` in the requested color space.
+    @MainActor
+    static func render(_ page: PDFPage, dpi: CGFloat, color: PageImageColor, transparent: Bool = false) -> CGImage? {
+        let bounds = page.bounds(for: .cropBox)
+        let visual = page.rotation % 180 != 0 ? CGSize(width: bounds.height, height: bounds.width) : bounds.size
+        let scale = dpi / 72
+        let width = max(1, Int((visual.width * scale).rounded())), height = max(1, Int((visual.height * scale).rounded()))
+        guard width * height <= 400_000_000, let space = color.space else { return nil }
+        let info: UInt32
+        switch color {
+        case .rgb: info = transparent ? CGImageAlphaInfo.premultipliedLast.rawValue : CGImageAlphaInfo.noneSkipLast.rawValue
+        case .gray, .cmyk: info = CGImageAlphaInfo.none.rawValue
+        }
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: space, bitmapInfo: info) else { return nil }
+        if !(transparent && color == .rgb) {
+            if color == .cmyk { context.setFillColor(CGColor(genericCMYKCyan: 0, magenta: 0, yellow: 0, black: 0, alpha: 1)) }
+            else { context.setFillColor(CGColor(gray: 1, alpha: 1)) }
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        context.interpolationQuality = .high
+        context.scaleBy(x: scale, y: scale)
+        page.transform(context, for: .cropBox)
+        page.draw(with: .cropBox, to: context)
+        return context.makeImage()
+    }
+
+    /// Writes one image per page (or one multi-page TIFF) into `folder`.
+    @MainActor
+    static func export(_ document: PDFDocument, pages: [Int], format: PageImageFormat, dpi: CGFloat,
+                       color: PageImageColor, quality: Double = 0.85, multipageTIFF: Bool = false,
+                       to folder: URL, baseName: String, progress: ((Int) -> Void)? = nil) throws -> [URL] {
+        guard !pages.isEmpty else { throw ExportError.nothingToExport }
+        guard !(format == .png && color == .cmyk) else {
+            throw NativeSaveError(code: "UNSUPPORTED_COLOR", message: "PNG does not support CMYK. Choose JPEG or TIFF.")
+        }
+        let options: [CFString: Any] = [kCGImagePropertyDPIWidth: dpi, kCGImagePropertyDPIHeight: dpi,
+                                        kCGImageDestinationLossyCompressionQuality: quality]
+        if format == .tiff && multipageTIFF {
+            let url = unique(folder.appendingPathComponent(baseName + ".tiff"))
+            guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.tiff.identifier as CFString, pages.count, nil)
+            else { throw ExportError.renderingFailed }
+            for (n, index) in pages.enumerated() {
+                guard let page = document.page(at: index), let image = render(page, dpi: dpi, color: color) else { throw ExportError.renderingFailed }
+                CGImageDestinationAddImage(destination, image, options as CFDictionary)
+                progress?(n + 1)
+            }
+            guard CGImageDestinationFinalize(destination) else { throw ExportError.renderingFailed }
+            return [url]
+        }
+        let digits = max(2, String(document.pageCount).count)
+        var written: [URL] = []
+        for (n, index) in pages.enumerated() {
+            guard let page = document.page(at: index), let image = render(page, dpi: dpi, color: color) else { throw ExportError.renderingFailed }
+            let number = String(format: "%0\(digits)d", index + 1)
+            let url = unique(folder.appendingPathComponent("\(baseName)-\(number).\(format.fileExtension)"))
+            guard let destination = CGImageDestinationCreateWithURL(url as CFURL, format.type.identifier as CFString, 1, nil)
+            else { throw ExportError.renderingFailed }
+            CGImageDestinationAddImage(destination, image, options as CFDictionary)
+            guard CGImageDestinationFinalize(destination) else { throw ExportError.renderingFailed }
+            written.append(url)
+            progress?(n + 1)
+        }
+        return written
+    }
+
+    static func unique(_ url: URL) -> URL {
+        guard FileManager.default.fileExists(atPath: url.path) else { return url }
+        let stem = url.deletingPathExtension().lastPathComponent, ext = url.pathExtension
+        var n = 2
+        while true {
+            let candidate = url.deletingLastPathComponent().appendingPathComponent("\(stem) \(n).\(ext)")
+            if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+            n += 1
+        }
+    }
+}
+

@@ -76,7 +76,7 @@ final class NativeSaveTests: XCTestCase {
         XCTAssertTrue(tab.pdfDocument === document)
         state.showAllTools()
         XCTAssertNil(state.activePanel, "Back leaves the organizer canvas")
-        state.openTool(.scanAndOCR)
+        state.openTool(.sendForSignature)
         XCTAssertNil(state.activePanel, "Unimplemented tools stay unavailable")
     }
 

@@ -43,7 +43,7 @@ struct ToolsView: View {
                             appState.openTool(tool)
                         }
                             .focused($focusedTool, equals: tool)
-                            .disabled(appState.activeTab == nil || (tool != .comment && appState.activeTab?.allowsSaveEdits != true))
+                            .disabled(appState.activeTab == nil || (tool != .comment && !tool.worksOnReadOnlyDocuments && appState.activeTab?.allowsSaveEdits != true))
                     }
                 }
                 .padding(.horizontal, 8)
