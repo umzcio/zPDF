@@ -677,3 +677,44 @@ def redaction_marks(ctx):
         for mark in _areas_from_annotations(page):
             out.append({"page": index, "rects": [list(r) for r in mark["rects"]], "text": mark["text"]})
     return {"marks": out}
+
+
+@query("page_text")
+def page_text(ctx, pages=None):
+    """PDFium's extracted text per page (used to verify redactions)."""
+    count = len(ctx.pdf.pages)
+    targets = range(count) if pages is None else [p for p in pages if isinstance(p, int) and 0 <= p < count]
+    out = []
+    with ctx.pdfium() as doc:
+        for index in targets:
+            page = doc[index]
+            textpage = page.get_textpage()
+            out.append({"page": index, "text": textpage.get_text_range()})
+            textpage.close()
+            page.close()
+    return {"pages": out}
+
+
+@query("image_samples")
+def image_samples(ctx, page, points):
+    """Decoded RGB of the topmost image under each user-space point (verification)."""
+    from pikepdf import PdfImage
+    require(isinstance(page, int) and 0 <= page < len(ctx.pdf.pages), "INVALID_ARGUMENT", "That page does not exist.")
+    walker = walk_page(ctx.pdf, ctx.pdf.pages[page])
+    images = [i for i in walker.items if i.kind == "image" and i.xobject is not None]
+    out = []
+    for x, y in points:
+        value = None
+        for item in reversed(images):
+            inv = safe_invert(item.ctm)
+            if inv is None:
+                continue
+            u, v = apply(inv, float(x), float(y))
+            if 0 <= u <= 1 and 0 <= v <= 1:
+                pil = PdfImage(item.xobject).as_pil_image().convert("RGB")
+                px = min(pil.width - 1, int(u * pil.width))
+                py = min(pil.height - 1, int((1 - v) * pil.height))
+                value = list(pil.getpixel((px, py)))
+                break
+        out.append(value)
+    return {"samples": out}

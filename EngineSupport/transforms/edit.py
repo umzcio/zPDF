@@ -731,9 +731,10 @@ def edit_text_block(ctx, page, block, digest=None, runs=None, align=None, line_s
 
 
 @op("add_text")
-def add_text(ctx, page, point, runs, width=None, align="left", line_spacing=1.2):
+def add_text(ctx, page, point, runs, width=None, align="left", line_spacing=1.2, baseline=False):
     """New page text (not an annotation). `point` is the user-space top-left
-    of the box in the page's visual orientation."""
+    of the box in the page's visual orientation (or, with `baseline`, the
+    start of the first baseline)."""
     pdf = ctx.pdf
     require(isinstance(page, int) and 0 <= page < len(pdf.pages), "STALE_PAGE", "That page no longer exists.")
     require(isinstance(runs, list) and any(str(r.get("text", "")).strip() for r in runs), "INVALID_ARGUMENT",
@@ -747,7 +748,8 @@ def add_text(ctx, page, point, runs, width=None, align="left", line_spacing=1.2)
     first_size = placed[0][2] if placed else 12
     ascent = max((item[1].ascent for item in placed[0][1]), default=0.8) if placed else 0.8
     px, py = float(point[0]), float(point[1])
-    ox, oy = px - vx * ascent * first_size, py - vy * ascent * first_size
+    drop = 0.0 if baseline else ascent * first_size
+    ox, oy = px - vx * drop, py - vy * drop
     add_content(pdf, page_obj, emit_layout(placed, (ux, uy, vx, vy, ox, oy)))
     pool.finish()
     return {"lines": len(placed), "width": box_width}
@@ -892,16 +894,24 @@ def _conjugate(ctm, t):
 
 
 @op("object_transform")
-def object_transform(ctx, page, ids, matrix, digest=None):
-    """Apply a user-space affine `matrix` to objects (move/resize/rotate/flip)."""
-    t = tuple(float(v) for v in matrix)
-    require(len(t) == 6 and abs(t[0] * t[3] - t[1] * t[2]) > 1e-9, "INVALID_ARGUMENT", "Invalid transform.")
+def object_transform(ctx, page, ids=None, matrix=None, digest=None, items=None):
+    """Apply user-space affine matrices to objects (move/resize/rotate/flip):
+    one `matrix` for all `ids`, or per-object `items` [{"id", "matrix"}]."""
+    if items is not None:
+        require(isinstance(items, list) and items, "INVALID_ARGUMENT", "Select an object first.")
+        mapping = {str(it.get("id")): tuple(float(v) for v in it.get("matrix", ())) for it in items}
+    else:
+        require(isinstance(ids, list) and matrix is not None, "INVALID_ARGUMENT", "Select an object first.")
+        mapping = {str(i): tuple(float(v) for v in matrix) for i in ids}
+    for t in mapping.values():
+        require(len(t) == 6 and abs(t[0] * t[3] - t[1] * t[2]) > 1e-9, "INVALID_ARGUMENT", "Invalid transform.")
 
     def action(item):
         require(not item.has_clip, "INVALID_ARGUMENT", "That object also clips other content and cannot be moved.")
+        t = mapping[object_id(item)]
         m = _conjugate(item.ctm if item.kind != "path" else item.state.ctm, t)
         return ("wrap", [instr([], "q"), instr([round(v, 6) for v in m], "cm")], [instr([], "Q")])
-    _, plan, _ = _run_objects(ctx, page, digest, ids, action)
+    _, plan, _ = _run_objects(ctx, page, digest, list(mapping), action)
     return {"objects": len(plan.found)}
 
 

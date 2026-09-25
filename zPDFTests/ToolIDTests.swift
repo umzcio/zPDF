@@ -67,7 +67,9 @@ final class ToolIDTests: XCTestCase {
     }
 
     func testToolbarShowsSupportedWorkflows() {
-        XCTAssertEqual(InspectorPanel.toolbarOrder,
-                       [.comment, .fillSign, .organize, .export])
+        // Core workflows lead; each implemented tool's panel appears once.
+        XCTAssertEqual(Array(InspectorPanel.toolbarOrder.prefix(4)), [.comment, .fillSign, .organize, .export])
+        XCTAssertEqual(InspectorPanel.toolbarOrder.count, Set(InspectorPanel.toolbarOrder).count)
+        XCTAssertEqual(Set(InspectorPanel.toolbarOrder), Set(ToolID.available.compactMap(\.inspectorPanel)))
     }
 }

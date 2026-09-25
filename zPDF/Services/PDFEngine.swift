@@ -111,9 +111,8 @@ struct PDFFormField: Identifiable, Hashable {
     var isChecked: Bool { value == PDFFormField.checkboxOn }
 }
 
-/// One editable text run extracted from a page content stream (phase 4,
-/// additive — see `PDFEngine.textRuns(onPageAt:in:)`). PDFKit cannot edit
-/// page content, so engines parse/rewrite content streams directly.
+/// Legacy selection value kept for AppState's reset paths; page content
+/// editing now uses ContentEditingController and native transforms.
 struct EditableTextRun: Identifiable, Equatable, Sendable {
     /// Index into the `textRuns(onPageAt:in:)` result array. Stable only
     /// until the next successful `replaceTextRun` — re-fetch after edits.
@@ -176,21 +175,9 @@ protocol PDFEngine {
     /// that name exists.
     func setFormFieldValue(_ value: String, forFieldNamed name: String, in document: EngineDocument) throws
 
-    // MARK: Content editing (phase 4, additive)
-
-    /// Extract the editable text runs of a page by parsing its content
-    /// stream (BT/ET text objects: Tf/Tm/Td positioning, Tj/TJ show ops).
-    /// Runs are in stream order; `EditableTextRun.id` is the index into the
-    /// returned array and is stable only until the next edit invalidates it.
-    func textRuns(onPageAt index: Int, in document: EngineDocument) -> [EditableTextRun]
-
-    /// Replace the text of a run previously returned by `textRuns` and
-    /// rewrite the page content stream in place. Only single-font,
-    /// single-size runs are supported; glyphs outside the run font's
-    /// encoding are not representable (the implementation may throw
-    /// `.unsupportedOperation` in that case). The caller must treat all
-    /// previously returned runs as stale after a successful replace.
-    func replaceTextRun(_ run: EditableTextRun, with newText: String, in document: EngineDocument) throws
+    // Page content editing (text, images, objects, redaction) runs as native
+    // document transforms: see AppState.applyDocumentTransform and
+    // EngineSupport/transforms/edit.py, redaction.py.
 
     // MARK: Page operations (REAL in PDFKitEngine)
 

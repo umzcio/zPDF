@@ -88,6 +88,7 @@ enum InspectorPanel: String, CaseIterable, Identifiable {
 
     /// Workflows with a supported native Save path, shared with All tools.
     static let toolbarOrder: [InspectorPanel] = ToolID.available.compactMap(\.inspectorPanel)
+        .reduce(into: []) { panels, panel in if !panels.contains(panel) { panels.append(panel) } }
 }
 
 /// Left-column filters on the Home screen.
@@ -172,7 +173,11 @@ final class AppState {
     /// text selection, and the Edit panel's Format section edits the
     /// selected run. Mutually exclusive with the armed annotation and
     /// form-field tools; cleared when the last tab closes.
-    var textEditingModeActive = false
+    var textEditingModeActive = false {
+        didSet { if oldValue && !textEditingModeActive { contentEditing.syncWithAppState() } }
+    }
+    /// Edit PDF / Redact canvas tools (see ContentEditingController).
+    @ObservationIgnored lazy var contentEditing = ContentEditingController(appState: self)
     /// The text run last clicked in editing mode; nil when nothing is
     /// selected. The run carries its own 0-based page index
     /// (`EditableTextRun.pageIndex`). Run ids are only stable until the
@@ -648,6 +653,7 @@ final class AppState {
         if tool == .compressPDF, let tab = activeTab { exportDocuments(.compress, tabs: [tab]); return }
         if tool == .comment { documentPanel = .comments }
         activePanel = tool.inspectorPanel
+        if tool == .batesNumbering { contentEditing.designRequest = .bates }
         sidebarVisible = true
     }
 
