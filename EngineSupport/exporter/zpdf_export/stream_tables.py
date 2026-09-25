@@ -293,7 +293,8 @@ def _build(page, t: Table, rows: list[list[_Seg]]) -> Table | None:
         covered.update((rr, c) for rr in range(top, top + span))
     # body rows
     r = h
-    pending_label: dict[int, str] = {}
+    # a label that wraps onto the next line: its text, box and glyphs so far, per column
+    pending_label: dict[int, tuple[str, BBox, list]] = {}
     label_cols = {k for k, (a, b) in enumerate(cols) if b <= t.lbox.x0 + 2}
     for segs in rows:
         placed = [(_col_of(cols, s.x0, s.x1), s) for s in segs]
@@ -303,16 +304,22 @@ def _build(page, t: Table, rows: list[list[_Seg]]) -> Table | None:
             r += 1
             continue
         if label_cols and all(k in label_cols for k, _s in placed):
-            for k, s in placed:                   # a label that wraps onto the next line
-                pending_label[k] = (pending_label.get(k, "") + " " + s.text).strip()
+            for k, s in placed:
+                seg_box = BBox(s.x0, s.y0, s.x1, s.y1)
+                if k in pending_label:
+                    text0, box0, chars0 = pending_label[k]
+                    pending_label[k] = ((text0 + " " + s.text).strip(), box0.union(seg_box), chars0 + list(s.chars))
+                else:
+                    pending_label[k] = (s.text.strip(), seg_box, list(s.chars))
             continue
         for k, s in placed:
-            text = s.text
+            text, box, chars = s.text, BBox(s.x0, s.y0, s.x1, s.y1), list(s.chars)
             if k in pending_label:
-                text = pending_label.pop(k) + " " + text
-            put(r, k, text, BBox(s.x0, s.y0, s.x1, s.y1), chars=s.chars)
-        for k, text in list(pending_label.items()):
-            put(r, k, text, BBox(cols[k][0], segs[0].y0, cols[k][1], segs[0].y1))
+                text0, box0, chars0 = pending_label.pop(k)
+                text, box, chars = text0 + " " + text, box0.union(box), chars0 + chars
+            put(r, k, text, box, chars=chars)
+        for k, (text, box0, chars0) in list(pending_label.items()):
+            put(r, k, text, box0.union(BBox(cols[k][0], segs[0].y0, cols[k][1], segs[0].y1)), chars=chars0)
             pending_label.pop(k)
         r += 1
     n_rows = r

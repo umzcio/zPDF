@@ -1,7 +1,8 @@
 # App export integration
 
 The app vendors the unchanged `zpdf_export` package from
-umzcio/zPDF-exporter commit `2f0e4fd7e8574097344934628ed4b788804e4c2c`.
+umzcio/zPDF-exporter commit `318b233d78fd31783c4f170ba441e0a31c35fa73`
+(DOCX, XLSX, PPTX, HTML, Markdown, RTF, XML, EPUB 3).
 `exporter/provenance.json` records each source hash; the build verifies them.
 Changes to reconstruction belong in that upstream repo and require an explicit
 pin update here. No sibling checkout, installed Python, Office app, or network
@@ -11,7 +12,9 @@ service is required at runtime.
 URL and SHA256. Python/PDFium are shared with the existing Save runtime. New
 runtime packages: python-docx 1.2.0 (MIT), lxml 6.1.3 (BSD-3-Clause with bundled
 libxml2/libxslt notices), typing_extensions 4.16.0 (PSF-2.0), Pillow 12.3.0
-(MIT-CMU and bundled library notices), openpyxl 3.1.5 and et-xmlfile 2.0.0 (MIT).
+(MIT-CMU and bundled library notices), openpyxl 3.1.5 and et-xmlfile 2.0.0 (MIT),
+python-pptx 1.0.2 (MIT) and XlsxWriter 3.2.9 (BSD-2-Clause). The XML schema
+`zpdf_export/schemas/zpdf-document-1.xsd` ships as package data.
 All wheel metadata/license directories are retained in the app. The upstream
 THIRD_PARTY_NOTICES copy predates XLSX and incorrectly calls Pillow development
 only; this file records the actual shipped set. Office fonts are not copied.

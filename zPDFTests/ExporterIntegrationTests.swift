@@ -71,6 +71,37 @@ final class ExporterIntegrationTests: XCTestCase {
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: folder.path).contains { $0.hasPrefix(".zpdf-export-") })
     }
 
+    func testPowerPointRTFXMLAndEPUBThroughBundledWorker() async throws {
+        let folder = try directory(); defer { try? FileManager.default.removeItem(at: folder) }
+        let input = try source(), original = try Data(contentsOf: input)
+        for mode in ["editable", "page_image"] {
+            let deck = folder.appendingPathComponent("Deck-\(mode).pptx")
+            let result = try await ExportWorkerBridge.export(input: input,
+                options: .init(format: .pptx, pages: IndexSet([0, 1]), pptxMode: mode),
+                destination: .init(url: deck, overwrite: false), cancellation: ConversionCancellation()) { _, _, _ in }
+            XCTAssertGreaterThan(result.byteCount, 1000)
+            XCTAssertTrue(try zip("ppt/presentation.xml", deck).contains("sldId"))
+            XCTAssertTrue(try zip("ppt/slides/slide1.xml", deck).contains("Employment"), "slide text is editable (\(mode))")
+        }
+        let rtf = folder.appendingPathComponent("Doc.rtf")
+        let rtfResult = try await convert(input, .rtf, rtf)
+        let rtfText = try String(contentsOf: rtf, encoding: .ascii)
+        XCTAssertTrue(rtfText.hasPrefix("{\\rtf1")); XCTAssertTrue(rtfText.contains("Employment"))
+        XCTAssertTrue(rtfResult.notices.contains { $0.code == "RTF_LAYOUT_NOT_KEPT" })
+        let xml = folder.appendingPathComponent("Data.xml")
+        _ = try await convert(input, .xml, xml)
+        let document = try XMLDocument(contentsOf: xml, options: [])
+        XCTAssertEqual(document.rootElement()?.localName, "document")
+        XCTAssertFalse(try document.nodes(forXPath: "//*[local-name()='word']").isEmpty)
+        XCTAssertTrue(document.xmlString.contains("Employment"))
+        let epub = folder.appendingPathComponent("Book.epub")
+        _ = try await convert(input, .epub, epub)
+        XCTAssertEqual(try zip("mimetype", epub), "application/epub+zip")
+        XCTAssertTrue(try zip("META-INF/container.xml", epub).contains("rootfile"))
+        XCTAssertEqual(try Data(contentsOf: input), original, "export never writes the source")
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: folder.path).contains { $0.hasPrefix(".zpdf-export-") })
+    }
+
     func testNumericWorkbookKeepsIdentifiersAndFormulaLookingText() async throws {
         let folder = try directory(); defer { try? FileManager.default.removeItem(at: folder) }
         let output = folder.appendingPathComponent("Numbers.xlsx")

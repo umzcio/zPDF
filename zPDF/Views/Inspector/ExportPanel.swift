@@ -71,6 +71,13 @@ struct ConversionExportView: View {
                             Text(request.format == .html ? "Responsive reading" : "Reflow text").tag("reflow")
                         }.accessibilityLabel("Export layout")
                     }
+                    if request.format == .pptx {
+                        Picker("Slides", selection: $request.pptxMode) {
+                            Text("Editable").tag("editable")
+                            Text("Page image + editable text").tag("page_image")
+                        }.accessibilityLabel("PowerPoint mode")
+                            .help("Editable rebuilds text, pictures and shapes. Page image keeps each page's drawing as a background picture under editable text.")
+                    }
                     if request.format.isImage {
                         Picker("Resolution", selection: $request.dpi) {
                             Text("72 dpi — screen").tag(72)

@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  zPDF Export structured XML, schema version 1 (docs/xml-format.md).
+
+  A document is its selected pages in order; each page holds its content items
+  in reading order (blocks, tables, images, form fields, comments), and every
+  item carries a document-wide reading-order number (order) and an id unique in
+  the document. Text blocks and table cells hold their text, then their lines,
+  each a sequence of words with boxes, fonts and sizes.
+
+  Coordinates are points (1/72 in) on the page as displayed (its crop box, after
+  its /Rotate), origin at the top-left corner, y growing downward.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="urn:zpdf:export:document:1"
+           xmlns:z="urn:zpdf:export:document:1"
+           targetNamespace="urn:zpdf:export:document:1"
+           elementFormDefault="qualified"
+           version="1">
+
+  <xs:attributeGroup name="box">
+    <xs:attribute name="x0" type="xs:decimal" use="required"/>
+    <xs:attribute name="y0" type="xs:decimal" use="required"/>
+    <xs:attribute name="x1" type="xs:decimal" use="required"/>
+    <xs:attribute name="y1" type="xs:decimal" use="required"/>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="item">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="order" type="xs:positiveInteger" use="required"/>
+  </xs:attributeGroup>
+
+  <xs:simpleType name="nonEmptyString">
+    <xs:restriction base="xs:string"><xs:minLength value="1"/></xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Word">
+    <xs:simpleContent>
+      <xs:extension base="nonEmptyString">
+        <xs:attributeGroup ref="box"/>
+        <xs:attribute name="font" type="xs:string" use="required"/>
+        <xs:attribute name="size" type="xs:decimal" use="required"/>
+        <xs:attribute name="bold" type="xs:boolean" default="false"/>
+        <xs:attribute name="italic" type="xs:boolean" default="false"/>
+        <xs:attribute name="href" type="xs:anyURI"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="Line">
+    <xs:sequence>
+      <xs:element name="word" type="Word" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="box"/>
+  </xs:complexType>
+
+  <xs:simpleType name="BlockKind">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="paragraph"/>
+      <xs:enumeration value="heading"/>
+      <xs:enumeration value="list-item"/>
+      <xs:enumeration value="invisible"/>
+      <xs:enumeration value="unsupported"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="Block">
+    <xs:sequence>
+      <xs:element name="text" type="xs:string"/>
+      <xs:element name="line" type="Line" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="item"/>
+    <xs:attributeGroup ref="box"/>
+    <xs:attribute name="kind" type="BlockKind" use="required"/>
+    <xs:attribute name="level">
+      <xs:simpleType><xs:restriction base="xs:positiveInteger"><xs:maxInclusive value="9"/></xs:restriction></xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="marker" type="xs:string"/>
+    <xs:attribute name="font" type="xs:string"/>
+    <xs:attribute name="size" type="xs:decimal"/>
+  </xs:complexType>
+
+  <xs:complexType name="Cell">
+    <xs:sequence>
+      <xs:element name="text" type="xs:string"/>
+      <xs:element name="line" type="Line" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="box"/>
+    <xs:attribute name="row" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="col" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="rowspan" type="xs:positiveInteger" default="1"/>
+    <xs:attribute name="colspan" type="xs:positiveInteger" default="1"/>
+    <xs:attribute name="header" type="xs:boolean" default="false"/>
+    <xs:attribute name="bold" type="xs:boolean" default="false"/>
+  </xs:complexType>
+
+  <xs:simpleType name="IndexList">
+    <xs:list itemType="xs:nonNegativeInteger"/>
+  </xs:simpleType>
+
+  <xs:complexType name="Table">
+    <xs:sequence>
+      <xs:element name="cell" type="Cell" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="item"/>
+    <xs:attributeGroup ref="box"/>
+    <xs:attribute name="rows" type="xs:positiveInteger" use="required"/>
+    <xs:attribute name="cols" type="xs:positiveInteger" use="required"/>
+    <xs:attribute name="header-rows" type="IndexList" default=""/>
+  </xs:complexType>
+
+  <xs:complexType name="ImageData">
+    <xs:simpleContent>
+      <xs:extension base="xs:base64Binary">
+        <xs:attribute name="encoding" type="xs:string" fixed="base64" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="Image">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="0"/>
+      <xs:element name="data" type="ImageData" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="item"/>
+    <xs:attributeGroup ref="box"/>
+    <xs:attribute name="width-px" type="xs:positiveInteger" use="required"/>
+    <xs:attribute name="height-px" type="xs:positiveInteger" use="required"/>
+    <xs:attribute name="origin" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="image"/>
+          <xs:enumeration value="vector"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="mime-type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="image/png"/>
+          <xs:enumeration value="image/jpeg"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="Widget">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="Field">
+    <xs:sequence>
+      <xs:element name="value" type="xs:string"/>
+      <!-- the visible label's words, when the label was read from the page -->
+      <xs:element name="line" type="Line" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="widget" type="Widget" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="item"/>
+    <xs:attributeGroup ref="box"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="label" type="xs:string"/>
+    <xs:attribute name="label-source" type="xs:string" use="required"/>
+    <xs:attribute name="placement" type="xs:string" use="required"/>
+    <xs:attribute name="checked" type="xs:boolean"/>
+    <xs:attribute name="export-value" type="xs:string"/>
+    <xs:attribute name="tooltip" type="xs:string"/>
+    <xs:attribute name="table" type="xs:string"/>
+  </xs:complexType>
+
+  <xs:complexType name="Comment">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attributeGroup ref="item"/>
+        <xs:attributeGroup ref="box"/>
+        <xs:attribute name="kind" type="xs:string" use="required"/>
+        <xs:attribute name="author" type="xs:string"/>
+        <xs:attribute name="modified" type="xs:string"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="Page">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="block" type="Block"/>
+      <xs:element name="table" type="Table"/>
+      <xs:element name="image" type="Image"/>
+      <xs:element name="field" type="Field"/>
+      <xs:element name="comment" type="Comment"/>
+    </xs:choice>
+    <xs:attribute name="number" type="xs:positiveInteger" use="required"/>
+    <xs:attribute name="width" type="xs:decimal" use="required"/>
+    <xs:attribute name="height" type="xs:decimal" use="required"/>
+    <xs:attribute name="rotation" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:integer">
+          <xs:enumeration value="0"/>
+          <xs:enumeration value="90"/>
+          <xs:enumeration value="180"/>
+          <xs:enumeration value="270"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:element name="document">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="page" type="Page" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="schema-version" type="xs:string" fixed="1" use="required"/>
+      <xs:attribute name="source-sha256" use="required">
+        <xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="[0-9a-f]{64}"/></xs:restriction></xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="generator" type="xs:string" use="required"/>
+      <xs:attribute name="units" type="xs:string" fixed="pt" use="required"/>
+      <xs:attribute name="origin" type="xs:string" fixed="top-left" use="required"/>
+    </xs:complexType>
+    <xs:unique name="uniqueItemId">
+      <xs:selector xpath=".//z:block|.//z:table|.//z:image|.//z:field|.//z:comment"/>
+      <xs:field xpath="@id"/>
+    </xs:unique>
+    <xs:unique name="uniqueOrder">
+      <xs:selector xpath=".//z:block|.//z:table|.//z:image|.//z:field|.//z:comment"/>
+      <xs:field xpath="@order"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>

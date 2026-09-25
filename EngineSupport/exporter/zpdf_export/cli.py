@@ -120,7 +120,7 @@ def convert(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             raise CoordinatorError("WRITE_FAILED", "the picture folder path is not a plain directory")
     if not dest.parent.is_dir():
         raise CoordinatorError("WRITE_FAILED", "destination directory does not exist")
-    if args.format not in ("docx", "xlsx", "html", "md"):
+    if args.format not in ("docx", "xlsx", "html", "md", "pptx", "rtf", "xml", "epub"):
         raise CoordinatorError("UNSUPPORTED_FORMAT", f"format {args.format!r} is not available")
 
     source_sha = sha256_file(source)
@@ -131,8 +131,12 @@ def convert(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         "running_headers": "preserve", "layout_mode": args.layout, "ocr": "off", "locale": None,
         "allow_partial": bool(args.allow_partial),
     }
-    if args.format in ("xlsx", "md"):
-        options.pop("layout_mode")          # not applicable to XLSX or Markdown
+    if args.format in ("xlsx", "md", "pptx", "rtf", "xml", "epub"):
+        options.pop("layout_mode")          # not applicable to XLSX, Markdown, PPTX, RTF, XML or EPUB
+    if args.format == "xml":
+        options["xml_images"] = args.xml_images
+    if args.format == "pptx":
+        options["pptx_mode"] = args.pptx_mode
     if args.format == "md":
         options["markdown_images"] = args.md_images
         if asset_dir is not None:
@@ -280,13 +284,22 @@ def _validate_artifact(staging: Path, artifact: dict) -> Path:
             if p.is_symlink() or not p.is_file() or sha256_file(p) != f.get("sha256") or p.stat().st_size != f.get("bytes"):
                 raise CoordinatorError("OUTPUT_INVALID", "picture missing or hash mismatch")
         return path
+    if path.suffix == ".xml":
+        if not path.read_bytes()[:5] == b"<?xml":
+            raise CoordinatorError("OUTPUT_INVALID", "artifact is not an XML document")
+        return path
+    if path.suffix == ".rtf":
+        if not path.read_bytes()[:6] == b"{\\rtf1":
+            raise CoordinatorError("OUTPUT_INVALID", "artifact is not an RTF document")
+        return path
     if path.suffix == ".html":
         if not path.read_bytes()[:15] == b"<!doctype html>":
             raise CoordinatorError("OUTPUT_INVALID", "artifact is not an HTML document")
         return path
     try:
         with zipfile.ZipFile(path) as z:
-            main = {".docx": "word/document.xml", ".xlsx": "xl/workbook.xml"}.get(path.suffix)
+            main = {".docx": "word/document.xml", ".xlsx": "xl/workbook.xml",
+                    ".pptx": "ppt/presentation.xml", ".epub": "META-INF/container.xml"}.get(path.suffix)
             if z.testzip() is not None or main is None or main not in z.namelist():
                 raise CoordinatorError("OUTPUT_INVALID", f"artifact is not a valid {path.suffix[1:].upper()} package")
     except zipfile.BadZipFile as exc:
@@ -319,16 +332,20 @@ def cmd_capabilities(_args) -> tuple[int, dict]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="zpdf-export", description="Local, offline PDF export helper (DOCX).")
+    p = argparse.ArgumentParser(prog="zpdf-export", description="Local, offline PDF export helper (DOCX, XLSX, HTML, Markdown, PPTX, RTF, XML, EPUB).")
     sub = p.add_subparsers(dest="command", required=True)
     c = sub.add_parser("convert", help="convert a PDF into an editable document")
     c.add_argument("source")
     c.add_argument("destination")
-    c.add_argument("--format", default="docx", choices=["docx", "xlsx", "html", "md"])
+    c.add_argument("--format", default="docx", choices=["docx", "xlsx", "html", "md", "pptx", "rtf", "xml", "epub"])
     c.add_argument("--pages", default=None, help="1-based pages, e.g. 1-3,5 (default: all)")
     c.add_argument("--force", action="store_true", help="replace an existing destination")
     c.add_argument("--md-images", default="folder", choices=["folder", "embed"],
                    help="Markdown pictures: files in <name>_images/ beside the document (default) or data URIs inside it")
+    c.add_argument("--xml-images", default="embed", choices=["embed", "omit"],
+                   help="XML: pictures as base64 inside the file (default), or described without their pixels")
+    c.add_argument("--pptx-mode", default="editable", choices=["editable", "page_image"],
+                   help="PPTX: editable shapes and text boxes (default), or the page's drawing as a background picture under editable text")
     c.add_argument("--layout", default="preserve", choices=["preserve", "reflow"],
                    help="preserve: layout-preserving DOCX (default); reflow: explicit reading-order fallback")
     c.add_argument("--no-images", action="store_true")

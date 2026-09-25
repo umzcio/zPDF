@@ -4,14 +4,15 @@ import PDFKit
 import UniformTypeIdentifiers
 
 enum ConversionFormat: String, CaseIterable, Identifiable, Sendable {
-    case docx, xlsx, html, markdown = "md", png, jpeg, text
+    case docx, xlsx, pptx, html, markdown = "md", rtf, xml, epub, png, jpeg, text
     var id: String { rawValue }
-    var usesWorker: Bool { [.docx, .xlsx, .html, .markdown].contains(self) }
+    var usesWorker: Bool { [.docx, .xlsx, .pptx, .html, .markdown, .rtf, .xml, .epub].contains(self) }
     var isImage: Bool { self == .png || self == .jpeg }
     var hasLayout: Bool { self == .docx || self == .html }
     var title: String { switch self {
-    case .docx: "Word document"; case .xlsx: "Excel workbook"; case .html: "HTML webpage"
-    case .markdown: "Markdown"; case .png: "PNG image"; case .jpeg: "JPEG image"; case .text: "Plain text"
+    case .docx: "Word document"; case .xlsx: "Excel workbook"; case .pptx: "PowerPoint presentation"; case .html: "HTML webpage"
+    case .markdown: "Markdown"; case .rtf: "Rich Text (RTF)"; case .xml: "XML data"; case .epub: "EPUB ebook"
+    case .png: "PNG image"; case .jpeg: "JPEG image"; case .text: "Plain text"
     } }
     var fileExtension: String { switch self { case .jpeg: "jpg"; case .text: "txt"; default: rawValue } }
     var contentType: UTType { UTType(filenameExtension: fileExtension) ?? .data }
@@ -19,6 +20,10 @@ enum ConversionFormat: String, CaseIterable, Identifiable, Sendable {
     case .docx: "Rebuilds editable text and layout for Word. Fonts may differ; diagrams and their labels can become pictures. Images are limited to 200 dpi."
     case .xlsx: "Reconstructs tables as worksheets, with other content on a Text sheet. Printed totals stay values, never formulas. Pictures become descriptions; page styling is not preserved."
     case .html: "Creates a self-contained webpage with no scripts or external images. Preserve layout uses fixed pages; Responsive reading rearranges content for smaller screens. Images are limited to 200 dpi."
+    case .pptx: "One slide per page. Editable places text boxes, pictures and simple shapes at their positions; Page image puts each page's drawing behind editable text. Text doesn't reflow across lines, tables are drawn rather than PowerPoint tables, fonts are Arial/Times/Courier stand-ins, and comments become speaker notes."
+    case .rtf: "Exports reading order as rich text with pictures, lists, tables and links. Page layout, columns, shading, text color and font changes inside a paragraph are not kept. TextEdit doesn't show RTF pictures; Word does."
+    case .xml: "Structured data: pages, blocks, lines and words with positions, reading order, tables, images and form values, validated against the zPDF XML schema. Describes content, not appearance."
+    case .epub: "A reflowable EPUB 3 book: one chapter per page, table of contents from bookmarks or headings, pictures included. Page layout, fonts and colors are set by the reading app."
     case .markdown: "Exports reading order as GitHub Flavored Markdown, with pictures in a companion folder. Keep that folder beside the document. Fonts, page layout and merged table cells cannot be preserved."
     case .text: "Exports selectable text, filled form values and comments. Scanned pages need OCR, which is not included."
     default: "Exports visible page content and markups. Multiple pages are saved as separate images in a new folder."
@@ -31,6 +36,7 @@ struct ConversionOptions: Sendable {
     var dpi: Int = 150
     var jpegQuality: Double = 0.85
     var layoutMode = "preserve"
+    var pptxMode = "editable"
     var producesFolder: Bool { format.isImage && pages.count > 1 }
 }
 

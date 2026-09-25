@@ -71,9 +71,120 @@ def analyze_layout(page: PageExtract, exclude: list[BBox]) -> list[Block]:
     protos = order_atoms(protos)
     blocks = [_classify(page, p, body_size) for p in protos]
     _pair_drop_caps(blocks)
+    _mark_continuations(blocks)
     _assign_heading_levels([b for b in blocks if getattr(b, "drop_cap_of", None) is None])
     _attach_links(page, blocks)
     return blocks
+
+
+def _last_line_right(b: Block) -> float:
+    """Right edge of a block's last line (its glyphs lowest on the page)."""
+    chars = [t.char for t in b.tokens if t.char.lbox.width > 0]
+    if not chars:
+        return b.lbox.x1
+    bottom = max(c.lbox.cy for c in chars)
+    size = max(b.size, 1.0)
+    return max(c.lbox.x1 for c in chars if c.lbox.cy >= bottom - 0.5 * size)
+
+
+def _last_line_left(b: Block) -> float:
+    """Left edge of a block's last line."""
+    chars = [t.char for t in b.tokens if t.char.lbox.width > 0]
+    if not chars:
+        return b.lbox.x0
+    bottom = max(c.lbox.cy for c in chars)
+    size = max(b.size, 1.0)
+    return min(c.lbox.x0 for c in chars if c.lbox.cy >= bottom - 0.5 * size)
+
+
+def _first_word_width(b: Block) -> float:
+    """Width of the first word of a block's first line."""
+    chars = []
+    for t in b.tokens:
+        if chars and (t.space_before or t.char.text.isspace()):
+            break
+        if not t.char.text.isspace() and t.char.lbox.width > 0:
+            chars.append(t.char)
+    return (chars[-1].lbox.x1 - chars[0].lbox.x0) if chars else 0.0
+
+
+def _mark_continuations(blocks: list[Block]) -> None:
+    """A paragraph split into blocks by wide line spacing (a double-spaced
+    statement: every line its own block) is read as one paragraph. Block b
+    continues the block a before it in reading order when both are paragraphs
+    of one size, a's last line ends where b's first word would not have fitted
+    (or runs to the column's right edge), b starts at the
+    continuation margin (not indented past a's left edge, at most four ems left
+    of an indented first line), b lies in a's column directly below, and the
+    gap is no more than the spacing. Marked, not merged: layout modes keep each
+    line where it is drawn; reading order and PPTX text boxes join them
+    (``continues``)."""
+    for a, b in zip(blocks, blocks[1:]):
+        if a.kind != "paragraph" or b.kind != "paragraph" or a.size <= 0:
+            continue
+        if getattr(a, "drop_cap_of", None) is not None or getattr(b, "drop_cap_of", None) is not None:
+            continue
+        size = a.size
+        if abs(a.size - b.size) > 0.6:
+            continue
+        left = min(a.lbox.x0, b.lbox.x0)
+        # the column's right edge: the widest block starting at this margin (short
+        # lines side by side, 'From: …' over 'Date: …', are not full lines)
+        right = max(x.lbox.x1 for x in blocks
+                    if left - 4.0 * size <= x.lbox.x0 <= left + 4.0 * size and x.lbox.y1 > x.lbox.y0)
+        width = right - left
+        if width < 10 * size:
+            continue
+        if b.lbox.x0 > a.lbox.x0 + 2.0 or a.lbox.x0 - b.lbox.x0 > 4.0 * size:
+            continue                                  # b indented: a new paragraph
+        overlap = min(a.lbox.x1, b.lbox.x1) - max(a.lbox.x0, b.lbox.x0)
+        if overlap < 0.5 * min(a.lbox.width, b.lbox.width):
+            continue
+        room = right - _last_line_right(a)
+        if room > 0.06 * width and room > _first_word_width(b) + 0.5 * size:
+            continue                                  # b's first word would have fitted: a paragraph ends
+        indent = _last_line_left(a) - left
+        own_room = max(a.lbox.x1, b.lbox.x1) - _last_line_right(a)     # margins of these two lines alone
+        if indent >= 0.8 * size and own_room >= 0.8 * size and abs(indent - own_room) <= max(2.0, 0.3 * max(indent, own_room)):
+            continue                                  # a centred line ('NWS Watch = Get Set' in a callout)
+        gap = b.lbox.y0 - a.lbox.y1
+        if not (-0.2 * size <= gap <= 1.8 * size):
+            continue
+        # the spacing between them is the paragraph's own line spacing: inside a
+        # multi-line block, or between the blocks already joined above
+        prev = getattr(a, "continues", None)
+        if prev is not None:
+            expected = a.lbox.y0 - prev.lbox.y1
+        elif a.lines >= 2:
+            expected = (a.lbox.height - a.lines * size) / (a.lines - 1)
+        else:
+            expected = None
+        if expected is not None and gap > expected + 0.35 * size:
+            continue                                  # a paragraph space
+        if not (_prose(a) and _prose(b)) or _style(a) != _style(b):
+            continue
+        lead = next((t.char for t in b.tokens if not t.char.text.isspace()), None)
+        if lead is not None and lead.font_name != _style(b)[0]:
+            continue                                  # a marker in a symbol font ('n' as a bullet)
+        b.continues = a                                # type: ignore[attr-defined]
+
+
+def _prose(b: Block) -> bool:
+    """Mostly letters: rows of figures in an unruled table are not a paragraph."""
+    text = b.text.replace(" ", "")
+    return bool(text) and sum(ch.isalpha() for ch in text) >= 0.6 * len(text)
+
+
+def _style(b: Block) -> tuple:
+    """The block's dominant font and weight (a bold small-caps callout is not
+    the plain paragraph under it)."""
+    from collections import Counter
+    count: Counter = Counter()
+    for t in b.tokens:
+        c = t.char
+        if not c.text.isspace():
+            count[(c.font_name, bool(c.bold), bool(c.italic))] += 1
+    return count.most_common(1)[0][0] if count else ("", False, False)
 
 
 def _pair_drop_caps(blocks: list[Block]) -> None:

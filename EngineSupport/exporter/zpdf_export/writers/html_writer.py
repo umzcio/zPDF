@@ -454,6 +454,14 @@ details.ocr{margin:1em 0;color:var(--muted);font-size:.9rem}details.ocr summary{
 
 
 def write_html_reflow(doc, path: Path) -> dict:
+    out, stats = render_html_reflow(doc)
+    Path(path).write_text(out, encoding="utf-8")
+    return stats
+
+
+def render_html_reflow(doc) -> tuple[str, dict]:
+    """The Responsive reading document as a string, and the writer's stats
+    (used by the HTML writer and by the EPUB writer, which splits it)."""
     stats = {"pages": 0, "paragraphs": 0, "headings": 0, "list_items": 0, "tables": 0, "images": 0,
              "links": 0, "comments": 0, "form_values": 0, "cell_overlaps": 0}
     parts: list[str] = []
@@ -541,9 +549,8 @@ def write_html_reflow(doc, path: Path) -> dict:
            "<meta name=\"color-scheme\" content=\"light dark\">"
            "<title>Converted document</title><style>" + _REFLOW_CSS + "</style></head><body><main>\n"
            + "\n".join(parts) + "\n</main></body></html>\n")
-    Path(path).write_text(out, encoding="utf-8")
     stats["mode"] = "reflow"
-    return _disclose(stats)
+    return out, _disclose(stats)
 
 
 def _shown(v: FormValueNode) -> str:

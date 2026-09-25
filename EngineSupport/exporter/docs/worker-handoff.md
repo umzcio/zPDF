@@ -16,6 +16,10 @@ summary an integrator needs, with real outputs.
 | `convert` → `format: "xlsx"` | yes (increment 10) | tables to worksheets; see §3a for options, result and fidelity limits |
 | `convert` → `format: "html"` | yes (increment 11) | two modes; see §3b |
 | `convert` → `format: "md"` | yes (increment 12) | GitHub Flavored Markdown; see §3c |
+| `convert` → `format: "pptx"` | yes (increment 16) | one slide per page, two modes; see §3d |
+| `convert` → `format: "rtf"` | yes (increment 17) | reading order; see §3e |
+| `convert` → `format: "xml"` | yes (increment 18) | structured data, XSD-validated; see §3f |
+| `convert` → `format: "epub"` | yes (increment 19) | reflowable EPUB 3; see §3g |
 | `cancel` | yes | polled between pages and stages (see §4) |
 | OCR, locale rules, running-header removal | **no** | `UNSUPPORTED_OPTION` with a reason; `ocr` accepts only `"off"` |
 
@@ -265,6 +269,193 @@ Verification (details in `docs/readers.md`):
 - **Obsidian:** NOT RUN. It opens files only inside a registered vault, and
   registering one changes the user's Obsidian settings.
 
+## 3d. PowerPoint (PPTX)
+
+Request: `"format": "pptx"`. Options as for DOCX except that `layout_mode`
+is refused as not applicable (slides are always laid out as the pages), plus:
+
+| Option | Values | Meaning |
+|---|---|---|
+| `pptx_mode` | `"editable"` (default), `"page_image"` | shapes, pictures and text boxes; or the page's drawing as one background picture under pictures and editable text |
+
+The artifact is `<staging_directory>/document.pptx`; the result echoes
+`"pptx_mode"`. Excerpt of a real result (USGS FS 2019-3026 pp. 1, 3, editable):
+
+```json
+{"event": "result", "status": "ok_with_warnings", "pptx_mode": "editable",
+ "artifact": {"relative_path": "document.pptx", "sha256": "…", "bytes": …},
+ "warnings": [{"code": "PICTURE_LABELS_KEPT", "page": 3, …}, {"code": "IMAGE_DOWNSAMPLED", "page": 1, "max_dpi": 200, …}],
+ "stats": {"writer": {"slides": 2, "text_boxes": …, "lines": …, "images": …, "fills": …, "rules": …, "links": …,
+                      "comments": 0, "mode": "editable", "max_picture_dpi": 200}}}
+```
+
+PPTX warnings, besides the shared ones (`IMAGE_DOWNSAMPLED`,
+`PICTURE_LABELS_KEPT`, `VECTOR_ARTWORK_RENDERED`, …):
+
+| Code | Meaning for the user |
+|---|---|
+| `PPTX_PAGE_SCALED` (`page`, `scale`) | this page differs from the others by more than 10 %; it is scaled to the slide, fonts included, and centred |
+| `PPTX_PAGE_PADDED` (`page`, `slide_margin_pt`) | this page is a little smaller than the slide; it is unscaled at the top left |
+| `PPTX_COMMENTS_AS_NOTES` (`count`) | comments are in each slide's speaker notes, not PowerPoint comments |
+
+Failures: `pptx_mode` other than the two values → `UNSUPPORTED_OPTION /
+pptx_mode_unknown {option, value}`; `layout_mode` → `UNSUPPORTED_OPTION /
+option_not_applicable_to_format`; `pptx_mode` on another format → the same.
+Validation failures are `OUTPUT_INVALID` with `pptx_part_missing`,
+`pptx_binary_part` (macro, ActiveX or other binary part),
+`pptx_external_resource` (a relationship outside the package that is not a
+hyperlink) or `pptx_reopen_failed`.
+
+Fidelity limits (also in `capabilities.formats.pptx.modes`), which the app
+should show or link to:
+
+- One slide per page. A presentation has one slide size (the largest of the
+  pages within 10 % of the most common); other pages are scaled or padded, as
+  reported.
+- Every paragraph is one text box of the source's lines. Lines are not
+  re-wrapped, so text edited in PowerPoint does not reflow across lines.
+- Stand-in fonts (Arial, Times New Roman, Courier New) fitted to each
+  line's width; glyph shapes differ from the PDF's fonts (FAA's light display
+  title is the clearest case).
+- Tables are drawn (rules, shading, one text box per cell), not PowerPoint
+  tables. Curves and gradients are pictures, not editable shapes.
+- A rotated page is one turned group. A scan's OCR layer is transparent,
+  selectable text. Comments are speaker notes.
+- `page_image`: the background drawing is a 200 dpi picture, not shapes;
+  text inside Form XObjects would show twice.
+
+Verification (`scripts/powerpoint_reader_check.py`, `scripts/keynote_reader_check.py`,
+`scripts/pptx_batch.sh`; details in `docs/readers.md`):
+- **PowerPoint for Mac 16.113.2**, 15 decks (11 documents in editable mode,
+  4 in page_image): every deck opened with the right slide count, every edit
+  survived save and reopen, speaker notes survived. Measured against the source
+  (PowerPoint's PDF export, `layout_compare`), every unscaled page had a median
+  displacement of 0.4–1.9 pt and 99.5–100 % of lines within 12 pt, except
+  Owlie p. 2 (67.6 %, the stand-in bullet width, as in DOCX and HTML). I-9
+  p. 1 is a landscape page scaled into the portrait slide and was reviewed
+  visually.
+- **Keynote Creator Studio 15.1.1 and Keynote 14.2** (separately, identical
+  results): all 15 decks opened, edits exported to PPTX and reopened, medians
+  0.6–1.7 pt. Keynote refused any deck with speaker notes until the notes
+  master was listed in `presentation.xml` (fixed).
+
+Dependencies: `python-pptx 1.0.2` (MIT) and its new transitive dependency
+`XlsxWriter 3.2.9` (BSD-2-Clause); `lxml`, Pillow and `typing_extensions`
+were already present.
+
+## 3e. RTF
+
+Request: `"format": "rtf"`. Options as for Markdown, without its picture
+options; `layout_mode` is refused as not applicable (RTF is written in
+reading order). The artifact is `<staging_directory>/document.rtf`, one
+self-contained 7-bit file (pictures embedded). No new dependency.
+
+Warnings: `RTF_LAYOUT_NOT_KEPT` (every result; `kinds`: page_layout, columns,
+positions, rules_and_shading, text_colour), `RTF_COMMENTS_AS_TEXT` (`count`),
+and the shared ones (`IMAGE_DOWNSAMPLED`, `PICTURE_LABELS_KEPT`, …).
+Validation failures (`OUTPUT_INVALID`): `rtf_not_7bit`,
+`rtf_header_missing`, `rtf_groups_unbalanced`, `rtf_embedded_object`,
+`rtf_field_not_allowed` (any field other than a HYPERLINK to http, https or
+mailto).
+
+Fidelity limits (also in `capabilities.formats.rtf.fidelity_limits`):
+- Reading order, not page position. Page layout, columns, rules, shading and
+  text colour are not kept.
+- A paragraph takes its dominant font (Arial, Times New Roman or Courier New
+  stand-ins) and size; a change of font inside a paragraph is not kept.
+- Lists keep their numbering style and start. Tables keep header rows, spans
+  and source column widths; cell text is 8 pt.
+- Comments are a section per page. Invisible text is hidden text.
+- TextEdit: no pictures from `.rtf` (only from RTFD; Word's own RTF behaves
+  the same); hidden text shows. Word shows both correctly.
+
+Verification (`scripts/rtf_batch.sh` → `word_reader_check.py` and
+`textedit_reader_check.py`, 11 documents; `results/rtf/batch-summary.jsonl`):
+- **Word for Mac 16.113.2**: all 11 opened, edited, saved and reopened.
+  Tables, pictures and working links (in Word's PDF export) equal what was
+  written in every document.
+- **TextEdit** (macOS 26.6.2): all 11 opened, edited, saved and reopened.
+- **Word coverage** of the text each reader shows: 100 % for FOMC, USGS,
+  EIC, Owlie and WH-380; 99.9–99.96 % for I-9 and FAA ("Struts", backlog);
+  97.9 % and 98.7 % for EIA and Census (footnote marks written as superscript
+  characters, "Gasoline³"; the check does not normalise them).
+  - In Word, FR has 96.5 % and the 1920 scan 3 %: their invisible text
+    layers are hidden text, as intended.
+  - In TextEdit both have 100 %, because TextEdit ignores hidden text.
+
+## 3f. XML (structured data)
+
+Request: `"format": "xml"`. Options as for Markdown without its picture
+options, plus `xml_images`: `"embed"` (default; base64 PNG/JPEG inside the
+file) or `"omit"` (images described without their pixels). `layout_mode` is
+refused. The artifact is `<staging_directory>/document.xml`.
+
+- **Schema:** `zpdf-document-1.xsd` is shipped in the package (`zpdf_export/schemas/`).
+  `capabilities.formats.xml.schema` gives the namespace, the version and the
+  file name. The format is documented in `docs/xml-format.md`: coordinates
+  are points on the page as displayed, origin top-left, y down; every item
+  has an id and a document-wide `order`.
+- **The worker validates every result** against the XSD, parsing without
+  DTD or entities. A failure is `OUTPUT_INVALID` (`xml_not_well_formed`,
+  `xml_has_doctype` or `xml_schema_invalid`) and carries no document text.
+- **Warnings:** `XML_IMAGE_DATA_OMITTED` (omit mode), `XML_IMAGE_TOO_LARGE`
+  (a picture whose base64 would exceed libxml2's 10 MB text-node limit even
+  as JPEG), `XML_CHARS_REPLACED`, `IMAGE_DOWNSAMPLED`.
+- **Failures:** `xml_images` other than the two values →
+  `UNSUPPORTED_OPTION / xml_images_unknown`.
+
+Verification (`scripts/xml_check.py`, 11 documents; `results/xml/batch-summary.txt`):
+- **Schema:** xmllint (libxml 2.9.13) validates all 11 against the XSD.
+  Python's standard-library parser reads them too.
+- **Order and references:** order numbers run 1…n; ids are unique; every
+  embedded image decodes to its declared size; every widget on the pages
+  (91 on I-9, 77 on WH-380, 1 on FR) is referenced by exactly one field.
+- **Word coverage** (the source's displayed words, as `<word>` elements):
+  100 % for FOMC, USGS, EIC, Census, Owlie, WH-380 and the 1920 scan;
+  99.95–99.97 % for FR and I-9; 99.66 % EIA; 99.88 % FAA. Each remaining
+  word is explained in `docs/readers.md`.
+- **Word boxes:** every word's box, read back from the PDF with PDFium,
+  holds that word for 100 % of words in ten documents and 99.5 % in the
+  1920 scan (its OCR layer's boxes).
+
+## 3g. EPUB 3
+
+Request: `"format": "epub"`. Options as for RTF; `layout_mode` is refused
+(the book is reflowable). The artifact is `<staging_directory>/document.epub`,
+one self-contained package. No new dependency.
+
+Result stats (`stats.writer`) add `chapters` (one per source page),
+`toc_entries` and `toc_source` (`bookmarks`, `headings` or `pages`).
+
+- **Warnings:** `EPUB_LAYOUT_NOT_KEPT` (every result; `kinds`: page_layout,
+  fonts, colours, rules_and_shading) and `IMAGE_DOWNSAMPLED`.
+- **Validation failures** (`OUTPUT_INVALID`): `epub_mimetype_invalid`,
+  `epub_manifest_mismatch`, `epub_contains_script`, `epub_external_resource`,
+  `epub_reopen_failed`.
+
+Fidelity limits (also in `capabilities.formats.epub.fidelity_limits`):
+- Reading order and reflow. Page layout, fonts, colours, rules and shading
+  are not kept; the reading system sets the type.
+- One chapter per source page, each opening with a page break named after
+  it; a page list maps them.
+- The table of contents is the PDF's bookmarks for the selected pages, else
+  the headings.
+- Pictures are package files at ≤ 200 dpi, with kept labels as alt text.
+- A scan's OCR layer is in a collapsed section.
+- Language `und`; the title is the PDF's, when it has one.
+
+Verification (`results/epub/batch-summary.jsonl`, 12 documents):
+- **epubcheck 4.2.6:** 0 fatals, 0 errors, 0 warnings, 0 infos for every
+  book.
+- **Word coverage** of the chapters' text: 97.9–100 %. The lowest are
+  footnote marks in EIA and Census, as in the other formats.
+- **Navigation:** from bookmarks for FOMC, WH-380 and the W-9 instructions
+  (22 entries over 7 pages); from headings elsewhere; from pages for the
+  1920 scan.
+- **Apple Books** (checked on 3 books; details in `docs/readers.md`): the
+  bookmark table of contents, pictures, headings, lists and tables render;
+  wide tables scroll sideways.
+
 ## 4. Cancellation
 
 Send `{"protocol_version": 1, "operation": "cancel", "job_id": "…"}` on the
@@ -305,7 +496,7 @@ Measured from the worker on the trial fixtures:
 | Situation | Result |
 |---|---|
 | snapshot hash mismatch | `SOURCE_CHANGED / snapshot_hash_mismatch` |
-| `format: "html"` or `"md"` | `UNSUPPORTED_FORMAT / not_implemented {format}` |
+| a format the worker does not know | `UNSUPPORTED_FORMAT / unknown_format {format}` |
 | `layout_mode` with `format: "xlsx"` | `UNSUPPORTED_OPTION / option_not_applicable_to_format {option, format}` |
 | page out of range | `INVALID_REQUEST / page_out_of_range {page}` |
 | `ocr: "on"` | `UNSUPPORTED_OPTION / ocr_unavailable {option, value}` |
@@ -342,7 +533,7 @@ never prints document text or paths.
   153.0.7999.0), `python-docx 1.2.0`, `lxml 6.1.3`, `openpyxl 3.1.5` (MIT;
   depends on `et-xmlfile 2.0.0`, MIT) for XLSX, Pillow 12.3.0 (text width
   measurement and rendering). All permissive licences; no network, no cloud,
-  no AGPL.
+  no AGPL. `python-pptx 1.0.2` (MIT; brings `XlsxWriter 3.2.9`, BSD-2-Clause) for PPTX.
 - Fonts: the writer names Word's stand-in families (Arial, Times New Roman,
   Courier New) and measures line widths with the TrueType files installed on
   the machine (`/Applications/Microsoft Word.app/Contents/Resources/DFonts`,
@@ -367,6 +558,9 @@ never prints document text or paths.
 - Chrome-verified HTML: `results/html/*.{preserve,reflow}.html`, Chrome's prints
   and comparisons `results/browser/*.chrome.pdf`, `*.chrome-compare.json`, and
   screenshots at 390 and 1280 px.
+- PowerPoint- and Keynote-verified PPTX: `results/pptx/*.pptx` with `*.powerpoint-check.json`,
+  `*.powerpoint.pdf`, `*.powerpoint-compare.json`, `*.keynote-check.json` (and `*.kn14.*` for Keynote 14),
+  batch summaries `results/pptx/batch-summary.txt` and `keynote-summary.txt`.
 - Reader compatibility: `docs/readers.md` (Word vs Apple Pages, measured).
 - Reproduce a session: `printf … | python -m zpdf_export.worker` with stdin
   kept open until the result (closing it cancels), or use the CLI:
@@ -375,6 +569,8 @@ never prints document text or paths.
 ## 9. What the app should not do yet
 
 - Do not claim Safari support for HTML: only Chrome was verified.
+- Do not claim PowerPoint for Windows or Google Slides support for PPTX: only
+  PowerPoint for Mac and the two Keynotes were checked.
 - Do not infer support from the helper's presence; read `capabilities`.
 - Do not present the output as reader-neutral: it is verified in Word for Mac
   only (`docs/readers.md` lists what Pages breaks).

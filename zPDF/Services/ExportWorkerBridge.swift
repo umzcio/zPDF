@@ -43,6 +43,15 @@ struct ExportNotice: Identifiable, Sendable {
         case "VECTOR_ARTWORK_BLANK", "VECTOR_ARTWORK_PAGE_DECORATION": "Some page decoration was omitted or simplified."
         case "WIDGET_WITHOUT_FORM": "A form control could not be associated with a form field. Check its value."
         case "PARTIAL_CONTENT": "Some content could not be converted. Review the affected pages."
+        case "PPTX_PAGE_SCALED": "A page with a different size was scaled to fit the slide."
+        case "PPTX_PAGE_PADDED": "A smaller page was placed unscaled at the top left of its slide."
+        case "PPTX_COMMENTS_AS_NOTES": "Comments are in each slide's speaker notes."
+        case "RTF_LAYOUT_NOT_KEPT": "RTF keeps reading order only; page layout, columns, shading and text color are not kept."
+        case "RTF_COMMENTS_AS_TEXT": "Comments were added as text sections after each page."
+        case "XML_IMAGE_DATA_OMITTED": "Images are described without their pixel data."
+        case "XML_IMAGE_TOO_LARGE": "An image was too large to embed in XML and is described only."
+        case "XML_CHARS_REPLACED": "Some characters that XML can't contain were replaced."
+        case "EPUB_LAYOUT_NOT_KEPT": "The ebook reflows; page layout, fonts, colors and shading are set by the reading app."
         default: code.replacingOccurrences(of: "_", with: " ").lowercased().capitalized + ". Review the exported content."
         }
     }
@@ -99,6 +108,13 @@ enum ExportWorkerBridge {
             let safeStem = String(stem.unicodeScalars.map { CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789").contains($0) ? String($0) : "_" }.joined().prefix(60))
             let assetName = "\(safeStem.isEmpty ? "Export" : safeStem)_images_\(UUID().uuidString.prefix(8))"
             if options.format == .markdown { settings["markdown_images"] = "folder"; settings["markdown_asset_folder"] = assetName }
+            if options.format == .pptx {
+                guard let modes = (capability["options"] as? [String: Any])?["pptx_mode"] as? [String],
+                      modes.contains(options.pptxMode) else {
+                    throw failure("UNSUPPORTED_OPTION", "This PowerPoint mode is unavailable.")
+                }
+                settings["pptx_mode"] = options.pptxMode
+            }
             let hash = try digest(input), job = UUID().uuidString
             let request: [String: Any] = ["protocol_version": 1, "operation": "convert", "job_id": job,
                 "snapshot": ["path": input.path, "sha256": hash], "staging_directory": staging.path,

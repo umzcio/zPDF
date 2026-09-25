@@ -9,6 +9,7 @@ final class ConversionExport: Identifiable {
     var selection = "all"
     var range = ""
     var layoutMode = "preserve"
+    var pptxMode = "editable"
     var stage = "Preparing document"
     var dpi = 150
     var quality = 0.85
@@ -28,7 +29,7 @@ final class ConversionExport: Identifiable {
         case "range": pages = try PageRangeSelection.parse(range, pageCount: tab.pageCount)
         default: pages = IndexSet(integersIn: 0..<tab.pageCount)
         }
-        return ConversionOptions(format: format, pages: pages, dpi: dpi, jpegQuality: quality, layoutMode: layoutMode)
+        return ConversionOptions(format: format, pages: pages, dpi: dpi, jpegQuality: quality, layoutMode: layoutMode, pptxMode: pptxMode)
     }
     func cancel() { isCanceling = true; cancellation.cancel() }
 }

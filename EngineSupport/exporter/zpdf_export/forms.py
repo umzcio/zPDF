@@ -775,6 +775,7 @@ def pair_widgets(page: PageExtract, blocks: list[Block], tables: list[Table]) ->
                 anchor_l, anchor_b = w.lbox.union(anchor_l), w.bbox.union(anchor_b)
             fp = FormPair(w, label, pc.source, True, "inline", anchor_l, anchor_b, gid)
             fp.sentence_tokens = list(pc.tokens)  # type: ignore[attr-defined]
+            fp.label_tokens = list(pc.tokens) + (list(sub[wid].tokens) if wid in sub else [])  # type: ignore[attr-defined]
             fp.label_block_lines = pc.block.lines if pc.block is not None else 1  # type: ignore[attr-defined]
             fp.sub_tokens = list(sub[wid].tokens) if wid in sub else []  # type: ignore[attr-defined]
             # a label that opens a list item keeps the item's marker for layout mode
@@ -786,6 +787,7 @@ def pair_widgets(page: PageExtract, blocks: list[Block], tables: list[Table]) ->
             sc = sub[wid]
             label = tokens_text(sc.tokens)
             pairs[wid] = FormPair(w, label, "visible_below", True, "inline", w.lbox, w.bbox, gid)
+            pairs[wid].label_tokens = list(sc.tokens)  # type: ignore[attr-defined]  # the label's glyphs (XML word boxes)
         else:
             pairs[wid] = FormPair(w, w.label, "field_tooltip" if w.label else "none", False, "fallback",
                                   w.lbox, w.bbox, gid, ambiguity=ambiguous.get(wid, []))

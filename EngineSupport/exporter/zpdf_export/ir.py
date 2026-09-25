@@ -41,6 +41,8 @@ class TextNode(Node):
     marker: str | None = None
     line_count: int = 1
     choices: list[str] = field(default_factory=list)  # widget ids of check boxes embedded as ☒/☐ glyphs
+    font: str | None = None      # the paragraph's dominant PDF font name (reading-order writers set it)
+    size: float | None = None    # … and its dominant glyph size in points
 
 
 @dataclass
