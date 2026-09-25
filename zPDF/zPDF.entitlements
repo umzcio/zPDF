@@ -23,5 +23,11 @@
 	<true/>
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
+	<!-- Sparkle updates in a sandboxed app: its installer launcher/status XPC services. -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>app.zpdf.zPDF-spks</string>
+		<string>app.zpdf.zPDF-spki</string>
+	</array>
 </dict>
 </plist>

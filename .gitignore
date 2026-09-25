@@ -5,6 +5,7 @@
 !/README.md
 !/PRIVACY.md
 !/project.yml
+!/appcast.xml
 !/.githooks/
 !/scripts/
 !/EngineSupport/
@@ -85,3 +86,7 @@ playground.xcworkspace
 
 # Superseded source artwork; shipping icons live in Assets.xcassets.
 /zPDF/AppIcon.icon/
+
+# Release credentials (App Store Connect API key config) — never committed.
+.notary-config.local
+*.p8

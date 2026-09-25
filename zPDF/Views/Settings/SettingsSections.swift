@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 enum BuiltInSettings {
     static let sections: [SettingsSection] = [
         .init(id: .general, title: "General", symbol: "gearshape",
-              keywords: "default pdf app viewer finder open with services welcome tour whats new updates", order: 0) { AnyView(GeneralSettings(appState: $0)) },
+              keywords: "updates check for updates version sparkle default pdf app viewer finder open with services welcome tour whats new updates", order: 0) { AnyView(GeneralSettings(appState: $0)) },
         .init(id: .appearance, title: "Appearance", symbol: "paintpalette",
               keywords: "theme system light dark color scheme accent blue red purple green orange pink", order: 10) { AnyView(AppearanceSettings(appState: $0)) },
         .init(id: .documents, title: "Documents", symbol: "doc.on.doc",
@@ -61,9 +61,25 @@ private struct GeneralSettings: View {
     let appState: AppState
     @State private var defaultStatus: String?
     @State private var working = false
+    @State private var automaticUpdates = UpdateController.shared.automaticallyChecks
 
     var body: some View {
         @Bindable var preferences = appState.preferences
+        let updates = UpdateController.shared
+        Section("Updates") {
+            LabeledContent("Version", value: updates.currentVersion)
+            Toggle("Automatically check for updates", isOn: $automaticUpdates)
+                .onChange(of: automaticUpdates) { _, value in updates.automaticallyChecks = value }
+            HStack {
+                Button("Check for Updates…") { updates.checkForUpdates() }
+                    .disabled(!updates.canCheckForUpdates)
+                if let last = updates.lastCheck {
+                    Text("Last checked \(last.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.callout).foregroundStyle(DesignTokens.Colors.mutedText)
+                }
+            }
+            Footnote("Updates are downloaded from GitHub and verified with zPDF's signing key before they install.")
+        }
         Section("Default PDF App") {
             LabeledContent("Opens PDFs in Finder") {
                 Text(DefaultApp.currentHandlerName ?? "Unknown")

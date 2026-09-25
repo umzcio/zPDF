@@ -22,6 +22,12 @@ options:
   createIntermediateGroups: true
   groupSortPosition: top
 
+packages:
+  # Sparkle: signed direct-distribution updates (Developer ID builds).
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.0
+
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -42,6 +48,9 @@ targets:
           - AppIcon.icon
     scheme:
       testTargets: [zPDFTests]
+    dependencies:
+      - package: Sparkle
+        product: Sparkle
     preBuildScripts:
       - name: Bundle Save engine runtime
         script: /usr/bin/python3 "$SRCROOT/scripts/prepare_engine_runtime.py"
@@ -58,6 +67,12 @@ targets:
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
+      configs:
+        Release:
+          # Distributable builds: Developer ID + hardened runtime (notarized).
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Developer ID Application"
+          DEVELOPMENT_TEAM: 5JJ6G6A84S
 
   zPDFTests:
     type: bundle.unit-test

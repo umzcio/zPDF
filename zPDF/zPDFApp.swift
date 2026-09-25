@@ -39,6 +39,10 @@ struct zPDFApp: App {
             FormsCommands(appState: appState)
             DocumentCommands(appState: appState)
             ViewCommands(appState: appState)
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { UpdateController.shared.checkForUpdates() }
+                    .disabled(!UpdateController.shared.canCheckForUpdates)
+            }
             // Close the focused document tab, or the key window when Settings
             // (or an empty main window) owns focus. performClose respects the
             // main window's existing unsaved-changes delegate.

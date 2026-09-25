@@ -87,7 +87,12 @@ def main():
             magic = f.read(4)
         if magic not in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"):
             continue
-        args = ["/usr/bin/codesign", "--force", "--sign", os.environ.get("EXPANDED_CODE_SIGN_IDENTITY") or "-"]
+        identity = os.environ.get("EXPANDED_CODE_SIGN_IDENTITY") or "-"
+        args = ["/usr/bin/codesign", "--force", "--sign", identity]
+        if identity != "-":
+            # Distributable (Developer ID) builds: notarization requires the
+            # hardened runtime and a secure timestamp on every nested binary.
+            args += ["--options", "runtime", "--timestamp"]
         if p.name in ("python3.13", "qpdf"):
             args += ["--entitlements", str(helper_entitlements)]
         subprocess.run(args + [str(p)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
