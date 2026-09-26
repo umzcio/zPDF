@@ -34,6 +34,7 @@ bash "$ROOT/scripts/release/notarize.sh" "$DMG"
 echo "==> [5/5] Signed Sparkle appcast"
 rm -rf "$DIST"; mkdir -p "$DIST"
 cp "$DMG" "$DIST/"
+git -C "$ROOT" show HEAD:appcast.xml > "$DIST/appcast.xml" 2>/dev/null || true   # keep earlier releases
 [ -f "$ROOT/scripts/release/notes/$VERSION.html" ] && cp "$ROOT/scripts/release/notes/$VERSION.html" "$DIST/zPDF-$VERSION.html"
 "$SPARKLE_BIN/generate_appcast" "$DIST" --download-url-prefix "$PREFIX" \
   --link "https://github.com/umzcio/zPDF" --maximum-deltas 0
