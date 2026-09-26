@@ -86,11 +86,16 @@
                           VerticalScrollBarVisibility="Auto" Background="{ThemeResource LayerFillColorDefaultBrush}"
                           SizeChanged="PageScroller_SizeChanged" ViewChanged="PageScroller_ViewChanged">
                 <Grid>
-                    <ItemsRepeater x:Name="Pages" Margin="24" HorizontalAlignment="Center">
-                        <ItemsRepeater.Layout>
-                            <StackLayout Orientation="Vertical" Spacing="16" />
-                        </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
+                    <!-- A plain (non-virtualizing) stack: page placeholders are cheap and their
+                         positions are exact, so zoom anchoring and visibility math match the
+                         real layout. Only page images are loaded and released while scrolling. -->
+                    <ItemsControl x:Name="Pages" Margin="24" HorizontalAlignment="Center" IsTabStop="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical" Spacing="16" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="local:PageSlot">
                                 <Border Width="{x:Bind Width, Mode=OneWay}" Height="{x:Bind Height, Mode=OneWay}" Background="White"
                                         BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
@@ -98,8 +103,8 @@
                                     <Image Source="{x:Bind Image, Mode=OneWay}" Stretch="Fill" />
                                 </Border>
                             </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                     <TextBlock x:Name="EmptyText" Text="Open or drop a PDF to begin." HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Grid>

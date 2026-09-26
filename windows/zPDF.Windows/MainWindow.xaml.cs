@@ -262,7 +262,10 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>The point that defines the current page: a third of the way down the view.</summary>
-    private double ReadingLine => PageScroller.VerticalOffset + PageScroller.ViewportHeight / 3;
+    private double ReadingLine => PageScroller.VerticalOffset + ReadingDepth;
+
+    private double ReadingDepth => Math.Min(PageScroller.ViewportHeight / 3,
+                                            _slots.Count > 0 ? _slots.Min(s => s.Height) / 2 + ViewMargin : 0);
 
     // ---------------------------------------------------------------- layout and drawing
 
@@ -290,6 +293,7 @@ public sealed partial class MainWindow : Window
         // Where the reading line falls inside the current page, as a fraction of its height.
         var anchor = _page;
         var within = 0.0;
+        var atTop = PageScroller.VerticalOffset <= 1;
         if (keepPage && _slots.Count > 0 && _slots[anchor].Height > 0)
             within = Math.Clamp((ReadingLine - PageTop(anchor)) / _slots[anchor].Height, 0, 1);
         if (_fitWidth)
@@ -310,7 +314,9 @@ public sealed partial class MainWindow : Window
         if (keepPage)
         {
             _page = anchor;
-            ScrollTo(anchor, PageTop(anchor) + within * _slots[anchor].Height - PageScroller.ViewportHeight / 3);
+            // At the very top (e.g. the first fit after opening) stay at the top.
+            var target = atTop ? 0 : PageTop(anchor) + within * _slots[anchor].Height - ReadingDepth;
+            ScrollTo(anchor, target);
         }
         UpdateStatus();
         RenderVisible();
@@ -364,6 +370,9 @@ public sealed partial class MainWindow : Window
         {
             if (slot.Index < first - KeepRendered || slot.Index > last + KeepRendered) { slot.Image = null; slot.RenderedFor = -1; }
         }
+#if DEBUG
+        CheckLayout(first);
+#endif
         var generation = _generation;
         var scale = Dips * RasterScale;
         for (var i = Math.Max(0, first - 1); i <= Math.Min(_slots.Count - 1, last + 1); i++)
@@ -374,6 +383,17 @@ public sealed partial class MainWindow : Window
             _ = RenderSlotAsync(document, slot, scale, generation);
         }
     }
+
+#if DEBUG
+    /// <summary>Debug builds: report if computed page positions disagree with the real layout.</summary>
+    private void CheckLayout(int page)
+    {
+        if (Pages.ContainerFromIndex(page) is not UIElement container || PageScroller.Content is not UIElement content) return;
+        var actual = container.TransformToVisual(content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+        if (Math.Abs(actual - PageTop(page)) > 2)
+            StatusText.Text = $"Layout check: page {page + 1} is at {actual:0}, expected {PageTop(page):0}";
+    }
+#endif
 
     private async Task RenderSlotAsync(PdfDocument document, PageSlot slot, double scale, int generation)
     {
