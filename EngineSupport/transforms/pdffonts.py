@@ -12,6 +12,8 @@ from pathlib import Path
 import re
 
 import pikepdf
+
+from transforms.fonts import name_text
 from pikepdf import Name
 
 SUBSET = re.compile(r"^[A-Z]{6}\+")
@@ -254,7 +256,7 @@ class FontInfo:
         self.obj = font
         self.key = f"{font.objgen[0]} {font.objgen[1]}" if font.is_indirect else f"d{id(font)}"
         self.subtype = str(font.get("/Subtype", ""))
-        base = str(font.get("/BaseFont", "")).lstrip("/")
+        base = name_text(font.get("/BaseFont")).lstrip("/")
         self.subset = bool(SUBSET.match(base))
         self.base_font = SUBSET.sub("", base) or "Unknown"
         self.is_type0 = self.subtype == "/Type0"

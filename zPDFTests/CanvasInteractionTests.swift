@@ -81,6 +81,7 @@ final class CanvasInteractionTests: XCTestCase {
     }
 
     private func click(_ state: AppState, page: Int = 0, _ point: CGPoint, clicks: Int = 1) throws {
+        waitForCanvas(state)
         let p = try windowPoint(state, page: page, point)
         let window = try XCTUnwrap(self.window)
         // Views such as NSTextView track a click in their own loop until the
@@ -98,14 +99,36 @@ final class CanvasInteractionTests: XCTestCase {
     }
 
     private func drag(_ state: AppState, page: Int = 0, from a: CGPoint, to b: CGPoint, steps: Int = 12) throws {
+        waitForCanvas(state)
         let start = try windowPoint(state, page: page, a)
         let end = try windowPoint(state, page: page, b)
+        let window = try XCTUnwrap(self.window)
+        // If PDFKit (not zPDF) takes the mouse-down it tracks the drag in its
+        // own loop; this queued mouse-up ends that loop so the test fails
+        // instead of hanging. Unused, it's drained below.
+        let fallback = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseUp, location: start, modifierFlags: [],
+                                                        timestamp: ProcessInfo.processInfo.systemUptime,
+                                                        windowNumber: window.windowNumber, context: nil,
+                                                        eventNumber: 0, clickCount: 1, pressure: 0))
+        NSApp.postEvent(fallback, atStart: false)
         try send(.leftMouseDown, at: start)
         for i in 1...steps {
             let t = CGFloat(i) / CGFloat(steps)
             try send(.leftMouseDragged, at: NSPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t))
         }
         try send(.leftMouseUp, at: end)
+        _ = NSApp.nextEvent(matching: .leftMouseUp, until: Date(), inMode: .default, dequeue: true)
+    }
+
+    /// Gestures only reach zPDF's tools once the canvas shows the tab's current
+    /// (editable) document; before that PDFKit handles them itself.
+    private func waitForCanvas(_ state: AppState) {
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if let tab = state.activeTab, tab.allowsSaveEdits, state.pdfViewStore.pdfView?.document === tab.pdfDocument { return }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        XCTFail("The canvas never showed the editable document")
     }
 
     private func settle(_ tab: DocumentTab, _ ms: Int = 150) async throws {

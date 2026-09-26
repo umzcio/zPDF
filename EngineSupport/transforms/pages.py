@@ -531,6 +531,9 @@ def _duplicate(pdf, page):
                             del dup["/AA"]
                 else:
                     parent = original.Parent
+                if not isinstance(parent.get("/Kids"), pikepdf.Array):
+                    # Malformed field tree: the widget names a parent that doesn't list it.
+                    parent.Kids = pikepdf.Array([original])
                 dup.Parent = parent
                 parent.Kids.append(dup)
         new.Annots = pikepdf.Array([dup for _, dup in copies])

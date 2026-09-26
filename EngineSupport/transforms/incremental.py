@@ -140,7 +140,8 @@ def write(pdf, tracker, destination, overrides=None, extra_trailer=None):
     if info is not None:
         trailer.Info = info
     original_id = pdf.trailer.get("/ID")
-    first = bytes(original_id[0]) if original_id is not None and len(original_id) == 2 else os.urandom(16)
+    valid_id = isinstance(original_id, pikepdf.Array) and len(original_id) == 2 and isinstance(original_id[0], pikepdf.String)
+    first = bytes(original_id[0]) if valid_id else os.urandom(16)
     trailer.ID = pikepdf.Array([pikepdf.String(first), pikepdf.String(os.urandom(16))])
     trailer.Prev = tracker.prev
     for key, value in (extra_trailer or {}).items():

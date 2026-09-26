@@ -161,6 +161,20 @@ class EmbeddedFont:
         return self.ref
 
 
+def name_text(value, default=""):
+    """Text of a PDF name such as /BaseFont, with its leading slash. Names are
+    bytes: GBK/Shift-JIS font names (common in CJK documents) are not UTF-8, and
+    str(pikepdf.Name) raises on them, so decode leniently instead."""
+    import re
+    if value is None:
+        return default
+    if isinstance(value, pikepdf.Name):
+        raw = value.unparse()  # b"/Sim#BA..." with #xx escapes
+        data = re.sub(rb"#([0-9A-Fa-f]{2})", lambda m: bytes([int(m.group(1), 16)]), raw)
+        return data.decode("utf-8", errors="replace")
+    return str(value)
+
+
 def pdf_string(text):
     """Literal string operand for standard-14 WinAnsi text."""
     raw = text.encode("cp1252", errors="replace")

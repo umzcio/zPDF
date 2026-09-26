@@ -20,6 +20,7 @@ import pikepdf
 from pikepdf import Name
 
 from engine.errors import require
+from transforms.fonts import name_text
 from transforms import op, query
 
 STANDARD14 = {"Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique",
@@ -197,7 +198,9 @@ def _recompress_image(pdf, xobj, placement, settings):
         return 0
     filters = xobj.get("/Filter")
     filters = [filters] if isinstance(filters, pikepdf.Name) else list(filters or [])
-    if any(f in (Name.JBIG2Decode, Name.CCITTFaxDecode) for f in filters):
+    # JPEG 2000 is left as is: a malformed JPX stream can crash the image
+    # decoder outright (no exception to catch), taking the helper with it.
+    if any(f in (Name.JBIG2Decode, Name.CCITTFaxDecode, Name.JPXDecode) for f in filters):
         return 0
     kind, space = _space_kind(xobj)
     if kind is None:
@@ -268,7 +271,7 @@ def _recompress_image(pdf, xobj, placement, settings):
 # ---------------------------------------------------------------- fonts
 
 def _base_name(font):
-    return SUBSET_TAG.sub("", str(font.get("/BaseFont", ""))[1:])
+    return SUBSET_TAG.sub("", name_text(font.get("/BaseFont"))[1:])
 
 
 def _descriptor(font):
@@ -341,7 +344,7 @@ def _subset_font(pdf, font, codes):
     descriptor, cid = _descriptor(font)
     if not isinstance(descriptor, pikepdf.Dictionary) or "/FontFile2" not in descriptor:
         return 0
-    if SUBSET_TAG.match(str(font.get("/BaseFont", ""))[1:]) or not codes:
+    if SUBSET_TAG.match(name_text(font.get("/BaseFont"))[1:]) or not codes:
         return 0
     stream = descriptor.FontFile2
     try:
@@ -416,7 +419,7 @@ def _subset_font(pdf, font, codes):
             del stream[key]
     stream.Length1 = len(data)
     tag = "".join(chr(65 + b % 26) for b in sha256(repr(sorted(gids)).encode()).digest()[:6]) + "+"
-    base = str(font.get("/BaseFont", "/Font"))[1:]
+    base = name_text(font.get("/BaseFont"), "/Font")[1:]
     font.BaseFont = Name("/" + tag + base)
     if cid is not None and cid is not font:
         cid.BaseFont = font.BaseFont

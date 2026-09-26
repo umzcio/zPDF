@@ -155,7 +155,15 @@ enum NativeSaveBridge {
             defer { helper.dispose() }
             var args: [String: Any] = ["path": url.path]
             if let password { args["password"] = password }
-            let opened = try helper.call("open", args)
+            let opened: [String: Any]
+            do { opened = try helper.call("open", args) }
+            catch let error as NativeSaveError where error.code == "ENGINE_FAILED" {
+                // The original facade can't read this file (e.g. one malformed
+                // annotation). The transform layer can: apply the same policy there.
+                let hash = try NativeSourceGuard.digest(url)
+                let policy = try helper.query(url, hash: hash, name: "edit_policy", params: [:], password: password)
+                return NativeOpenInfo(sourceHash: hash, writeBlock: policy["write_block"] as? String)
+            }
             let document = try helper.result(opened)
             let policy = try helper.result(helper.call("inspect_policy", ["ref": document["ref"]!]))
             return NativeOpenInfo(sourceHash: try helper.sourceHash(opened), writeBlock: policy["write_block"] as? String)

@@ -109,11 +109,77 @@ class Context:
         self.pdf = replacement
 
 
+def _disable_external_jbig2():
+    """pikepdf decodes JBIG2 by running a `jbig2dec` found on PATH (e.g. from
+    Homebrew). Never do that: it's outside the bundle, and a JBIG2 bomb makes it
+    run for minutes. JBIG2 streams stay intact and PDFium still renders them."""
+    import pikepdf
+    from pikepdf import jbig2
+
+    class Unavailable(jbig2.JBIG2DecoderInterface):
+        def check_available(self):
+            pass
+
+        def decode_jbig2(self, jbig2_data, jbig2_globals):
+            # The one exception pikepdf carries through qpdf intact (see its docs).
+            raise pikepdf.DataDecodingError("JBIG2 data is not decoded here.")
+
+    jbig2.set_decoder(Unavailable())
+
+
 def _load_modules():
     import pkgutil
+    _disable_external_jbig2()
     for info in pkgutil.iter_modules([str(Path(__file__).parent)]):
         if info.name not in _HELPERS and not info.name.startswith("_"):
             importlib.import_module(f"transforms.{info.name}")
+
+
+DAMAGED_MESSAGE = ("Part of this PDF is damaged, so zPDF can't safely make this change. "
+                   "The document can still be viewed and printed.")
+
+
+def _damage_errors():
+    """Exceptions that mean the *input* is damaged (not a zPDF bug)."""
+    import pikepdf
+    import pypdfium2 as pdfium
+    return (pikepdf.PdfError, pikepdf.DataDecodingError, pdfium.PdfiumError, UnicodeDecodeError)
+
+
+def _normalize(pdf):
+    """Repair harmless structural damage common in real-world files before any
+    operation sees it. Returns True when something was repaired."""
+    import pikepdf
+    changed = False
+    for page in pdf.pages:
+        annots = page.obj.get("/Annots")
+        if annots is None:
+            continue
+        if not isinstance(annots, pikepdf.Array):
+            del page.obj["/Annots"]
+            changed = True
+            continue
+        # null/number entries and annotations without a /Rect are ignored by viewers.
+        kept = [a for a in annots if isinstance(a, pikepdf.Dictionary) and "/Rect" in a]
+        if len(kept) != len(annots):
+            page.obj.Annots = pikepdf.Array(kept)
+            changed = True
+
+    def recount(node, depth=0):
+        nonlocal changed
+        kids = node.get("/Kids")
+        if not isinstance(kids, pikepdf.Array) or depth > 64:
+            return 1
+        total = sum(recount(k, depth + 1) for k in kids if isinstance(k, pikepdf.Dictionary))
+        if node.get("/Count") != total:
+            node.Count = total  # wrong /Count breaks page insertion
+            changed = True
+        return total
+
+    pages_root = pdf.Root.get("/Pages")
+    if isinstance(pages_root, pikepdf.Dictionary):
+        recount(pages_root)
+    return changed
 
 
 def _validate(path, password, expected_pages):
@@ -127,7 +193,10 @@ def _validate(path, password, expected_pages):
     require(count > 0, "EMPTY_DOCUMENT", "A PDF must keep at least one page.")
     if expected_pages is not None:
         require(count == expected_pages, "VALIDATION_FAILED", "The transformed PDF has an unexpected page count.")
-    doc = pdfium.PdfDocument(str(path), password=password)
+    try:
+        doc = pdfium.PdfDocument(str(path), password=password)
+    except pdfium.PdfiumError as exc:
+        raise EngineError("VALIDATION_FAILED", "The transformed PDF could not be read back.") from exc
     try:
         require(len(doc) == count, "VALIDATION_FAILED", "PDF readers disagree about the transformed page count.")
         for index in range(count):
@@ -162,12 +231,15 @@ def run(source, destination, ops, password=None):
                 from transforms import incremental
                 if names & INCREMENTAL or incremental.is_signed(pdf):
                     ctx.tracker = incremental.Tracker(pdf, source)
+            _normalize(ctx.pdf)
             for item in ops:
                 params = {k: v for k, v in item.items() if k != "op"}
                 try:
                     result = REGISTRY[item["op"]](ctx, **params)
                 except TypeError as exc:
                     raise EngineError("INVALID_ARGUMENT", f"Invalid parameters for {item['op']}.") from exc
+                except _damage_errors() as exc:
+                    raise EngineError("DAMAGED_PDF", DAMAGED_MESSAGE) from exc
                 ctx.results.append({"op": item["op"], **(result or {})})
             candidate = Path(workdir) / "candidate.pdf"
             options = dict(ctx.save_options)
@@ -182,13 +254,16 @@ def run(source, destination, ops, password=None):
                     if password else False
             else:
                 options.pop("preserve_encryption", None)
-            if writer is not None:
-                writer(ctx, candidate)
-            elif ctx.tracker is not None:
-                from transforms import incremental
-                incremental.write(ctx.pdf, ctx.tracker, candidate)
-            else:
-                ctx.pdf.save(candidate, **options)
+            try:
+                if writer is not None:
+                    writer(ctx, candidate)
+                elif ctx.tracker is not None:
+                    from transforms import incremental
+                    incremental.write(ctx.pdf, ctx.tracker, candidate)
+                else:
+                    ctx.pdf.save(candidate, **options)
+            except _damage_errors() as exc:
+                raise EngineError("DAMAGED_PDF", DAMAGED_MESSAGE) from exc
         finally:
             ctx.pdf.close()
         validate_password = ctx.save_options.get("validate_password", password)
@@ -219,8 +294,11 @@ def inspect(source, name, params=None, password=None):
     with tempfile.TemporaryDirectory(prefix="zpdf-query-") as workdir:
         ctx = Context(pdf, source, workdir, password)
         try:
+            _normalize(ctx.pdf)
             return QUERIES[name](ctx, **(params or {}))
         except TypeError as exc:
             raise EngineError("INVALID_ARGUMENT", f"Invalid parameters for {name}.") from exc
+        except _damage_errors() as exc:
+            raise EngineError("DAMAGED_PDF", "Part of this PDF is damaged, so zPDF can't read this information.") from exc
         finally:
             ctx.pdf.close()

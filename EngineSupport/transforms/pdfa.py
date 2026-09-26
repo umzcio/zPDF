@@ -23,6 +23,7 @@ from pikepdf import Name
 import logging
 
 from engine.errors import EngineError, require
+from transforms.fonts import name_text
 from transforms import op, query
 from transforms.optimize import walk, SUBSET_TAG, STANDARD14, _used_codes
 
@@ -122,6 +123,8 @@ def _usage(pdf):
                 found[k] = True
         elif kind == "image":
             xobj = data["xobj"]
+            if isinstance(xobj, pikepdf.PdfInlineImage):
+                xobj = xobj.obj  # inline images expose their dictionary via .obj
             space = xobj.get("/ColorSpace") if not data.get("inline") else xobj.get("/CS", xobj.get("/ColorSpace"))
             k = space_kind(space) if space is not None else None
             if k:
@@ -157,6 +160,8 @@ def _font_embedded(font):
         kids = font.get("/DescendantFonts")
         if not isinstance(kids, pikepdf.Array) or not len(kids):
             return False
+        if not isinstance(kids[0], pikepdf.Dictionary):
+            return False
         descriptor = kids[0].get("/FontDescriptor")
     else:
         descriptor = font.get("/FontDescriptor")
@@ -164,7 +169,7 @@ def _font_embedded(font):
 
 
 def _font_name(font):
-    return SUBSET_TAG.sub("", str(font.get("/BaseFont", "/Unnamed"))[1:])
+    return SUBSET_TAG.sub("", name_text(font.get("/BaseFont"), "/Unnamed")[1:])
 
 
 _SYSTEM_INDEX = None
@@ -181,21 +186,24 @@ def _system_font(name):
                 continue
             for path in sorted(folder.iterdir()):
                 suffix = path.suffix.lower()
+                if suffix not in (".ttf", ".ttc"):
+                    continue
+                opened = None
                 try:
-                    if suffix == ".ttf":
-                        fonts = [(TTFont(path, lazy=True), 0)]
-                    elif suffix == ".ttc":
-                        fonts = [(f, i) for i, f in enumerate(TTCollection(path, lazy=True).fonts)]
-                    else:
-                        continue
-                    for font, index in fonts:
+                    opened = TTFont(path, lazy=True) if suffix == ".ttf" else TTCollection(path, lazy=True)
+                    fonts = [(opened, 0)] if suffix == ".ttf" else list(enumerate(opened.fonts))
+                    for entry in fonts:
+                        font, index = entry if suffix == ".ttf" else (entry[1], entry[0])
                         if "glyf" not in font:
                             continue
                         ps = font["name"].getDebugName(6)
                         if ps and ps not in _SYSTEM_INDEX:
                             _SYSTEM_INDEX[ps] = (str(path), index)
                 except Exception:  # noqa: BLE001 - unreadable fonts are skipped
-                    continue
+                    pass
+                finally:
+                    if opened is not None:
+                        opened.close()
     base = name.replace(",", "-")
     for candidate in (name, base, base.replace(" ", "")):
         if candidate in _SYSTEM_INDEX:
@@ -457,7 +465,8 @@ def _fix_common(pdf, report, standard):
                 pdf.generate_appearance_streams()
             except (pikepdf.PdfError, AttributeError):
                 pass
-            del acro["/NeedAppearances"]
+            if "/NeedAppearances" in acro:  # generating appearances may already remove it
+                del acro["/NeedAppearances"]
     removed_annots = 0
     for page in pdf.pages:
         annots = page.obj.get("/Annots")

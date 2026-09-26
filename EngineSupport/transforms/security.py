@@ -73,6 +73,17 @@ def security_info(ctx):
     return info
 
 
+@query("edit_policy")
+def edit_policy(ctx):
+    """The v0 write policy (XFA and encrypted documents are read-only), for
+    files the original facade can't open but the transform layer can."""
+    pdf = ctx.pdf
+    acro = pdf.Root.get("/AcroForm")
+    xfa = isinstance(acro, pikepdf.Dictionary) and "/XFA" in acro
+    block = "XFA_EDIT_BLOCKED" if xfa else ("UNSUPPORTED_ENCRYPTED_WRITE" if pdf.is_encrypted else None)
+    return {"write_block": block, "encrypted": pdf.is_encrypted}
+
+
 @op("decrypt_for_editing", rewrite=True)
 def decrypt_for_editing(ctx, token=""):
     """Private decrypted working copy of an encrypted PDF (opened with its password)."""
