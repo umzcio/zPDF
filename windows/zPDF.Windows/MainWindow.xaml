@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:zPDF"
         Title="zPDF">
-    <Grid>
+    <Grid AllowDrop="True" DragOver="Root_DragOver" Drop="Root_Drop">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -13,6 +13,11 @@
             <AppBarButton x:Name="OpenButton" Icon="OpenFile" Label="Open…" Click="Open_Click">
                 <AppBarButton.KeyboardAccelerators>
                     <KeyboardAccelerator Modifiers="Control" Key="O" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="SaveButton" Icon="Save" Label="Save" Click="Save_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="S" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
             <AppBarButton x:Name="SaveAsButton" Icon="SaveLocal" Label="Save As…" Click="SaveAs_Click" IsEnabled="False">
@@ -79,11 +84,23 @@
             </ListView>
             <ScrollViewer x:Name="PageScroller" Grid.Column="1" ZoomMode="Disabled" HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto" Background="{ThemeResource LayerFillColorDefaultBrush}"
-                          SizeChanged="PageScroller_SizeChanged">
-                <Grid Padding="24">
-                    <Image x:Name="PageImage" HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Fill"
-                           AutomationProperties.Name="Page" />
-                    <TextBlock x:Name="EmptyText" Text="Open a PDF to begin." HorizontalAlignment="Center" VerticalAlignment="Center"
+                          SizeChanged="PageScroller_SizeChanged" ViewChanged="PageScroller_ViewChanged">
+                <Grid>
+                    <ItemsRepeater x:Name="Pages" Margin="24" HorizontalAlignment="Center">
+                        <ItemsRepeater.Layout>
+                            <StackLayout Orientation="Vertical" Spacing="16" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="local:PageSlot">
+                                <Border Width="{x:Bind Width, Mode=OneWay}" Height="{x:Bind Height, Mode=OneWay}" Background="White"
+                                        BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                        AutomationProperties.Name="{x:Bind Label}">
+                                    <Image Source="{x:Bind Image, Mode=OneWay}" Stretch="Fill" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                    <TextBlock x:Name="EmptyText" Text="Open or drop a PDF to begin." HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Grid>
             </ScrollViewer>
