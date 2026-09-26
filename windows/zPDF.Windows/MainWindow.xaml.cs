@@ -36,6 +36,9 @@ public sealed partial class MainWindow : Window
     private bool _fitWidth = true;
     private bool _syncingSelection;
     private bool _closeConfirmed;
+    // While zoom or navigation scrolls the view, the page it is keeping in place;
+    // intermediate scroll events must not change the current page.
+    private (int Page, double Offset, DateTime Started)? _pendingAnchor;
 
     public MainWindow()
     {
@@ -220,6 +223,17 @@ public sealed partial class MainWindow : Window
 
     private void PageScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
     {
+        if (_pendingAnchor is { } pending)
+        {
+            var arrived = Math.Abs(PageScroller.VerticalOffset - pending.Offset) <= 2;
+            var stale = DateTime.UtcNow - pending.Started > TimeSpan.FromMilliseconds(750);  // the user scrolled instead
+            if (!e.IsIntermediate && (arrived || stale)) _pendingAnchor = null;
+            if (!stale)
+            {
+                RenderVisible();
+                return;  // keep the anchored page as current while the view gets there
+            }
+        }
         UpdateCurrentPage();
         RenderVisible();
     }
@@ -236,9 +250,19 @@ public sealed partial class MainWindow : Window
     {
         if (_document is null || page < 0 || page >= _document.PageCount) return;
         _page = page;
-        PageScroller.ChangeView(null, PageTop(page), null, disableAnimation: true);
+        ScrollTo(page, PageTop(page));
         UpdateStatus();
     }
+
+    private void ScrollTo(int page, double offset)
+    {
+        offset = Math.Clamp(offset, 0, Math.Max(0, PageScroller.ExtentHeight - PageScroller.ViewportHeight));
+        _pendingAnchor = (page, offset, DateTime.UtcNow);
+        PageScroller.ChangeView(null, offset, null, disableAnimation: true);
+    }
+
+    /// <summary>The point that defines the current page: a third of the way down the view.</summary>
+    private double ReadingLine => PageScroller.VerticalOffset + PageScroller.ViewportHeight / 3;
 
     // ---------------------------------------------------------------- layout and drawing
 
@@ -255,7 +279,7 @@ public sealed partial class MainWindow : Window
         EmptyText.Visibility = Visibility.Collapsed;
         Thumbnails.Visibility = Visibility.Visible;
         Relayout(keepPage: false);
-        PageScroller.ChangeView(null, keepPosition ? offset : 0, null, disableAnimation: true);
+        ScrollTo(_page, keepPosition ? offset : 0);
         _ = RenderThumbnailsAsync(document);
     }
 
@@ -263,6 +287,11 @@ public sealed partial class MainWindow : Window
     private void Relayout(bool keepPage)
     {
         if (_document is null) return;
+        // Where the reading line falls inside the current page, as a fraction of its height.
+        var anchor = _page;
+        var within = 0.0;
+        if (keepPage && _slots.Count > 0 && _slots[anchor].Height > 0)
+            within = Math.Clamp((ReadingLine - PageTop(anchor)) / _slots[anchor].Height, 0, 1);
         if (_fitWidth)
         {
             var widest = _pageSizes.Max(s => s.Width);
@@ -277,7 +306,12 @@ public sealed partial class MainWindow : Window
             slot.Height = Math.Round(h * Dips);
         }
         Pages.UpdateLayout();
-        if (keepPage) PageScroller.ChangeView(null, PageTop(_page), null, disableAnimation: true);
+        PageScroller.UpdateLayout();
+        if (keepPage)
+        {
+            _page = anchor;
+            ScrollTo(anchor, PageTop(anchor) + within * _slots[anchor].Height - PageScroller.ViewportHeight / 3);
+        }
         UpdateStatus();
         RenderVisible();
     }
@@ -307,8 +341,8 @@ public sealed partial class MainWindow : Window
     private void UpdateCurrentPage()
     {
         if (_slots.Count == 0) return;
-        // The page under the top third of the view is the current one.
-        var probe = PageScroller.VerticalOffset + PageScroller.ViewportHeight / 3;
+        // The page under the reading line is the current one.
+        var probe = ReadingLine;
         var y = ViewMargin;
         var page = _slots.Count - 1;
         for (var i = 0; i < _slots.Count; i++)
