@@ -2,7 +2,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json.Nodes;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Storage.Pickers;
+using Microsoft.Windows.Storage.Pickers;
 
 namespace zPDF;
 
@@ -28,8 +28,9 @@ public sealed partial class MainWindow : Window
 
     private async void Open_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FileOpenPicker();
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        // Windows App SDK pickers also work when zPDF runs as administrator
+        // (the classic WinRT pickers silently show nothing there).
+        var picker = new FileOpenPicker(AppWindow.Id);
         picker.FileTypeFilter.Add(".pdf");
         var file = await picker.PickSingleFileAsync();
         if (file is null) return;
@@ -39,7 +40,7 @@ public sealed partial class MainWindow : Window
             _sourcePath = file.Path;
             _page = 0;
             Show(CurrentPath!);
-            Title = $"{file.Name} — zPDF";
+            Title = $"{Path.GetFileName(file.Path)} — zPDF";
             return Task.CompletedTask;
         });
     }
@@ -61,15 +62,18 @@ public sealed partial class MainWindow : Window
 
     private async void SaveAs_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FileSavePicker { SuggestedFileName = Path.GetFileNameWithoutExtension(_sourcePath) + " edited" };
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var picker = new FileSavePicker(AppWindow.Id)
+        {
+            SuggestedFileName = Path.GetFileNameWithoutExtension(_sourcePath) + " edited",
+            DefaultFileExtension = ".pdf",
+        };
         picker.FileTypeChoices.Add("PDF document", [".pdf"]);
         var file = await picker.PickSaveFileAsync();
         if (file is null) return;
         await Run("Saving…", async () =>
         {
             await Engine.PublishAsync(CurrentPath!, file.Path, overwrite: true);
-            StatusText.Text = $"Saved {file.Name}";
+            StatusText.Text = $"Saved {Path.GetFileName(file.Path)}";
         }, keepStatus: true);
     }
 
