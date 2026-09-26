@@ -1,3 +1,6 @@
+# Same bytes on every platform: pinned sources are checked by SHA-256 (facade,
+# exporter), and Git for Windows would otherwise convert text to CRLF.
+* text=auto eol=lf
 *.pdf binary
 *.png binary
 *.dylib binary
