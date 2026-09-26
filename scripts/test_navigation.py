@@ -3,6 +3,7 @@ layers, articles, 3D, document properties, initial view, JavaScript).
 
     build/devenv/bin/python scripts/test_navigation.py
 """
+import gc
 import base64
 from pathlib import Path
 import shutil
@@ -69,6 +70,7 @@ class Base(unittest.TestCase):
         self.n = 0
 
     def tearDown(self):
+        gc.collect()  # Windows can't delete files still held by unreferenced PDF objects
         self._tmp.cleanup()
 
     def fixture(self, name):

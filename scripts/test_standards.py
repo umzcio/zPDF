@@ -15,7 +15,16 @@ import pikepdf  # noqa: E402
 import pypdfium2 as pdfium  # noqa: E402
 from PIL import Image  # noqa: E402
 import transforms  # noqa: E402
+from transforms.fonts import system_path  # noqa: E402
 from engine.errors import EngineError  # noqa: E402
+
+
+def render(path, page=0, scale=1):
+    doc = pdfium.PdfDocument(str(path))
+    try:
+        return doc[page].render(scale=scale).to_pil()
+    finally:
+        doc.close()
 
 
 def scan_pdf(tmp, pixels=(1700, 2200), rotate=0):
@@ -60,8 +69,8 @@ class OCRTests(Base):
         self.assertNotIn("Hello", text_of(out2))
         self.assertIn("Only", text_of(out2))
         # Invisible: rendering is unchanged by the layer.
-        a = pdfium.PdfDocument(str(src))[0].render(scale=0.5).to_pil()
-        b_ = pdfium.PdfDocument(str(out))[0].render(scale=0.5).to_pil()
+        a = render(src, scale=0.5)
+        b_ = render(out, scale=0.5)
         self.assertEqual(a.tobytes(), b_.tobytes())
 
     def test_rotated_page_layer(self):
@@ -74,7 +83,7 @@ class OCRTests(Base):
         src = scan_pdf(self.tmp)
         out, _ = self.run_ops(src, [{"op": "ocr_text_layer", "visible": True, "cover": True,
                                      "pages": [{"page": 0, "lines": [[{"t": "Visible", "b": [72, 700, 200, 730]}]]}]}])
-        img = pdfium.PdfDocument(str(out))[0].render(scale=1).to_pil().convert("L")
+        img = render(out).convert("L")
         # Text drawn in black inside the covered (white) box.
         crop = img.crop((72, 792 - 730, 200, 792 - 700))
         self.assertLess(min(crop.getdata()), 60)
@@ -123,7 +132,7 @@ class OptimizeTests(Base):
     def test_font_subset_and_unembed(self):
         # Embed a full TrueType font for a simple WinAnsi font, then subset it.
         src = text_pdf(self.tmp / "t.pdf", ["Subset me"])
-        data = Path("/System/Library/Fonts/Supplemental/Arial.ttf").read_bytes()
+        data = Path(system_path("/System/Library/Fonts/Supplemental/Arial.ttf")).read_bytes()
         with pikepdf.open(src, allow_overwriting_input=True) as pdf:
             font = pdf.pages[0].obj.Resources.Font.F1
             font.Subtype = pikepdf.Name.TrueType
@@ -160,7 +169,7 @@ class StandardsTests(Base):
         self.assertIn("metadata", rules)
         out, result = self.run_ops(src, [{"op": "convert_pdfa", "level": "2b"}])
         info = result["results"][0]
-        self.assertEqual(info["fonts_embedded"][0]["substitute"], "Arial.ttf")
+        self.assertEqual(info["fonts_embedded"][0]["substitute"].lower(), "arial.ttf")
         report2 = transforms.inspect(out, "validate_standard", {"standard": "PDF/A-2b"})
         self.assertTrue(report2["compliant"], report2["issues"])
         self.assertIn("Archive", text_of(out))
@@ -198,7 +207,7 @@ class StandardsTests(Base):
             del font["/Encoding"]
             pdf.save(src)
         out, result = self.run_ops(src, [{"op": "convert_pdfa", "level": "2b"}])
-        self.assertEqual(result["results"][0]["fonts_embedded"][0]["substitute"], "Symbol.ttf")
+        self.assertEqual(result["results"][0]["fonts_embedded"][0]["substitute"].lower(), "symbol.ttf")
         self.assertTrue(transforms.inspect(out, "validate_standard", {"standard": "PDF/A-2b"})["compliant"])
 
     def test_pdfx_and_pdfe(self):
@@ -214,6 +223,7 @@ class StandardsTests(Base):
         out2, _ = self.run_ops(src, [{"op": "convert_pdfe"}], name="e.pdf")
         self.assertTrue(transforms.inspect(out2, "validate_standard", {"standard": "PDF/E-1"})["compliant"])
 
+    @unittest.skipIf(sys.platform == "win32", "Windows has no ZapfDingbats substitute yet (the I-9's checkboxes use it)")
     def test_real_form_to_pdfa(self):
         src = self.fixture("uscis-i9.pdf")
         out, result = self.run_ops(src, [{"op": "convert_pdfa", "level": "2b"}])

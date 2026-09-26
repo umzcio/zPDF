@@ -25,7 +25,7 @@ from engine.errors import EngineError, require
 from transforms import op, query
 from transforms.content import (add_content, add_resource, fmt, image_xobject, multiply, apply, invert, page_box,
                                 resources, rotation, visual_matrix, select_pages, INVOCATION)
-from transforms.fonts import EmbeddedFont, STYLE_FONTS
+from transforms.fonts import EmbeddedFont, STYLE_FONTS, fallback_font
 from transforms.interpret import (Plan, walk_page, rewrite_page, page_digest, quad_bbox, safe_invert, instr,
                                   full_state_ops, num, IDENTITY)
 
@@ -408,6 +408,7 @@ class FontPool:
         self.embedded = {}
         self.names = {}
         self.substituted = []
+        self._fallback_faces = {}
 
     def embedded_font(self, spec):
         resolved = resolve_font_spec(spec) or {"family": "sans"}
@@ -422,12 +423,19 @@ class FontPool:
                                                               "italic": resolved.get("italic", False)})
         return self.embedded[key]
 
-    def fallback(self):
+    def fallback(self, text=""):
         """A broad-coverage face for characters the chosen font lacks."""
-        key = "fallback"
+        spec = fallback_font(text)
+        key = "fallback:" + (spec["path"] if spec else "")
         if key not in self.embedded:
-            self.embedded[key] = EmbeddedFont(self.pdf, None)
+            self.embedded[key] = EmbeddedFont(self.pdf, spec)
         return self.embedded[key]
+
+    def fallback_face(self, text):
+        font = self.fallback(text)
+        if id(font) not in self._fallback_faces:
+            self._fallback_faces[id(font)] = Face(self, embedded=font)
+        return self._fallback_faces[id(font)]
 
     def name_for(self, font_obj, prefix):
         key = font_obj.objgen if font_obj.is_indirect else id(font_obj)
@@ -503,10 +511,9 @@ def layout_runs(pool, runs, fonts_by_key, width, align, line_spacing):
         for piece in re.findall(r"\n|[ \t]+|[^ \t\n]+", text):
             if face.embedded is not None and piece.strip() and not face.embedded.has_glyphs(piece):
                 # Split into covered / uncovered characters.
-                fallback = Face(pool, embedded=pool.fallback())
                 chunk, chunk_face = "", None
                 for ch in piece:
-                    f = face if face.embedded.has_glyphs(ch) else fallback
+                    f = face if face.embedded.has_glyphs(ch) else pool.fallback_face(ch)
                     if chunk_face is not None and f is not chunk_face:
                         tokens.append((chunk, chunk_face, size, color, True))
                         chunk = ""
@@ -772,7 +779,7 @@ class ReplacePlan(Plan):
         spec = self.fonts.get(style.get("base", "")) or style_spec(style)
         font = self.pool.embedded_font(spec)
         if not font.has_glyphs(text):
-            font = self.pool.fallback()
+            font = self.pool.fallback(text)
         key = (id(unit), id(font))
         if key not in self.subs:
             self.subs[key] = self.walker.add_font(unit, font.ref, "ZPDFs")

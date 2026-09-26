@@ -2,6 +2,7 @@
 
     python scripts/test_comments.py        # dev venv with the pinned wheels
 """
+import gc
 import base64
 import io
 import json
@@ -40,9 +41,11 @@ class Base(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory(prefix="zpdf-comments-test-")
         self.tmp = Path(self._tmp.name)
-
-    def tearDown(self):
-        self._tmp.cleanup()
+        # Cleanups run last-in first-out, after tearDown: registering this first
+        # deletes the folder only after annots() has closed its documents
+        # (Windows can't delete open files).
+        self.addCleanup(self._tmp.cleanup)
+        self.addCleanup(gc.collect)
 
     def blank(self, name="blank.pdf", pages=2):
         pdf = pikepdf.new()

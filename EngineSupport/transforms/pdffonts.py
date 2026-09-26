@@ -13,7 +13,7 @@ import re
 
 import pikepdf
 
-from transforms.fonts import name_text
+from transforms.fonts import name_text, system_path
 from pikepdf import Name
 
 SUBSET = re.compile(r"^[A-Z]{6}\+")
@@ -192,7 +192,8 @@ def parse_cmap(data):
 @lru_cache(maxsize=16)
 def _system_face(path, postscript):
     from fontTools.ttLib import TTFont, TTCollection
-    if not Path(path).exists():
+    path = system_path(path, postscript)
+    if path is None or not Path(path).exists():
         return None
     try:
         if path.endswith((".ttc", ".otc")):

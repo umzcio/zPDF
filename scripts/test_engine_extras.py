@@ -4,6 +4,7 @@ Python that has the pinned pikepdf, pypdfium2, fontTools and Pillow wheels.
     python scripts/test_engine_extras.py
 """
 from pathlib import Path
+import gc
 import json
 import sys
 import tempfile
@@ -63,6 +64,7 @@ class Base(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
 
     def tearDown(self):
+        gc.collect()  # Windows can't delete files still held by unreferenced PDF objects
         self._tmp.cleanup()
 
     def run_ops(self, source, ops, name="out.pdf"):

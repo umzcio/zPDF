@@ -23,7 +23,7 @@ from pikepdf import Name
 import logging
 
 from engine.errors import EngineError, require
-from transforms.fonts import name_text
+from transforms.fonts import name_text, system_path, system_font_folders
 from transforms import op, query
 from transforms.optimize import walk, SUBSET_TAG, STANDARD14, _used_codes
 
@@ -70,7 +70,9 @@ def _icc_components(data):
 
 
 def _icc_stream(pdf, path):
-    require(Path(path).is_file(), "DEPENDENCY_UNAVAILABLE", "A required ColorSync profile is missing on this Mac.")
+    path = system_path(path)
+    require(path is not None and Path(path).is_file(), "DEPENDENCY_UNAVAILABLE",
+            "A required color profile is missing on this computer.")
     data = Path(path).read_bytes()
     stream = pikepdf.Stream(pdf, data)
     stream.N = _icc_components(data)
@@ -181,7 +183,7 @@ def _system_font(name):
     if _SYSTEM_INDEX is None:
         _SYSTEM_INDEX = {}
         from fontTools.ttLib import TTFont, TTCollection
-        for folder in (Path("/System/Library/Fonts"), SUPPLEMENTAL, Path("/Library/Fonts")):
+        for folder in system_font_folders():
             if not folder.is_dir():
                 continue
             for path in sorted(folder.iterdir()):
@@ -214,8 +216,8 @@ def _system_font(name):
 def _substitute_path(name):
     if name in SUBSTITUTES:
         target = SUBSTITUTES[name]
-        path = Path(target) if target.startswith("/") else SUPPLEMENTAL / target
-        return (str(path), 0) if path.is_file() else None
+        path = system_path(Path(target) if target.startswith("/") else SUPPLEMENTAL / target)
+        return (path, 0) if path is not None and Path(path).is_file() else None
     return _system_font(name)
 
 

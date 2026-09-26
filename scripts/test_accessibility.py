@@ -4,6 +4,7 @@ Run with the dev venv that has the pinned pikepdf/pypdfium2 wheels:
     python scripts/test_accessibility.py
 """
 from pathlib import Path
+import gc
 import shutil
 import sys
 import tempfile
@@ -126,6 +127,7 @@ class Base(unittest.TestCase):
         self.n = 0
 
     def tearDown(self):
+        gc.collect()  # Windows can't delete files still held by unreferenced PDF objects
         self._tmp.cleanup()
 
     def fixture(self, name):

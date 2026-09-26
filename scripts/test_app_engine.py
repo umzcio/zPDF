@@ -5,6 +5,7 @@ No UI, reader automation, or source fixture writes. Uses the bundled QPDF.
 from pathlib import Path
 import hashlib
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -13,10 +14,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "EngineSupport"))
 from app_engine import AppEngine, AppQPDF
 
+# The app bundles QPDF here; elsewhere (e.g. Windows) point QPDF_BIN at one.
+QPDF = os.environ.get("QPDF_BIN") or ROOT / "EngineSupport/engine/native/qpdf"
+
 
 class CommentThreadTests(unittest.TestCase):
     def test_cross_page_reply_blocks_deletion_without_publishing(self):
-        qpdf_path = ROOT / "EngineSupport/engine/native/qpdf"
+        qpdf_path = QPDF
         fixture = ROOT / "zPDFTests/Fixtures/uscis-i9.pdf"
         original_hash = hashlib.sha256(fixture.read_bytes()).hexdigest()
         with tempfile.TemporaryDirectory(prefix="zpdf-thread-test-") as tmp:
@@ -81,7 +85,7 @@ class FieldAuthoringTests(unittest.TestCase):
     def test_field_creation_validation_and_preservation(self):
         fixture=ROOT/'zPDFTests/Fixtures/irs-1040-worksheet-b.pdf'
         before=hashlib.sha256(fixture.read_bytes()).hexdigest()
-        with AppEngine(qpdf_bin=ROOT/'EngineSupport/engine/native/qpdf') as engine:
+        with AppEngine(qpdf_bin=QPDF) as engine:
             def call(command, **args):
                 result=engine.dispatch(command,**args)
                 self.assertTrue(result['ok'],result)

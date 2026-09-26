@@ -5,6 +5,7 @@ the sandbox). Fixtures are copied; sources are never written.
     python scripts/test_transforms.py
 """
 from pathlib import Path
+import gc
 import shutil
 import sys
 import tempfile
@@ -45,6 +46,7 @@ class Base(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
 
     def tearDown(self):
+        gc.collect()  # Windows can't delete files still held by unreferenced PDF objects
         self._tmp.cleanup()
 
     def fixture(self, name):

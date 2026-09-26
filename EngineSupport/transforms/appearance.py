@@ -30,7 +30,9 @@ SELECTION = (0.6, 0.75, 0.86)
 def _metrics(path):
     try:
         from fontTools.ttLib import TTFont
-        if not Path(path).exists():
+        from transforms.fonts import system_path
+        path = system_path(path)
+        if path is None or not Path(path).exists():
             return None
         font = TTFont(path, lazy=False)
         try:

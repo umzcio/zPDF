@@ -6,6 +6,8 @@ Glyph IDs are retained by the subset, which keeps the CID->GID map Identity.
 """
 from io import BytesIO
 from pathlib import Path
+import os
+import sys
 
 import pikepdf
 from pikepdf import Name
@@ -33,6 +35,83 @@ STYLE_FONTS = {
 }
 
 
+WINDOWS_FONTS = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+WINDOWS_COLOR = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "spool" / "drivers" / "color"
+# macOS system file -> the Windows file with the same design (metrics-compatible).
+_WINDOWS_EQUIVALENTS = {
+    "Arial.ttf": "arial.ttf", "Arial Bold.ttf": "arialbd.ttf", "Arial Italic.ttf": "ariali.ttf",
+    "Arial Bold Italic.ttf": "arialbi.ttf", "Arial Unicode.ttf": "arial.ttf",
+    "Times New Roman.ttf": "times.ttf", "Times New Roman Bold.ttf": "timesbd.ttf",
+    "Times New Roman Italic.ttf": "timesi.ttf", "Times New Roman Bold Italic.ttf": "timesbi.ttf",
+    "Courier New.ttf": "cour.ttf", "Courier New Bold.ttf": "courbd.ttf", "Courier New Italic.ttf": "couri.ttf",
+    "Courier New Bold Italic.ttf": "courbi.ttf", "Symbol.ttf": "symbol.ttf",
+    # Faces inside macOS collections, by PostScript name.
+    ("Helvetica.ttc", "Helvetica"): "arial.ttf", ("Helvetica.ttc", "Helvetica-Bold"): "arialbd.ttf",
+    ("Helvetica.ttc", "Helvetica-Oblique"): "ariali.ttf", ("Helvetica.ttc", "Helvetica-BoldOblique"): "arialbi.ttf",
+    ("Times.ttc", "Times-Roman"): "times.ttf", ("Times.ttc", "Times-Bold"): "timesbd.ttf",
+    ("Times.ttc", "Times-Italic"): "timesi.ttf", ("Times.ttc", "Times-BoldItalic"): "timesbi.ttf",
+}
+_WINDOWS_PROFILES = {"sRGB Profile.icc": "sRGB Color Space Profile.icm", "Generic CMYK Profile.icc": "RSWOP.icm"}
+
+
+def system_path(path, postscript=None):
+    """A macOS system font or color profile path, or its Windows equivalent
+    when running on Windows (None if there is none). Unchanged on macOS."""
+    path = str(path)
+    if sys.platform != "win32" or Path(path).exists():
+        return path
+    name = Path(path).name
+    if name in _WINDOWS_PROFILES:
+        target = WINDOWS_COLOR / _WINDOWS_PROFILES[name]
+    else:
+        mapped = _WINDOWS_EQUIVALENTS.get((name, postscript)) or _WINDOWS_EQUIVALENTS.get(name)
+        target = WINDOWS_FONTS / mapped if mapped else None
+    return str(target) if target is not None and target.exists() else None
+
+
+def system_font_folders():
+    if sys.platform == "win32":
+        local = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "Windows" / "Fonts"
+        return [WINDOWS_FONTS, local]
+    return [Path("/System/Library/Fonts"), Path("/System/Library/Fonts/Supplemental"), Path("/Library/Fonts")]
+
+
+def _fallback_candidates():
+    """Broad-coverage fonts, best first. Windows has no Arial Unicode, so it
+    chains Arial, Segoe UI Symbol and the CJK Gothic families."""
+    if sys.platform == "win32":
+        names = ("arial.ttf", "seguisym.ttf", "YuGothM.ttc", "msgothic.ttc")
+        paths = [str(WINDOWS_FONTS / name) for name in names]
+    else:
+        paths = list(DEFAULT_FONTS)
+    return [path for path in paths if Path(path).exists()]
+
+
+_CMAPS = {}
+
+
+def _cmap(path):
+    if path not in _CMAPS:
+        from fontTools.ttLib import TTFont
+        try:
+            with TTFont(path, fontNumber=0, lazy=True) as font:
+                _CMAPS[path] = frozenset((font.getBestCmap() or {}).keys())
+        except Exception:  # noqa: BLE001 - an unreadable font covers nothing
+            _CMAPS[path] = frozenset()
+    return _CMAPS[path]
+
+
+def fallback_font(text=""):
+    """{"path"} of the first fallback font with glyphs for all of `text`
+    (else the best one), or None when no fallback font is installed."""
+    candidates = _fallback_candidates()
+    needed = {ord(c) for c in text if not c.isspace()}
+    for path in candidates:
+        if needed <= _cmap(path):
+            return {"path": path}
+    return {"path": candidates[0]} if candidates else None
+
+
 def resolve_font(spec=None):
     """spec: None, a font file path, or {"path", "index"} / {"family", "bold", "italic"}."""
     if isinstance(spec, str):
@@ -42,12 +121,14 @@ def resolve_font(spec=None):
             return spec["path"], int(spec.get("index", 0))
         family = spec.get("family", "sans")
         path = STYLE_FONTS.get((family, bool(spec.get("bold")), bool(spec.get("italic"))))
+        path = path and system_path(path)
         if path and Path(path).exists():
             return path, 0
     for path in DEFAULT_FONTS:
-        if Path(path).exists():
+        path = system_path(path)
+        if path and Path(path).exists():
             return path, 0
-    raise EngineError("DEPENDENCY_UNAVAILABLE", "No usable font was found on this Mac.")
+    raise EngineError("DEPENDENCY_UNAVAILABLE", "No usable font was found on this computer.")
 
 
 class EmbeddedFont:
