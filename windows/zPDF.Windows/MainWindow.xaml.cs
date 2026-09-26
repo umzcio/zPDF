@@ -36,6 +36,7 @@ public sealed partial class MainWindow : Window
     private bool _fitWidth = true;
     private bool _syncingSelection;
     private bool _closeConfirmed;
+    private List<int>? _reselect;  // thumbnails to select once the sidebar is rebuilt
     // While zoom or navigation scrolls the view, the page it is keeping in place;
     // intermediate scroll events must not change the current page.
     private (int Page, double Offset, DateTime Started)? _pendingAnchor;
@@ -196,6 +197,105 @@ public sealed partial class MainWindow : Window
             return Task.CompletedTask;
         });
 
+    // ---------------------------------------------------------------- pages
+
+    /// <summary>The pages the page tools act on: the selected thumbnails, else the current page.</summary>
+    private List<int> TargetPages()
+    {
+        var selected = Thumbnails.SelectedItems.OfType<Thumbnail>().Select(t => t.Index).Order().ToList();
+        return selected.Count > 0 ? selected : [_page];
+    }
+
+    private void RotateLeft_Click(object sender, RoutedEventArgs e) => _ = RotateAsync(-90);
+    private void RotateRight_Click(object sender, RoutedEventArgs e) => _ = RotateAsync(90);
+
+    private Task RotateAsync(int angle)
+    {
+        var pages = TargetPages();
+        return ApplyAsync(angle < 0 ? "Rotating left…" : "Rotating right…",
+            new JsonObject { ["op"] = "rotate_pages", ["pages"] = ToJson(pages), ["angle"] = angle }, pages);
+    }
+
+    private void DeleteAccelerator_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
+                                           Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        _ = DeletePagesAsync();
+    }
+
+    private void DeletePages_Click(object sender, RoutedEventArgs e) => _ = DeletePagesAsync();
+
+    private async Task DeletePagesAsync()
+    {
+        if (_document is null) return;
+        var pages = TargetPages();
+        if (pages.Count >= _document.PageCount)
+        {
+            StatusText.Text = "A PDF must keep at least one page.";
+            return;
+        }
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = pages.Count == 1 ? $"Delete page {pages[0] + 1}?" : $"Delete {pages.Count} pages?",
+            Content = "You can undo this until you save.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        _page = Math.Min(pages[0], _document.PageCount - pages.Count - 1);
+        await ApplyAsync("Deleting…", new JsonObject { ["op"] = "delete_pages", ["pages"] = ToJson(pages) }, [_page]);
+    }
+
+    private void MoveEarlier_Click(object sender, RoutedEventArgs e) => _ = MoveAsync(-1);
+    private void MoveLater_Click(object sender, RoutedEventArgs e) => _ = MoveAsync(1);
+
+    /// <summary>Moves the selected pages one place earlier or later, as a block.</summary>
+    private Task MoveAsync(int step)
+    {
+        if (_document is null) return Task.CompletedTask;
+        var pages = TargetPages();
+        var order = Enumerable.Range(0, _document.PageCount).ToList();
+        if (step < 0 ? pages[0] == 0 : pages[^1] == order.Count - 1) return Task.CompletedTask;
+        var moving = new HashSet<int>(pages);
+        foreach (var index in step < 0 ? pages : Enumerable.Reverse(pages))
+        {
+            var at = order.IndexOf(index);
+            var swap = at + step;
+            if (swap < 0 || swap >= order.Count || moving.Contains(order[swap])) continue;
+            (order[at], order[swap]) = (order[swap], order[at]);
+        }
+        var moved = pages.Select(p => order.IndexOf(p)).Order().ToList();
+        return ReorderAsync(order, moved);
+    }
+
+    /// <summary>Thumbnails dragged to a new place: apply that order to the document.</summary>
+    private void Thumbnails_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        var order = _thumbnails.Select(t => t.Index).ToList();
+        if (order.SequenceEqual(Enumerable.Range(0, order.Count))) return;
+        var moved = args.Items.OfType<Thumbnail>().Select(t => order.IndexOf(t.Index)).Order().ToList();
+        _ = ReorderAsync(order, moved);
+    }
+
+    private Task ReorderAsync(List<int> order, List<int> selectAfter)
+    {
+        _page = order.IndexOf(_page);
+        return ApplyAsync("Moving pages…", new JsonObject { ["op"] = "reorder_pages", ["order"] = ToJson(order) }, selectAfter);
+    }
+
+    /// <summary>One engine edit as one undo step; reselects `select` afterwards.</summary>
+    private Task ApplyAsync(string status, JsonObject op, List<int> select) =>
+        Run(status, async () =>
+        {
+            var edited = await Engine.TransformAsync(CurrentPath!, [op]);
+            _revisions.Push(edited);
+            Show(PdfDocument.Open(edited), keepPosition: true, select: select);
+        });
+
+    private static JsonArray ToJson(IEnumerable<int> values) => new(values.Select(v => (JsonNode)v).ToArray());
+
     // ---------------------------------------------------------------- view
 
     private void ZoomIn_Click(object sender, RoutedEventArgs e) => SetZoom(ZoomSteps.FirstOrDefault(z => z > _zoom + 0.001, ZoomSteps[^1]));
@@ -243,7 +343,7 @@ public sealed partial class MainWindow : Window
 
     private void Thumbnails_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_syncingSelection && Thumbnails.SelectedItem is Thumbnail thumb) GoTo(thumb.Index);
+        if (!_syncingSelection && Thumbnails.SelectedItems.Count == 1 && Thumbnails.SelectedItem is Thumbnail thumb) GoTo(thumb.Index);
     }
 
     private void GoTo(int page)
@@ -270,8 +370,9 @@ public sealed partial class MainWindow : Window
     // ---------------------------------------------------------------- layout and drawing
 
     /// <summary>Replaces the shown document (after open, edit or undo).</summary>
-    private void Show(PdfDocument document, bool keepPosition)
+    private void Show(PdfDocument document, bool keepPosition, List<int>? select = null)
     {
+        _reselect = select;
         var offset = PageScroller.VerticalOffset;
         _document?.Dispose();
         _document = document;
@@ -429,7 +530,17 @@ public sealed partial class MainWindow : Window
             var (w, h) = _pageSizes[i];
             _thumbnails.Add(new Thumbnail(i, ThumbnailWidth, Math.Round(ThumbnailWidth * h / w)));
         }
-        SyncThumbnailSelection();
+        if (_reselect is { Count: > 1 } reselect)
+        {
+            _syncingSelection = true;
+            foreach (var index in reselect.Where(i => i < _thumbnails.Count)) Thumbnails.SelectedItems.Add(_thumbnails[index]);
+            _syncingSelection = false;
+        }
+        else
+        {
+            SyncThumbnailSelection();
+        }
+        _reselect = null;
         var scale = RasterScale;
         foreach (var thumb in _thumbnails.ToList())
         {
@@ -459,6 +570,7 @@ public sealed partial class MainWindow : Window
 
     private void SyncThumbnailSelection()
     {
+        if (Thumbnails.SelectedItems.Count > 1) return;  // keep the user's multi-page selection
         _syncingSelection = true;
         Thumbnails.SelectedIndex = _page < _thumbnails.Count ? _page : -1;
         if (Thumbnails.SelectedItem is not null) Thumbnails.ScrollIntoView(Thumbnails.SelectedItem);
@@ -479,6 +591,8 @@ public sealed partial class MainWindow : Window
     {
         var open = _document is not null;
         SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = open;
+        RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = open;
+        DeletePagesButton.IsEnabled = open && _document!.PageCount > 1;
         SaveButton.IsEnabled = IsEdited;
         ZoomInButton.IsEnabled = open && _zoom < ZoomSteps[^1] - 0.001;
         ZoomOutButton.IsEnabled = open && _zoom > ZoomSteps[0] + 0.001;

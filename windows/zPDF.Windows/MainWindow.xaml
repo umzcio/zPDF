@@ -35,6 +35,16 @@
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
             <AppBarSeparator />
+            <AppBarButton x:Name="RotateLeftButton" Label="Rotate Left" LabelPosition="Collapsed" ToolTipService.ToolTip="Rotate Left" Click="RotateLeft_Click" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE7AD;" /></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton x:Name="RotateRightButton" Label="Rotate Right" LabelPosition="Collapsed" ToolTipService.ToolTip="Rotate Right" Click="RotateRight_Click" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE7AD;" RenderTransformOrigin="0.5,0.5">
+                    <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
+                </FontIcon></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton x:Name="DeletePagesButton" Icon="Delete" Label="Delete Pages" LabelPosition="Collapsed" ToolTipService.ToolTip="Delete Pages" Click="DeletePages_Click" IsEnabled="False" />
+            <AppBarSeparator />
             <AppBarButton x:Name="ZoomOutButton" Icon="ZoomOut" Label="Zoom Out" LabelPosition="Collapsed" ToolTipService.ToolTip="Zoom Out (Ctrl+−)" Click="ZoomOut_Click" IsEnabled="False">
                 <AppBarButton.KeyboardAccelerators>
                     <KeyboardAccelerator Modifiers="Control" Key="Subtract" />
@@ -66,9 +76,37 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <ListView x:Name="Thumbnails" Width="176" SelectionMode="Single" Visibility="Collapsed"
+            <ListView x:Name="Thumbnails" Width="176" SelectionMode="Extended" Visibility="Collapsed"
+                      CanDragItems="True" CanReorderItems="True" AllowDrop="True"
+                      DragItemsCompleted="Thumbnails_DragItemsCompleted"
                       SelectionChanged="Thumbnails_SelectionChanged" AutomationProperties.Name="Pages"
                       BorderThickness="0,0,1,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                <ListView.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Delete" Invoked="DeleteAccelerator_Invoked" />
+                </ListView.KeyboardAccelerators>
+                <ListView.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Rotate Left" Click="RotateLeft_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7AD;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Rotate Right" Click="RotateRight_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7AD;" RenderTransformOrigin="0.5,0.5">
+                                <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
+                            </FontIcon></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Move Earlier" Click="MoveEarlier_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74A;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Move Later" Click="MoveLater_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74B;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Delete" Click="DeletePages_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </ListView.ContextFlyout>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:Thumbnail">
                         <StackPanel Padding="0,8" Spacing="4" HorizontalAlignment="Center"

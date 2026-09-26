@@ -417,6 +417,30 @@ def delete_pages(ctx, pages):
     return {"deleted": len(indexes)}
 
 
+@op("reorder_pages")
+def reorder_pages(ctx, order):
+    """Puts the pages in `order` (a permutation of all page indexes). The page
+    objects themselves move, so links, bookmarks and form widgets that point at
+    them stay correct (assigning a page list would copy them)."""
+    pdf = ctx.pdf
+    count = len(pdf.pages)
+    require(isinstance(order, list) and all(isinstance(i, int) for i in order)
+            and sorted(order) == list(range(count)), "INVALID_ARGUMENT",
+            "The new page order must list every page exactly once.")
+    moved = sum(1 for position, index in enumerate(order) if position != index)
+    if moved:
+        objects = [pdf.pages[i].obj for i in order]
+        keep = pdf.pages[0]  # a page tree can't be emptied, so one page stays while the rest move
+        for page in list(pdf.pages)[1:]:
+            pdf.pages.remove(page)
+        for obj in objects:
+            if obj.objgen != keep.obj.objgen:
+                pdf.pages.append(pikepdf.Page(obj))
+        pdf.pages.remove(keep)
+        pdf.pages.insert(order.index(0), pikepdf.Page(keep.obj))
+    return {"moved": moved, "page_count": count}
+
+
 @op("replace_pages")
 def replace_pages(ctx, path, targets, source_pages=None, password=None):
     """Replace the content of `targets` with pages of another PDF, one to one.

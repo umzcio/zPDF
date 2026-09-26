@@ -159,6 +159,30 @@ class ReplaceDuplicateTests(Base):
         self.assertEqual(len(doc), count + 1)
         doc.close()
 
+    def test_reorder_keeps_page_objects(self):
+        src = text_pdf(self.tmp / "t.pdf", ["ONE", "TWO", "THREE"])  # page 1 links to page 3
+        out, result = self.run_ops(src, [{"op": "reorder_pages", "order": [2, 0, 1]}])
+        self.assertEqual(result["results"][0]["moved"], 3)
+        self.assertEqual([text_of(out, i).strip() for i in range(3)], ["THREE", "ONE", "TWO"])
+        with pikepdf.open(out) as pdf:
+            self.assertEqual(len(pdf.pages), 3)
+            link = pdf.pages[1].obj.Annots[0]  # "ONE" is now second
+            self.assertEqual(link.Dest[0].objgen, pdf.pages[0].obj.objgen, "the link still targets THREE")
+        # Forms keep every field and widget when their pages move.
+        form = self.fixture("uscis-i9.pdf")
+        out2, _ = self.run_ops(form, [{"op": "reorder_pages", "order": [3, 2, 1, 0]}], name="o2.pdf")
+        self.assertEqual(field_names(out2), field_names(form))
+        with pikepdf.open(out2) as pdf, pikepdf.open(form) as original:
+            for moved, page in zip(pdf.pages, reversed(original.pages)):
+                self.assertEqual(len(moved.obj.get("/Annots", [])), len(page.obj.get("/Annots", [])))
+
+    def test_reorder_rejects_non_permutations(self):
+        src = blank_pdf(self.tmp / "b.pdf", pages=3)
+        for order in ([0, 1], [0, 1, 1], [0, 1, 3], "012"):
+            with self.assertRaises(EngineError) as caught:
+                self.run_ops(src, [{"op": "reorder_pages", "order": order}])
+            self.assertEqual(caught.exception.code, "INVALID_ARGUMENT", order)
+
     def test_rotate_range(self):
         src = blank_pdf(self.tmp / "b.pdf", pages=3, rotate=90)
         out, _ = self.run_ops(src, [{"op": "rotate_pages", "pages": [0, 2], "angle": 90},
