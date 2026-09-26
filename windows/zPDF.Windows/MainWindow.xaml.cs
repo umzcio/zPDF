@@ -347,7 +347,13 @@ public sealed partial class MainWindow : Window
     private void UpdateCurrentPage()
     {
         if (_slots.Count == 0) return;
-        // The page under the reading line is the current one.
+        // At the bottom of the document the last page is current (its top may never
+        // reach the reading line); otherwise the page under the reading line is.
+        if (PageScroller.VerticalOffset >= PageScroller.ScrollableHeight - 1 && PageScroller.ScrollableHeight > 0)
+        {
+            if (_page != _slots.Count - 1) { _page = _slots.Count - 1; UpdateStatus(); }
+            return;
+        }
         var probe = ReadingLine;
         var y = ViewMargin;
         var page = _slots.Count - 1;
@@ -371,7 +377,9 @@ public sealed partial class MainWindow : Window
             if (slot.Index < first - KeepRendered || slot.Index > last + KeepRendered) { slot.Image = null; slot.RenderedFor = -1; }
         }
 #if DEBUG
-        CheckLayout(first);
+        // After this layout pass settles; measuring now would see the previous zoom.
+        var checkPage = first;
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => CheckLayout(checkPage));
 #endif
         var generation = _generation;
         var scale = Dips * RasterScale;
@@ -390,8 +398,11 @@ public sealed partial class MainWindow : Window
     {
         if (Pages.ContainerFromIndex(page) is not UIElement container || PageScroller.Content is not UIElement content) return;
         var actual = container.TransformToVisual(content).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
-        if (Math.Abs(actual - PageTop(page)) > 2)
+        var mismatch = Math.Abs(actual - PageTop(page)) > 2;
+        if (mismatch)
             StatusText.Text = $"Layout check: page {page + 1} is at {actual:0}, expected {PageTop(page):0}";
+        else if (StatusText.Text.StartsWith("Layout check:", StringComparison.Ordinal))
+            StatusText.Text = "";
     }
 #endif
 
