@@ -15,7 +15,7 @@ SPARKLE_BIN="$OUT/SourcePackages/artifacts/sparkle/Sparkle/bin"
 
 if [ "${SKIP_TESTS:-0}" != 1 ]; then
   echo "==> [1/5] Test suite"
-  (cd "$ROOT" && xcodegen generate --quiet && xcodebuild -scheme zPDF -destination 'platform=macOS' test -quiet)
+  (cd "$ROOT" && xcodegen generate --quiet && xcodebuild -scheme zPDF -destination 'platform=macOS' test -quiet -test-timeouts-enabled YES -maximum-test-execution-time-allowance 300)
 fi
 echo "==> [2/5] Build + sign"
 bash "$ROOT/scripts/release/build-app.sh"
