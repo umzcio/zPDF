@@ -1299,6 +1299,7 @@ def _blocks(regions, body):
     blocks = []
     for rows in regions:
         last = None
+        lists = []  # lists still open in this region, matched by item indent
         i = 0
         while i < len(rows):
             run = _table_run(rows, i, body)
@@ -1306,15 +1307,37 @@ def _blocks(regions, body):
                 blocks.append({"type": "Table", "rows": [[s.mcids for s in r] for r in rows[i:i + run]],
                                "seg": rows[i + run - 1][0]})
                 last = None
+                lists = []
                 i += run
                 continue
             for seg in rows[i]:
-                last = _place(blocks, last, seg, body)
+                last = _place(blocks, last, seg, body, lists)
             i += 1
+    # A one-item "list" is almost always a numbered form label or a stray
+    # bullet (forms): tag it as a paragraph instead.
+    for n, block in enumerate(blocks):
+        if block["type"] == "L" and len(block["items"]) == 1:
+            item = block["items"][0]
+            blocks[n] = {"type": "P", "mcids": item["lbl"] + item["body"], "seg": block["seg"]}
     return blocks
 
 
-def _place(blocks, last, seg, body):
+def _indent_tol(size):
+    return max(4.0, 0.6 * size)
+
+
+def _open_list(lists, seg, size, gap):
+    """The open list `seg` continues: same item indent, within `gap` line heights below."""
+    for block in reversed(lists):
+        prev = block["seg"]
+        if abs(seg.l - block["items"][-1]["x"]) <= _indent_tol(size) and \
+                -0.5 * size <= prev.b - seg.t <= gap * max(size, prev.size):
+            return block
+    return None
+
+
+def _place(blocks, last, seg, body, lists=None):
+    lists = [] if lists is None else lists
     size = seg.size or body
     if seg.figure:
         u = seg.units[0]
@@ -1330,18 +1353,26 @@ def _place(blocks, last, seg, body):
     else:
         item = None
     if item is not None:
-        if last is not None and last["type"] == "L" and close:
-            last["items"].append(item)
-            last["seg"] = seg
-            return last
+        target = _open_list(lists, seg, size, 2.5)
+        if target is not None:
+            target["items"].append(item)
+            target["seg"] = seg
+            return target
         block = {"type": "L", "items": [item], "seg": seg}
         blocks.append(block)
+        lists.append(block)
         return block
-    if last is not None and last["type"] == "L" and close and seg.l > last["items"][-1]["x"] + 0.3 * size \
-            and not _is_heading(seg, body):
-        last["items"][-1]["body"] += seg.mcids
-        last["seg"] = seg
-        return last
+    if not _is_heading(seg, body):
+        # A continuation line of the latest item: indented past its label, in its column.
+        for block in reversed(lists):
+            prev = block["seg"]
+            if seg.l > block["items"][-1]["x"] + 0.3 * size and _overlap(prev.l, prev.r, seg.l, seg.r) > 0 and \
+                    -0.5 * size <= prev.b - seg.t <= 1.0 * max(size, prev.size):
+                block["items"][-1]["body"] += seg.mcids
+                block["seg"] = seg
+                return block
+    # Text starting at a list's indent ends that list.
+    lists[:] = [b for b in lists if abs(b["items"][-1]["x"] - seg.l) > _indent_tol(size)]
     if _is_heading(seg, body):
         if last is not None and last["type"] == "H" and close and abs(last["size"] - seg.size) < 0.5:
             last["mcids"] += seg.mcids

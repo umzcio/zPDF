@@ -336,6 +336,8 @@ private struct ObjectSection: View {
                 }
                 HStack(spacing: 6) {
                     PanelIconButton(title: "Bring to Front", symbolName: "square.3.layers.3d.top.filled") { controller.arrangeSelection(toFront: true) }
+                    PanelIconButton(title: "Bring Forward", symbolName: "square.2.layers.3d.top.filled") { controller.stepSelection(forward: true) }
+                    PanelIconButton(title: "Send Backward", symbolName: "square.2.layers.3d.bottom.filled") { controller.stepSelection(forward: false) }
                     PanelIconButton(title: "Send to Back", symbolName: "square.3.layers.3d.bottom.filled") { controller.arrangeSelection(toFront: false) }
                     Spacer(minLength: 0)
                     if images.count == 1 && objects.count == 1 {
@@ -354,6 +356,17 @@ private struct ObjectSection: View {
                     HStack(spacing: 6) {
                         ForEach(ContentEditingController.Alignment.allCases) { alignment in
                             PanelIconButton(title: alignment.title, symbolName: alignment.symbolName) { controller.alignSelection(alignment) }
+                        }
+                    }
+                    if objects.count > 2 {
+                        HStack(spacing: 6) {
+                            PanelIconButton(title: "Distribute Horizontally", symbolName: "distribute.horizontal") {
+                                controller.distributeSelection(horizontal: true)
+                            }
+                            PanelIconButton(title: "Distribute Vertically", symbolName: "distribute.vertical") {
+                                controller.distributeSelection(horizontal: false)
+                            }
+                            Spacer(minLength: 0)
                         }
                     }
                 }

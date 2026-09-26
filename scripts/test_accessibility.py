@@ -306,6 +306,29 @@ class AutotagTests(Base):
                 tree = self.tree(out)
                 self.assertGreater(len(self.flat(tree["root"])), 2)
 
+    def test_form_like_lists(self):
+        """Side-by-side numbered columns (like the I-9 document lists) become one
+        list each; a lone numbered label is a paragraph, not a one-item list."""
+        pdf = pikepdf.new()
+        helv = pdf.make_indirect(Dictionary(Type=Name.Font, Subtype=Name.Type1, BaseFont=Name.Helvetica))
+        c = text_op(72, 740, "1. Name of employee")
+        for i in range(3):
+            y = 680 - 24 * i
+            c += text_op(72, y, f"{i + 1}. Left document {i + 1}") + text_op(320, y - 12, f"{i + 1}. Right document {i + 1}")
+        page = pdf.add_blank_page(page_size=(612, 792))
+        page.obj.Resources = Dictionary(Font=Dictionary(F1=helv))
+        page.obj.Contents = pdf.make_stream(c.encode())
+        src = self.tmp / "form.pdf"
+        pdf.save(src)
+        out, results = self.run_ops(src, [{"op": "autotag"}])
+        with pikepdf.open(out) as tagged:
+            document = tagged.Root.StructTreeRoot.K[0]
+            kinds = [str(k.S) for k in document.K]
+            lists = [k for k in document.K if k.S == Name.L]
+            self.assertEqual(len(lists), 2, kinds)
+            self.assertEqual([len(list(k.K)) for k in lists], [3, 3])
+            self.assertEqual(kinds[0], "/P")
+
     def test_retag_refused_then_replaced(self):
         src = sample_pdf(self.tmp / "s.pdf")
         out, _ = self.run_ops(src, [{"op": "autotag"}])

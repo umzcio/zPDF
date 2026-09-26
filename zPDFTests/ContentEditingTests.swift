@@ -174,6 +174,85 @@ final class ContentEditingTests: XCTestCase {
         XCTAssertTrue(TestSupport.text(url).contains("Added text box ✓"))
     }
 
+    func testDistributeAndStepArrange() async throws {
+        let (url, directory) = try paragraph()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let state = AppState()
+        let tab = try await TestSupport.open(url, in: state)
+        let controller = state.contentEditing
+        let png = try EditingFixtures.pngFile(color: .green, size: CGSize(width: 40, height: 40), in: directory)
+        // Three images for Distribute, and one overlapping the blue image (painted above it).
+        for x in [100.0, 150, 300, 380] {
+            controller.pendingImage = try controller.stageImage(png)
+            controller.pendingImageSize = CGSize(width: 40, height: 40)
+            controller.activate(.addImage)
+            let y = x == 380 ? 420.0 : 200
+            controller.placeImage(on: try XCTUnwrap(tab.pdfDocument?.page(at: 0)), rect: CGRect(x: x, y: y, width: 40, height: 40))
+            try await EditingFixtures.idle(controller, tab)
+        }
+        controller.tool = .edit
+        var current = try XCTUnwrap(tab.pdfDocument?.page(at: 0))
+        var content = try await EditingFixtures.content(controller, page: current)
+        let row = content.objects.filter { $0.kind.isImage && abs($0.bbox.minY - 200) < 1 }
+        XCTAssertEqual(row.count, 3)
+        controller.select(block: nil, objects: row.map(\.id), on: current, content: content)
+        controller.distributeSelection(horizontal: true)
+        try await EditingFixtures.idle(controller, tab)
+        current = try XCTUnwrap(tab.pdfDocument?.page(at: 0))
+        content = try await EditingFixtures.content(controller, page: current)
+        let xs = content.objects.filter { $0.kind.isImage && abs($0.bbox.minY - 200) < 1 }.map(\.bbox.minX).sorted()
+        XCTAssertEqual(xs.count, 3)
+        XCTAssertEqual(xs[0], 100, accuracy: 1)
+        XCTAssertEqual(xs[1], 200, accuracy: 1, "Equal 60 pt gaps between edges")
+        XCTAssertEqual(xs[2], 300, accuracy: 1)
+
+        // Bring Forward moves the blue image one step: above the overlapping green one.
+        func paintOrder() -> [CGFloat] { content.objects.filter { $0.kind.isImage && $0.bbox.minY > 390 }.map(\.bbox.minX) }
+        XCTAssertEqual(paintOrder().map { Int($0.rounded()) }, [350, 380])
+        let blue = try XCTUnwrap(content.objects.first { $0.kind.isImage && abs($0.bbox.minX - 350) < 1 })
+        controller.select(block: nil, objects: [blue.id], on: current, content: content)
+        controller.stepSelection(forward: true)
+        try await EditingFixtures.idle(controller, tab)
+        current = try XCTUnwrap(tab.pdfDocument?.page(at: 0))
+        content = try await EditingFixtures.content(controller, page: current)
+        XCTAssertEqual(paintOrder().map { Int($0.rounded()) }, [380, 350])
+        XCTAssertEqual(controller.selection?.objects.count, 1, "Selection follows the stepped object")
+        controller.stepSelection(forward: false)
+        try await EditingFixtures.idle(controller, tab)
+        current = try XCTUnwrap(tab.pdfDocument?.page(at: 0))
+        content = try await EditingFixtures.content(controller, page: current)
+        XCTAssertEqual(paintOrder().map { Int($0.rounded()) }, [350, 380])
+    }
+
+    /// A malformed annotation the original Save facade can't open must not make
+    /// the whole document read-only: the transform layer applies the policy.
+    func testFacadeUnreadableDocumentStaysEditable() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("zpdf-null-annot-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("null-annot.pdf")
+        try NavRawPDF.make([
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 6 0 R >> >> /Annots [5 0 R null] >>",
+            "<< /Length 41 >>\nstream\nBT /F1 12 Tf 72 700 Td (Null annot) Tj ET\nendstream",
+            "<< /Type /Annot /Subtype /Text /Rect [100 100 120 120] /Contents (note) >>",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        ]).write(to: url)
+        let state = AppState()
+        let tab = try await TestSupport.open(url, in: state)
+        XCTAssertNil(tab.saveBlock)
+        XCTAssertNil(state.saveError)
+        let controller = state.contentEditing
+        controller.pendingImage = try controller.stageImage(try EditingFixtures.pngFile(color: .green, size: CGSize(width: 20, height: 20), in: directory))
+        controller.pendingImageSize = CGSize(width: 20, height: 20)
+        controller.activate(.addImage)
+        controller.placeImage(on: try XCTUnwrap(tab.pdfDocument?.page(at: 0)), rect: CGRect(x: 72, y: 300, width: 20, height: 20))
+        try await EditingFixtures.idle(controller, tab)
+        try await TestSupport.save(state, tab)
+        XCTAssertTrue(TestSupport.text(url).contains("Null annot"))
+    }
+
     func testLinksCropAndPageDesignSaveNatively() async throws {
         let (url, directory) = try paragraph()
         defer { try? FileManager.default.removeItem(at: directory) }

@@ -368,6 +368,45 @@ final class ContentEditingController {
         }
     }
 
+    /// Bring Forward / Send Backward: one step past the nearest overlapping object.
+    func stepSelection(forward: Bool) {
+        guard let page = selectionPage, let selection, let index = livePageIndex(page), !selection.objects.isEmpty else { return }
+        let predicted = selectedObjects(on: page).map { ($0.kind, $0.bbox) }
+        perform([["op": "object_step", "page": index, "digest": selection.digest, "ids": selection.objects,
+                  "direction": forward ? "forward" : "backward"]], name: forward ? "Bring Forward" : "Send Backward") { [weak self] page, content in
+            self?.reselectObjects(predicted, on: page, content: content)
+        }
+    }
+
+    /// Spaces three or more selected objects evenly between the outermost two
+    /// (visual orientation), keeping equal gaps between their edges.
+    func distributeSelection(horizontal: Bool) {
+        guard let page = selectionPage, let selection, let index = livePageIndex(page) else { return }
+        let objects = selectedObjects(on: page)
+        guard objects.count > 2 else { return }
+        let toVisual = page.visualTransform
+        let placed = zip(objects, objects.map { $0.bbox.applying(toVisual) })
+            .sorted { horizontal ? $0.1.minX < $1.1.minX : $0.1.minY < $1.1.minY }
+        let span = horizontal ? placed.last!.1.maxX - placed.first!.1.minX : placed.last!.1.maxY - placed.first!.1.minY
+        let sizes = placed.reduce(CGFloat(0)) { $0 + (horizontal ? $1.1.width : $1.1.height) }
+        let gap = (span - sizes) / CGFloat(placed.count - 1)
+        var cursor = horizontal ? placed.first!.1.minX : placed.first!.1.minY
+        var items: [[String: Any]] = []
+        var predicted: [(ContentObject.Kind, CGRect)] = []
+        for (object, rect) in placed {
+            let delta = cursor - (horizontal ? rect.minX : rect.minY)
+            let user = CGAffineTransform(translationX: horizontal ? delta : 0, y: horizontal ? 0 : delta).conjugated(by: toVisual)
+            predicted.append((object.kind, object.bbox.applying(user)))
+            if abs(delta) > 0.01 { items.append(["id": object.id, "matrix": user.pdfMatrix]) }
+            cursor += (horizontal ? rect.width : rect.height) + gap
+        }
+        guard !items.isEmpty else { return }
+        perform([["op": "object_transform", "page": index, "digest": selection.digest, "items": items]],
+                name: horizontal ? "Distribute Horizontally" : "Distribute Vertically") { [weak self] page, content in
+            self?.reselectObjects(predicted, on: page, content: content)
+        }
+    }
+
     enum Alignment: String, CaseIterable, Identifiable {
         case left, center, right, top, middle, bottom
         var id: String { rawValue }

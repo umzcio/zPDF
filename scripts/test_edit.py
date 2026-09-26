@@ -235,6 +235,48 @@ class ObjectTests(Base):
         self.assertEqual([o["kind"] for o in content(out2)["objects"]], ["image", "path"])
         self.assertEqual(render(out2).getpixel((100, 792 - 100))[:3], (255, 255, 255))
 
+    def test_step_forward_and_backward(self):
+        """Bring Forward / Send Backward move one step past the nearest overlap,
+        and reset transparency set by content in between."""
+        pdf = pikepdf.new()
+        page = pdf.add_blank_page(page_size=(300, 300))
+        page.obj.Resources = pikepdf.Dictionary(ExtGState=pikepdf.Dictionary(
+            Half=pikepdf.Dictionary(Type=Name.ExtGState, ca=0.5)))
+        page.obj.Contents = pdf.make_stream(b"q 1 0 0 rg 50 50 120 120 re f 0 1 0 rg 90 90 120 120 re f "
+                                            b"/Half gs 0 0 1 rg 130 130 120 120 re f Q")
+        src = self.tmp / "layers.pdf"
+        pdf.save(src)
+
+        def pixel(path, x, y):
+            return render(path).convert("RGB").getpixel((x, 300 - y))
+
+        self.assertEqual(pixel(src, 100, 100), (0, 255, 0))
+        red, green, blue = [o["id"] for o in content(src)["objects"]]
+        one, result = self.run_ops(src, [{"op": "object_step", "page": 0, "ids": [red], "direction": "forward"}], name="one.pdf")
+        self.assertEqual(result["results"][0]["moved"], 1)
+        self.assertEqual(pixel(one, 100, 100), (255, 0, 0), "red now above green")
+        self.assertEqual(pixel(one, 150, 150)[1], 0, "blue (half transparent) still above red")
+        red_now = content(one)["objects"][1]["id"]
+        two, _ = self.run_ops(one, [{"op": "object_step", "page": 0, "ids": [red_now], "direction": "forward"}], name="two.pdf")
+        self.assertEqual(pixel(two, 150, 150), (255, 0, 0), "red above blue and still opaque")
+        self.assertEqual(pixel(two, 60, 60), (255, 0, 0))
+        top = content(two)["objects"][-1]["id"]
+        _, noop = self.run_ops(two, [{"op": "object_step", "page": 0, "ids": [top], "direction": "forward"}], name="top.pdf")
+        self.assertEqual(noop["results"][0]["moved"], 0, "already frontmost")
+        back, _ = self.run_ops(two, [{"op": "object_step", "page": 0, "ids": [top], "direction": "backward"}], name="back.pdf")
+        self.assertEqual(pixel(back, 150, 150)[2], 127, "red stepped back below blue")
+
+    def test_step_refuses_to_cross_clipped_content(self):
+        pdf = pikepdf.new()
+        page = pdf.add_blank_page(page_size=(300, 300))
+        page.obj.Contents = pdf.make_stream(b"1 0 0 rg 50 50 120 120 re f q 60 60 200 200 re W n 0 1 0 rg 90 90 120 120 re f Q")
+        src = self.tmp / "clip.pdf"
+        pdf.save(src)
+        red = content(src)["objects"][0]["id"]
+        with self.assertRaises(EngineError) as ctx:
+            self.run_ops(src, [{"op": "object_step", "page": 0, "ids": [red], "direction": "forward"}], name="c.pdf")
+        self.assertIn("Bring to Front", ctx.exception.message)
+
     def test_scale_rotate_flip(self):
         src = self.image_page()
         page = content(src)

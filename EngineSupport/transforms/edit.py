@@ -1020,3 +1020,92 @@ def image_add(ctx, page, image, rect):
     name = add_resource(page_obj, "XObject", xobj, "ZPDFim")
     add_content(pdf, page_obj, f"q {fmt(*[float(v) for v in m])} cm {name} Do Q\n".encode())
     return {"pixels": [w, h]}
+
+
+class _StepPlan(Plan):
+    """Omit the moved objects; insert them before/after one neighbour."""
+
+    def __init__(self, omit, neighbour, wrap):
+        self.omit = set(omit)
+        self.neighbour = neighbour
+        self.wrap = wrap
+        self.found = set()
+
+    def _action(self, item):
+        if not item.top_level:
+            return None
+        key = object_id(item)
+        if key in self.omit:
+            self.found.add(key)
+            return "omit"
+        if key == self.neighbour:
+            self.found.add(key)
+            return self.wrap
+        return None
+
+    def path(self, item):
+        return self._action(item)
+
+    def image(self, item):
+        return self._action(item)
+
+    def form(self, item):
+        action = self._action(item)
+        return action if action is not None else "keep"
+
+    def text_object(self, item):
+        return self._action(item)
+
+
+def _overlaps(a, b):
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+@op("object_step")
+def object_step(ctx, page, ids, direction="forward", digest=None):
+    """Bring Forward / Send Backward: move the selection one step in paint
+    order, past the nearest overlapping object above (forward) or below."""
+    require(direction in ("forward", "backward"), "INVALID_ARGUMENT", "Choose forward or backward.")
+    require(isinstance(ids, list) and ids, "INVALID_ARGUMENT", "Select an object first.")
+    pdf = ctx.pdf
+    page_obj = _check(pdf, page, digest)
+    _, walker = page_walk(pdf, page, {})
+    items = [it for it in walker.items if it.top_level and it.bbox is not None
+             and not (it.kind == "path" and it.paint == "n")
+             and not (it.kind == "form" and it.extra in OVERLAY_KINDS)]
+    position = {object_id(it): n for n, it in enumerate(items)}
+    missing = [i for i in ids if i not in position]
+    require(not missing, "STALE_CONTENT", "The page changed. Select the object again.")
+    selected = sorted({position[i] for i in ids})
+    chosen = [items[n] for n in selected]
+    require(all(not it.has_clip for it in chosen), "INVALID_ARGUMENT",
+            "That object also clips other content and cannot be moved.")
+    x0 = min(it.bbox[0] for it in chosen); y0 = min(it.bbox[1] for it in chosen)
+    x1 = max(it.bbox[2] for it in chosen); y1 = max(it.bbox[3] for it in chosen)
+    union = (x0, y0, x1, y1)
+    taken = set(selected)
+    if direction == "forward":
+        scan = range(selected[-1] + 1, len(items))
+    else:
+        scan = range(selected[0] - 1, -1, -1)
+    neighbour = next((items[n] for n in scan if n not in taken and _overlaps(items[n].bbox, union)), None)
+    if neighbour is None:
+        return {"moved": 0}  # already frontmost/backmost among overlapping objects
+    # Painting a path leaves the graphics state unchanged, so its end state may be unset.
+    anchor = (neighbour.end_state or neighbour.state) if direction == "forward" else neighbour.state
+    require(anchor is not None and not anchor.clips, "INVALID_ARGUMENT",
+            "This object can't move one step past a clipped object. Use Bring to Front or Send to Back.")
+    inv = safe_invert(anchor.ctm)
+    require(inv is not None, "INVALID_ARGUMENT", "This object can't be moved one step here.")
+    reset_gs = add_resource(page_obj, "ExtGState", pdf.make_indirect(pikepdf.Dictionary(
+        Type=Name.ExtGState, CA=1, ca=1, BM=Name.Normal, SMask=Name("/None"), AIS=False)), "ZPDFgs")
+    inserted = []
+    for it in chosen:
+        source = walker.parsed[it.stream if not walker.joined else 0]
+        inserted += [instr([], "q"), instr([round(v, 9) for v in inv], "cm"), instr([reset_gs], "gs")]
+        inserted += full_state_ops(it.state) + list(source[it.start:it.end + 1]) + [instr([], "Q")]
+    wrap = ("wrap", [], inserted) if direction == "forward" else ("wrap", inserted, [])
+    plan = _StepPlan([object_id(it) for it in chosen], object_id(neighbour), wrap)
+    rewrite_page(pdf, page_obj, plan, {}, exclude_kinds=OVERLAY_KINDS)
+    require(len(plan.found) == len(chosen) + 1, "STALE_CONTENT", "The page changed. Select the object again.")
+    return {"moved": len(chosen), "past": object_id(neighbour)}
