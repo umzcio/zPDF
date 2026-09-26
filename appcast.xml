@@ -3,6 +3,38 @@
     <channel>
         <title>zPDF</title>
         <item>
+            <title>0.1.3</title>
+            <pubDate>Fri, 25 Sep 2026 19:14:00 -0600</pubDate>
+            <link>https://github.com/umzcio/zPDF</link>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<meta charset="utf-8">
+<h2>zPDF 0.1.3</h2>
+<h3>New</h3>
+<ul>
+<li><b>Bring Forward / Send Backward</b> (Edit panel): move an object one step up or down past the object it overlaps, alongside Bring to Front / Send to Back.</li>
+<li><b>Distribute Horizontally / Vertically</b>: space three or more selected objects evenly.</li>
+<li><b>Barcodes stay current</b>: barcode fields regenerate automatically when you save, so they always match the form data.</li>
+<li><b>Better automatic tagging on forms</b>: numbered and bulleted lists on forms (side-by-side columns, spaced-out options) are tagged as proper lists, and stray numbered labels are no longer tagged as one-item lists.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+<li><b>Hundreds of damaged or unusual real-world PDFs</b> no longer cause &ldquo;unexpected error&rdquo; failures. Edits now either work or explain that part of the file is damaged — the document can still be viewed and printed.</li>
+<li>PDFs with a malformed comment or annotation are no longer opened read-only.</li>
+<li>Fonts with non-English names no longer break Reduce File Size, PDF/A or the Fonts list.</li>
+<li>A crafted image in a PDF can no longer make an edit hang for minutes.</li>
+</ul>
+<h3>Install or update</h3>
+<ul>
+<li><b>Already installed:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
+<li><b>New install:</b> download <code>zPDF-0.1.3.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
+</ul>
+<p>Requires macOS 15 or later on an Apple silicon Mac.</p>
+]]></description>
+            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.3/zPDF-0.1.3.dmg" length="93831648" type="application/octet-stream" sparkle:edSignature="K1IYsV/e8snPuaug4kFvU+YJsfN8Oo9ZJIrjH0G7pvuiNSn83R3HZk8RgR1e1nApy+m6tgUKmH8uzrYd+6rfBA=="/>
+        </item>
+        <item>
             <title>0.1.2</title>
             <pubDate>Fri, 25 Sep 2026 12:01:39 -0600</pubDate>
             <link>https://github.com/umzcio/zPDF</link>
@@ -57,44 +89,6 @@
 <p>Requires macOS 15 or later on an Apple silicon Mac.</p>
 ]]></description>
             <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.1/zPDF-0.1.1.dmg" length="91483797" type="application/octet-stream" sparkle:edSignature="qxzMlxRs4/7FS0JVdTfYYud7XVcumj0RCoeYvNbxQi+enzJaI1CiHIYL85tQ+kAbg6OUeT3FQqhXXVrTzaWzBg=="/>
-        </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Fri, 25 Sep 2026 08:50:31 -0600</pubDate>
-            <link>https://github.com/umzcio/zPDF</link>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<meta charset="utf-8">
-<h2>zPDF 0.1.0 — first tester build</h2>
-<p>A native macOS PDF editor. This is an early build for testing: please report anything that looks wrong, breaks, or loses work.</p>
-<h3>Install</h3>
-<ul>
-<li>Download <code>zPDF-0.1.0.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
-<li>Open zPDF from Applications. It&#x27;s signed and notarized, so it opens normally.</li>
-<li>Updates: <b>zPDF ▸ Check for Updates…</b> (it also checks automatically).</li>
-</ul>
-<p>Requires macOS 15 or later on an Apple silicon Mac (M1 or newer).</p>
-<h3>What&#x27;s in it</h3>
-<ul>
-<li><b>Edit PDF:</b> edit text in place, add text and images, move/resize/crop images and artwork, links, crop pages, headers &amp; footers, watermarks, backgrounds, Bates numbering, find &amp; replace.</li>
-<li><b>Redact:</b> mark text, areas, pages or search patterns (SSN, phone, email, card numbers, dates); applying removes the underlying content; remove hidden information.</li>
-<li><b>Comment:</b> highlight, underline, strikethrough, replace/insert text, notes, text boxes, callouts, pen and eraser, shapes, stamps, attachments, sound, replies and status, import/export FDF/XFDF, summaries, flatten.</li>
-<li><b>Forms &amp; signatures:</b> fill forms, Fill &amp; Sign on any PDF, signatures and initials, Prepare Form (all field types, calculations, formats, tab order), password and certificate protection, digital signatures (PAdES) and validation, convert hybrid XFA forms to standard forms.</li>
-<li><b>Pages &amp; documents:</b> insert, replace, duplicate, rotate, reorder, split, combine, page labels, page boxes; create PDFs from images, documents, web pages, the clipboard or a scanner; OCR; optimize and reduce file size; PDF/A, PDF/X and preflight; compare files.</li>
-<li><b>Export:</b> Word, Excel, PowerPoint, HTML, Markdown, RTF, XML, EPUB and images.</li>
-<li><b>Reading:</b> bookmarks, attachments, layers, destinations, advanced search, full screen, split view, measure tools, accessibility checker, read aloud, document properties, Action Wizard, custom print layouts.</li>
-</ul>
-<h3>Known limitations</h3>
-<ul>
-<li>Conversions to Office and other formats are close but not identical to the PDF; export notes list what changed.</li>
-<li>Scanner and iPhone camera import, and microphone sound comments, haven&#x27;t been tested on real hardware yet.</li>
-<li>Dynamic XFA forms display their fallback pages only.</li>
-<li>Apple silicon only; no Windows version yet.</li>
-</ul>
-<p>Your files are only changed when you choose Save. Every edit can be undone.</p>
-]]></description>
-            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.0/zPDF-0.1.0.dmg" length="91463933" type="application/octet-stream" sparkle:edSignature="vm246tl0mXeV9i9hYQ5hDQcOB5BscxZMC5G0h0HQ2oY6EYuSQl95fMPaMRIkLgj7/Y/F0uU+kbxBykffOkAtAg=="/>
         </item>
     </channel>
 </rss>
