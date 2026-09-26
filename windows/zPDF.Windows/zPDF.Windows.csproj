@@ -22,8 +22,17 @@
     <!-- Same PDFium build as the Mac app's engine (pypdfium2 5.13.0 = 153.0.7999). -->
     <PackageReference Include="bblanchon.PDFium.Win32" Version="153.0.7999" />
   </ItemGroup>
-  <!-- The bundled engine runtime (windows/scripts/prepare_runtime.py), when prepared. -->
-  <ItemGroup Condition="Exists('..\build\EngineRuntime\python\python.exe')">
-    <Content Include="..\build\EngineRuntime\**\*" LinkBase="EngineRuntime" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+  <!-- The bundled engine runtime (windows/scripts/prepare_runtime.py), when prepared.
+       Copied after the build rather than as Content, so resource indexing skips it. -->
+  <Target Name="CopyEngineRuntime" AfterTargets="Build;Publish" Condition="Exists('..\build\EngineRuntime\python\python.exe')">
+    <ItemGroup>
+      <EngineRuntimeFile Include="..\build\EngineRuntime\**\*" />
+    </ItemGroup>
+    <PropertyGroup>
+      <EngineRuntimeTarget Condition="'$(PublishDir)' != '' And '$(_IsPublishing)' == 'true'">$(PublishDir)</EngineRuntimeTarget>
+      <EngineRuntimeTarget Condition="'$(EngineRuntimeTarget)' == ''">$(OutDir)</EngineRuntimeTarget>
+    </PropertyGroup>
+    <Copy SourceFiles="@(EngineRuntimeFile)" SkipUnchangedFiles="true"
+          DestinationFiles="@(EngineRuntimeFile->'$(EngineRuntimeTarget)EngineRuntime\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
 </Project>
