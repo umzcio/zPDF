@@ -15,6 +15,7 @@ internal static class SelfTest
             Console.WriteLine($"pages={doc.PageCount} size={w:0.#}x{h:0.#}pt");
             WriteBmp(doc.Render(0, 1.5), Path.Combine(folder, "page1.bmp"));
         }
+        Console.WriteLine($"engine={(Engine.IsBundled ? "bundled" : "development")} python={Engine.PythonPath}");
         using var engine = new Engine();
         var edited = await engine.TransformAsync(input, [new JsonObject { ["op"] = "watermark", ["text"] = "ZPDF WINDOWS" }]);
         using (var doc = PdfDocument.Open(edited)) WriteBmp(doc.Render(0, 1.5), Path.Combine(folder, "page1-watermarked.bmp"));
@@ -25,7 +26,7 @@ internal static class SelfTest
         return 0;
     }
 
-    private static void WriteBmp(PageImage image, string path)
+    private static void WriteBmp(RenderedPage image, string path)
     {
         using var file = new BinaryWriter(File.Create(path));
         var size = 54 + image.Pixels.Length;

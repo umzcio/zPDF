@@ -22,4 +22,8 @@
     <!-- Same PDFium build as the Mac app's engine (pypdfium2 5.13.0 = 153.0.7999). -->
     <PackageReference Include="bblanchon.PDFium.Win32" Version="153.0.7999" />
   </ItemGroup>
+  <!-- The bundled engine runtime (windows/scripts/prepare_runtime.py), when prepared. -->
+  <ItemGroup Condition="Exists('..\build\EngineRuntime\python\python.exe')">
+    <Content Include="..\build\EngineRuntime\**\*" LinkBase="EngineRuntime" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

@@ -105,3 +105,4 @@ services/feedback/worker-configuration.d.ts
 windows/**/bin/
 windows/**/obj/
 windows/**/.vs/
+windows/build/

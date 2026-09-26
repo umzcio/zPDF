@@ -27,7 +27,7 @@ internal static partial class Native
 }
 
 /// <summary>A rendered page: top-down BGRA pixels.</summary>
-public sealed record PageImage(int Width, int Height, byte[] Pixels);
+public sealed record RenderedPage(int Width, int Height, byte[] Pixels);
 
 /// <summary>A PDF opened from memory, so the file itself is never held open
 /// (Windows would otherwise block replacing it on Save).</summary>
@@ -85,7 +85,7 @@ public sealed class PdfDocument : IDisposable
     }
 
     /// <summary>Renders a page at `scale` pixels per point, annotations included.</summary>
-    public PageImage Render(int index, double scale)
+    public RenderedPage Render(int index, double scale)
     {
         lock (Gate)
         {
@@ -105,7 +105,7 @@ public sealed class PdfDocument : IDisposable
                     var buffer = Native.FPDFBitmap_GetBuffer(bitmap);
                     for (var row = 0; row < height; row++)
                         Marshal.Copy(buffer + row * stride, pixels, row * width * 4, width * 4);
-                    return new PageImage(width, height, pixels);
+                    return new RenderedPage(width, height, pixels);
                 }
                 finally { Native.FPDFBitmap_Destroy(bitmap); }
             }
