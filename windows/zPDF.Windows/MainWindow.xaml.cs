@@ -279,19 +279,19 @@ public sealed partial class MainWindow : Window
         _ = ReorderAsync(order, moved);
     }
 
-    private Task ReorderAsync(List<int> order, List<int> selectAfter)
-    {
-        _page = order.IndexOf(_page);
-        return ApplyAsync("Moving pages…", new JsonObject { ["op"] = "reorder_pages", ["order"] = ToJson(order) }, selectAfter);
-    }
+    /// <summary>Applies a new page order and shows the moved pages where they landed.</summary>
+    private Task ReorderAsync(List<int> order, List<int> selectAfter) =>
+        ApplyAsync("Moving pages…", new JsonObject { ["op"] = "reorder_pages", ["order"] = ToJson(order) }, selectAfter,
+                   focus: selectAfter[0]);
 
     /// <summary>One engine edit as one undo step; reselects `select` afterwards.</summary>
-    private Task ApplyAsync(string status, JsonObject op, List<int> select) =>
+    /// <summary>`focus`: scroll to this page afterwards instead of keeping the scroll position.</summary>
+    private Task ApplyAsync(string status, JsonObject op, List<int> select, int? focus = null) =>
         Run(status, async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [op]);
             _revisions.Push(edited);
-            Show(PdfDocument.Open(edited), keepPosition: true, select: select);
+            Show(PdfDocument.Open(edited), keepPosition: focus is null, select: select, focus: focus);
         });
 
     private static JsonArray ToJson(IEnumerable<int> values) => new(values.Select(v => (JsonNode)v).ToArray());
@@ -370,7 +370,7 @@ public sealed partial class MainWindow : Window
     // ---------------------------------------------------------------- layout and drawing
 
     /// <summary>Replaces the shown document (after open, edit or undo).</summary>
-    private void Show(PdfDocument document, bool keepPosition, List<int>? select = null)
+    private void Show(PdfDocument document, bool keepPosition, List<int>? select = null, int? focus = null)
     {
         _reselect = select;
         var offset = PageScroller.VerticalOffset;
@@ -383,7 +383,15 @@ public sealed partial class MainWindow : Window
         EmptyText.Visibility = Visibility.Collapsed;
         Thumbnails.Visibility = Visibility.Visible;
         Relayout(keepPage: false);
-        ScrollTo(_page, keepPosition ? offset : 0);
+        if (focus is { } page && page < document.PageCount)
+        {
+            _page = page;
+            ScrollTo(page, PageTop(page));
+        }
+        else
+        {
+            ScrollTo(_page, keepPosition ? offset : 0);
+        }
         _ = RenderThumbnailsAsync(document);
     }
 
