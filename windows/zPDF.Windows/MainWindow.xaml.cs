@@ -373,7 +373,13 @@ public sealed partial class MainWindow : Window
     private void Show(PdfDocument document, bool keepPosition, List<int>? select = null, int? focus = null)
     {
         _reselect = select;
-        var offset = PageScroller.VerticalOffset;
+        // Anchor edits like zoom: the current page and where the reading line falls on it,
+        // since an edit can change page heights (rotation) and, in Fit Width, the zoom.
+        var anchor = _page;
+        var within = 0.0;
+        var atTop = PageScroller.VerticalOffset <= 1;
+        if (keepPosition && anchor < _slots.Count && _slots[anchor].Height > 0)
+            within = Math.Clamp((ReadingLine - PageTop(anchor)) / _slots[anchor].Height, 0, 1);
         _document?.Dispose();
         _document = document;
         _pageSizes = Enumerable.Range(0, document.PageCount).Select(document.PageSize).ToArray();
@@ -388,9 +394,14 @@ public sealed partial class MainWindow : Window
             _page = page;
             ScrollTo(page, PageTop(page));
         }
+        else if (keepPosition && !atTop)
+        {
+            _page = Math.Min(anchor, document.PageCount - 1);
+            ScrollTo(_page, PageTop(_page) + within * _slots[_page].Height - ReadingDepth);
+        }
         else
         {
-            ScrollTo(_page, keepPosition ? offset : 0);
+            ScrollTo(_page, 0);
         }
         _ = RenderThumbnailsAsync(document);
     }
