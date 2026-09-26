@@ -11,6 +11,7 @@
 !/.githooks/
 !/scripts/
 !/services/
+!/windows/
 !/EngineSupport/
 !/zPDF/
 !/zPDFTests/
@@ -99,3 +100,8 @@ services/feedback/node_modules/
 services/feedback/.wrangler/
 services/feedback/.dev.vars
 services/feedback/worker-configuration.d.ts
+
+# Windows app (windows/): build output
+windows/**/bin/
+windows/**/obj/
+windows/**/.vs/
