@@ -288,4 +288,96 @@ public sealed partial class MainWindow
             StatusText.Text = $"Saved {Path.GetFileName(destination)}";
         }, keepStatus: true);
     }
+
+    // ---------------------------------------------------------------- create
+
+    private static readonly (string Label, double Width, double Height)[] PaperSizes =
+        [("Letter (8.5 × 11 in)", 612, 792), ("Legal (8.5 × 14 in)", 612, 1008), ("A4", 595.28, 841.89), ("A3", 841.89, 1190.55), ("Tabloid (11 × 17 in)", 792, 1224)];
+
+    /// <summary>A minimal one-page PDF (the starting point for new documents).</summary>
+    private static string BlankPdf(double width, double height)
+    {
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            FormattableString.Invariant($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width:0.##} {height:0.##}] /Resources << >> >>"),
+        };
+        var body = new System.Text.StringBuilder("%PDF-1.7\n");
+        var offsets = new List<int>();
+        for (var i = 0; i < objects.Length; i++)
+        {
+            offsets.Add(body.Length);
+            body.Append($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+        }
+        var xref = body.Length;
+        body.Append($"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        foreach (var offset in offsets) body.Append($"{offset:D10} 00000 n \n");
+        body.Append($"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        var path = Path.Combine(Path.GetTempPath(), $"zpdf-{Guid.NewGuid():N}.pdf");
+        File.WriteAllText(path, body.ToString(), System.Text.Encoding.ASCII);
+        return path;
+    }
+
+    /// <summary>Builds a new document from `ops` applied to a blank page, saves it where the
+    /// person chooses and opens it.</summary>
+    private async Task CreateDocumentAsync(string suggested, double width, double height, JsonArray ops)
+    {
+        if (await AskSavePathAsync(suggested) is not { } destination) return;
+        var created = false;
+        await Run("Creating…", async () =>
+        {
+            var blank = BlankPdf(width, height);
+            try
+            {
+                var output = await Engine.TransformAsync(blank, ops);
+                await Engine.PublishAsync(output, destination, overwrite: true);
+                TryDelete(output);
+                created = true;
+            }
+            finally { TryDelete(blank); }
+        });
+        if (created) await OpenHereOrNewAsync(destination);
+    }
+
+    private async void CreateFromImages_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker(AppWindow.Id);
+        foreach (var type in new[] { ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif" }) picker.FileTypeFilter.Add(type);
+        var files = await picker.PickMultipleFilesAsync();
+        if (files is not { Count: > 0 }) return;
+        var order = new ListView { SelectionMode = ListViewSelectionMode.Single, CanReorderItems = true, AllowDrop = true, MaxHeight = 280 };
+        var items = new System.Collections.ObjectModel.ObservableCollection<string>(files.Select(f => f.Path));
+        order.ItemsSource = items;
+        order.ItemTemplate = null;
+        var size = Choice("Page size", new[] { "Each page the size of its image" }.Concat(PaperSizes.Select(p => p.Label)));
+        var fit = Choice("Image on the page", ["Fit (whole image)", "Fill the page (crop)", "Actual size"]);
+        var margin = Number("Margin (in)", 0, 0, 3, 0.25);
+        if (!await AskAsync($"Create PDF from {files.Count} Image{(files.Count == 1 ? "" : "s")}",
+                            Stack(Note("Drag to change the order; one page per image."), order, size, fit, margin), "Create…")) return;
+        var paper = size.SelectedIndex > 0 ? PaperSizes[size.SelectedIndex - 1] : PaperSizes[0];
+        var insert = new JsonObject
+        {
+            ["op"] = "insert_images", ["images"] = new JsonArray(items.Select(i => (JsonNode)i).ToArray()), ["at"] = 0,
+            ["fit"] = new[] { "fit", "fill", "actual" }[Math.Max(0, fit.SelectedIndex)], ["margin"] = Finite(margin.Value, 0) * 72,
+        };
+        if (size.SelectedIndex > 0) insert["page_size"] = new JsonArray(paper.Width, paper.Height);
+        await CreateDocumentAsync(Path.GetFileNameWithoutExtension(items[0]), paper.Width, paper.Height,
+                                  [insert, new JsonObject { ["op"] = "delete_pages", ["pages"] = new JsonArray(items.Count) }]);
+    }
+
+    private async void CreateBlank_Click(object sender, RoutedEventArgs e)
+    {
+        var size = Choice("Page size", PaperSizes.Select(p => p.Label));
+        var landscape = new CheckBox { Content = "Landscape" };
+        var pages = Number("Pages", 1, 1, 500);
+        if (!await AskAsync("Create Blank PDF", Stack(size, landscape, pages), "Create…")) return;
+        var paper = PaperSizes[Math.Max(0, size.SelectedIndex)];
+        var (w, h) = landscape.IsChecked == true ? (paper.Height, paper.Width) : (paper.Width, paper.Height);
+        var extra = Math.Max(0, (int)Finite(pages.Value, 1) - 1);
+        var ops = new JsonArray();
+        if (extra > 0) ops.Add(new JsonObject { ["op"] = "insert_blank_pages", ["at"] = 1, ["like"] = 0, ["count"] = extra });
+        else ops.Add(new JsonObject { ["op"] = "set_metadata", ["info"] = new JsonObject { ["producer"] = "zPDF" } });
+        await CreateDocumentAsync("Untitled", w, h, ops);
+    }
 }

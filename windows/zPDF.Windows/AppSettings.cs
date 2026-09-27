@@ -45,7 +45,15 @@ public sealed class AppSettings
         RecentFiles.Insert(0, path);
         if (RecentFiles.Count > MaxRecent) RecentFiles.RemoveRange(MaxRecent, RecentFiles.Count - MaxRecent);
         Save();
+        // Windows' own recent list, which fills zPDF's taskbar jump list (Recent).
+        try { SHAddToRecentDocs(ShardPathW, path); }
+        catch (Exception error) when (error is DllNotFoundException or EntryPointNotFoundException) { }
     }
+
+    private const uint ShardPathW = 3;
+
+    [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern void SHAddToRecentDocs(uint flags, string path);
 
     public void RemoveRecent(string path)
     {

@@ -15,7 +15,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Keyboard: Page Up/Down, Ctrl+Home/End, arrow scrolling
 - [x] Go to page (Ctrl+G), page labels shown
 - [x] Document properties (title, author, producer, pages, size, PDF version, security)
-- [~] Recent files — in-app list and menu; no taskbar jump list yet
+- [x] Recent files — in-app list and menu; Windows recent documents (taskbar jump list)
 - [x] Full screen / reading mode (F11); chrome follows the system theme
 - [x] Print (Windows print dialog; page range, scale to fit, annotations; forms flattened for the printer)
 - [x] Passwords: open encrypted PDFs (prompt)
@@ -25,7 +25,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Sticky notes; text boxes; freehand ink; rectangle, ellipse, line, arrow
 - [~] Stamps — standard stamps; custom image stamps via Fill & Sign images
 - [x] Comments panel: list, jump, edit text, delete, reply, status
-- [~] Select / move / recolor existing annotations — no resize handles yet
+- [x] Select / move / resize (corner handles) / recolor existing annotations
 - [x] Import/export comments (FDF, XFDF); flatten
 
 ## C. Forms
@@ -39,7 +39,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Extract pages to a new PDF; split; combine files
 - [x] Crop pages; resize; page labels
 - [x] Header & footer, Bates numbering, watermark options, background
-- [~] Insert images into a document — no File ▸ Create yet
+- [x] Insert images into a document; Create PDF from images or blank pages
 
 ## E. Protect and redact
 - [x] Password protection and permissions; remove security
@@ -64,7 +64,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 
 ## H. Edit content
 - [x] Edit text blocks in place; add text; find & replace in content
-- [~] Images: add, replace; objects: move, arrange, delete — no resize/crop/align yet
+- [~] Images: add, replace; objects: move, resize (corner handles), arrange, delete — no crop/align yet
 - [x] Links: add/edit/remove; attachments; layers
 
 ## I. App

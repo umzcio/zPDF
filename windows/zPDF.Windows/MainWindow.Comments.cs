@@ -500,10 +500,11 @@ public sealed partial class MainWindow
     }
 
     /// <summary>The corner under `point` (within a few screen pixels), or -1.</summary>
-    private int CornerAt(PageSlot slot, Point point)
+    private int CornerAt(PageSlot slot, Point point) => CornerAt(slot, point, ResizeCorners());
+
+    private static int CornerAt(PageSlot slot, Point point, List<Point> corners)
     {
         var tolerance = 6 / Math.Max(0.1, slot.Width / slot.PointWidth);
-        var corners = ResizeCorners();
         for (var i = 0; i < corners.Count; i++)
             if (Math.Abs(corners[i].X - point.X) <= tolerance && Math.Abs(corners[i].Y - point.Y) <= tolerance) return i;
         return -1;

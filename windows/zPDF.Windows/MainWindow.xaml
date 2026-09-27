@@ -246,6 +246,15 @@
                     <AppBarButton.Icon><FontIcon Glyph="&#xE78B;" /></AppBarButton.Icon>
                     <AppBarButton.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="N" /></AppBarButton.KeyboardAccelerators>
                 </AppBarButton>
+                <AppBarButton Label="Create PDF from Images…" Click="CreateFromImages_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xEB9F;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Create Blank PDF…" Click="CreateBlank_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A5;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Combine Files into a PDF…" Click="CombineFiles_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8F1;" /></AppBarButton.Icon>
+                </AppBarButton>
                 <AppBarSeparator />
                 <AppBarButton x:Name="FindButton" Icon="Find" Label="Find…" Click="Find_Click" IsEnabled="False" />
                 <AppBarButton x:Name="GoToPageButton" Label="Go to Page…" Click="GoToPage_Click" IsEnabled="False">

@@ -102,7 +102,30 @@ public sealed partial class MainWindow
                 yield return (page, BoxRect(info, item.Box), Mark.ContentOutline);
         }
         if (_contentSelection is { } sel && _infos.GetValueOrDefault(sel.Page) is { } selInfo)
+        {
             yield return (sel.Page, Inflate(BoxRect(selInfo, sel.Box), 2), Mark.CommentSelection);
+            foreach (var corner in ContentCorners()) yield return (sel.Page, new Rect(corner, corner), Mark.Handle);
+        }
+    }
+
+    private int _contentResizeCorner = -1;
+
+    /// <summary>Corners of the selected image or drawing (view points); dragging one scales it.</summary>
+    private List<Point> ContentCorners()
+    {
+        if (!IsEditingContent || _contentSelection is not { Kind: not "text" } sel || _infos.GetValueOrDefault(sel.Page) is not { } info) return [];
+        var r = BoxRect(info, sel.Box);
+        return [new(r.Left, r.Top), new(r.Right, r.Top), new(r.Right, r.Bottom), new(r.Left, r.Bottom)];
+    }
+
+    /// <summary>Uniform scale for dragging corner `corner` to `point`, about the opposite corner.</summary>
+    private static (double Scale, Point Anchor) ContentScale(List<Point> corners, int corner, Point point)
+    {
+        var anchor = corners[(corner + 2) % 4];
+        var from = corners[corner];
+        double Ratio(double p, double a, double c) => Math.Abs(c - a) < 0.5 ? 0 : (p - a) / (c - a);
+        var scale = Math.Max(Ratio(point.X, anchor.X, from.X), Ratio(point.Y, anchor.Y, from.Y));
+        return (Math.Max(0.05, scale), anchor);
     }
 
     // ---------------------------------------------------------------- pointer
@@ -112,6 +135,15 @@ public sealed partial class MainWindow
         if (!IsEditingContent) return false;
         CloseContentEditor(commit: true);
         if (!_content.ContainsKey(slot.Index)) { _ = LoadContentAsync(slot.Index); return true; }
+        if (_contentSelection is { } current && current.Page == slot.Index && CornerAt(slot, point, ContentCorners()) is var corner and >= 0)
+        {
+            _contentResizeCorner = corner;
+            _contentPressSlot = slot;
+            _contentMoveStart = point;
+            _contentMoving = false;
+            return true;
+        }
+        _contentResizeCorner = -1;
         var hit = ContentAt(slot.Index, point);
         if (hit is { Kind: "text" })
         {
@@ -134,6 +166,15 @@ public sealed partial class MainWindow
         if (!_contentMoving && Distance(point, _contentMoveStart) < 3) return true;
         _contentMoving = true;
         var rect = BoxRect(info, sel.Box);
+        if (_contentResizeCorner >= 0)
+        {
+            var corners = ContentCorners();
+            var (scale, anchor) = ContentScale(corners, _contentResizeCorner, point);
+            var far = corners[_contentResizeCorner];
+            pressSlot.SetDraft(new Draft(DraftShape.Rectangle, [anchor, new Point(anchor.X + (far.X - anchor.X) * scale, anchor.Y + (far.Y - anchor.Y) * scale)],
+                                         Microsoft.UI.ColorHelper.FromArgb(255, 0, 103, 192)));
+            return true;
+        }
         var (dx, dy) = (point.X - _contentMoveStart.X, point.Y - _contentMoveStart.Y);
         pressSlot.SetDraft(new Draft(DraftShape.Rectangle, [new Point(rect.Left + dx, rect.Top + dy), new Point(rect.Right + dx, rect.Bottom + dy)],
                                      Microsoft.UI.ColorHelper.FromArgb(255, 0, 103, 192)));
@@ -150,6 +191,18 @@ public sealed partial class MainWindow
             if (_contentMoving && _contentSelection is { } sel && Info(sel.Page) is { } info)
             {
                 _contentMoving = false;
+                if (_contentResizeCorner >= 0)
+                {
+                    var (scale, anchor) = ContentScale(ContentCorners(), _contentResizeCorner, point);
+                    _contentResizeCorner = -1;
+                    var a = info.ToPage(anchor);
+                    _ = EditContentAsync("Resizing…", sel.Page, new JsonObject
+                    {
+                        ["op"] = "object_transform", ["ids"] = new JsonArray(sel.Id),
+                        ["matrix"] = new JsonArray(Math.Round(scale, 4), 0, 0, Math.Round(scale, 4), Math.Round(a.X * (1 - scale), 3), Math.Round(a.Y * (1 - scale), 3)),
+                    });
+                    return true;
+                }
                 var from = info.ToPage(_contentMoveStart);
                 var to = info.ToPage(point);
                 _ = EditContentAsync("Moving…", sel.Page, new JsonObject

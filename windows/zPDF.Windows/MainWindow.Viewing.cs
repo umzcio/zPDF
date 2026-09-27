@@ -102,6 +102,8 @@ public sealed partial class MainWindow : IPageHost
     public InputSystemCursorShape CursorAt(PageSlot slot, Point point)
     {
         if (IsPreparingForm) return PreparableWidgetAt(slot.Index, point) is not null ? InputSystemCursorShape.SizeAll : InputSystemCursorShape.Cross;
+        if (IsEditingContent && _contentSelection?.Page == slot.Index && CornerAt(slot, point, ContentCorners()) is var handle and >= 0)
+            return handle is 0 or 2 ? InputSystemCursorShape.SizeNorthwestSoutheast : InputSystemCursorShape.SizeNortheastSouthwest;
         if (IsEditingContent)
             return ContentAt(slot.Index, point) is { } item ? (item.Kind == "text" ? InputSystemCursorShape.IBeam : InputSystemCursorShape.SizeAll) : InputSystemCursorShape.Arrow;
         if (_tool is not (CommentTool.Select or CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut))
