@@ -57,10 +57,10 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] PDF/A, PDF/X-4, PDF/E conversion (PDF/A validated)
 - [x] Export to Word, Excel, PowerPoint, images, HTML, text, etc. (exporter)
 - [x] Compare two PDFs
-- [~] Accessibility: check with fixes, autotag — reading order and alt-text editing not yet
+- [x] Accessibility: check with fixes, autotag, alternate text, reading order (per page)
 - [x] Measure (distance, perimeter, area)
-- [ ] Print production: preflight, output preview, printer marks
-- [ ] Action Wizard / batch processing
+- [x] Print production: preflight (4 profiles, fixes), output preview (inks, spot → process), printer marks
+- [~] Batch processing (13 steps, output folder, never overwrites) — no saved actions yet
 
 ## H. Edit content
 - [x] Edit text blocks in place; add text; find & replace in content
