@@ -13,6 +13,8 @@ def keep_pages(ctx, pages):
         require(isinstance(page, int) and 0 <= page < total, "INVALID_PAGE_RANGE",
                 "Choose pages within this document.")
         wanted.add(page)
+    from transforms.pages import prune_for_removal
+    prune_for_removal(ctx.pdf, [i for i in range(total) if i not in wanted])
     for index in range(total - 1, -1, -1):
         if index not in wanted:
             del ctx.pdf.pages[index]

@@ -183,6 +183,43 @@ class ReplaceDuplicateTests(Base):
                 self.run_ops(src, [{"op": "reorder_pages", "order": order}])
             self.assertEqual(caught.exception.code, "INVALID_ARGUMENT", order)
 
+    def test_removed_pages_are_really_gone(self):
+        """Fields, bookmarks, named destinations and links that point at removed
+        pages must not keep those pages (and their content) in the file."""
+        form = self.fixture("uscis-i9.pdf")
+        with pikepdf.open(form, allow_overwriting_input=True) as pdf:
+            with pdf.open_outline() as outline:
+                outline.root.append(pikepdf.OutlineItem("Page 1", 0))
+                outline.root.append(pikepdf.OutlineItem("Page 3", 2))
+            pdf.Root.Names = pikepdf.Dictionary(Dests=pikepdf.Dictionary(Names=pikepdf.Array([
+                pikepdf.String("p1"), pikepdf.Array([pdf.pages[0].obj, pikepdf.Name.Fit]),
+                pikepdf.String("p4"), pikepdf.Array([pdf.pages[3].obj, pikepdf.Name.Fit])])))
+            link = pdf.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Link, Rect=[0, 0, 10, 10],
+                                                        Dest=pikepdf.Array([pdf.pages[2].obj, pikepdf.Name.Fit])))
+            pdf.pages[0].obj.Annots.append(link)
+            page1 = {a.objgen for a in pdf.pages[0].obj.Annots}
+
+            def on_page1(node):  # any widget of this field (at any depth) is on page 1
+                kids = node.get("/Kids")
+                return any(on_page1(k) for k in kids) if kids else node.objgen in page1
+            first_page_fields = {str(f.get("/T", "")) for f in pdf.Root.AcroForm.Fields if on_page1(f)}
+            pdf.save(form)
+        for ops in ([{"op": "keep_pages", "pages": [0]}], [{"op": "delete_pages", "pages": [1, 2, 3]}]):
+            out, _ = self.run_ops(form, ops, name=f"{ops[0]['op']}.pdf")
+            with pikepdf.open(out) as pdf:
+                self.assertEqual(len(pdf.pages), 1)
+                pages = [o for o in pdf.objects if isinstance(o, pikepdf.Dictionary) and o.get("/Type") == pikepdf.Name.Page]
+                self.assertEqual(len(pages), 1, "removed pages still in the file")
+                kept = {str(f.get("/T", "")) for f in pdf.Root.AcroForm.Fields}
+                self.assertEqual(kept, first_page_fields)
+                with pdf.open_outline() as outline:
+                    self.assertEqual([i.title for i in outline.root], ["Page 1"])
+                names = [str(n) for n in pdf.Root.Names.Dests.Names[0::2]]
+                self.assertEqual(names, ["p1"])
+            with pikepdf.open(out) as pdf, pikepdf.open(form) as original:
+                # What stays is what page 1 uses (its fonts dominate the size).
+                self.assertLess(len(pdf.objects), len(original.objects) / 2, "a one-page extract keeps a fraction of the objects")
+
     def test_rotate_range(self):
         src = blank_pdf(self.tmp / "b.pdf", pages=3, rotate=90)
         out, _ = self.run_ops(src, [{"op": "rotate_pages", "pages": [0, 2], "angle": 90},

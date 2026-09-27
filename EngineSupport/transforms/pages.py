@@ -407,11 +407,189 @@ def insert_images(ctx, images, at=None, page_size=None, fit="fit", margin=0, dpi
     return {"inserted": len(images), "at": at}
 
 
+def prune_for_removal(pdf, removed):
+    """Before `removed` pages (page indexes) are deleted: drop what points at them —
+    form fields and widgets, bookmarks, named destinations, links, the open action
+    and tagged-structure elements — so the removed pages (and everything they
+    reference) are not written into the file."""
+    gone = {pdf.pages[i].obj.objgen for i in removed}
+    if not gone:
+        return
+    stays = [p for i, p in enumerate(pdf.pages) if i not in set(removed)]
+    on_kept = {a.objgen for p in stays for a in (p.obj.get("/Annots") or []) if isinstance(a, pikepdf.Dictionary) and a.is_indirect}
+
+    def page_of(dest):
+        if isinstance(dest, pikepdf.Dictionary) and dest.get("/S") == Name.GoTo:
+            dest = dest.get("/D")
+        if isinstance(dest, pikepdf.Dictionary) and "/D" in dest:  # a named-destination value
+            dest = dest.D
+        if isinstance(dest, pikepdf.Array) and len(dest) and isinstance(dest[0], pikepdf.Dictionary) and dest[0].is_indirect:
+            return dest[0].objgen
+        return None
+
+    def targets_gone(value):
+        return page_of(value) in gone
+
+    # Form fields: keep widgets that are on kept pages; drop fields left without widgets.
+    acro = pdf.Root.get("/AcroForm")
+    if isinstance(acro, pikepdf.Dictionary) and isinstance(acro.get("/Fields"), pikepdf.Array):
+        def keep(node):
+            kids = node.get("/Kids")
+            if isinstance(kids, pikepdf.Array) and len(kids):
+                kept = [k for k in kids if isinstance(k, pikepdf.Dictionary) and keep(k)]
+                if len(kept) != len(kids):
+                    node.Kids = pikepdf.Array(kept)
+                return bool(kept)
+            if node.get("/Subtype") == Name.Widget or "/Rect" in node:
+                return node.is_indirect and node.objgen in on_kept
+            return True
+        acro.Fields = pikepdf.Array([f for f in acro.Fields if isinstance(f, pikepdf.Dictionary) and keep(f)])
+        if isinstance(acro.get("/CO"), pikepdf.Array):
+            reachable = set()
+
+            def collect(node):
+                if isinstance(node, pikepdf.Dictionary) and node.is_indirect and node.objgen not in reachable:
+                    reachable.add(node.objgen)
+                    for kid in node.get("/Kids") or []:
+                        collect(kid)
+            for field in acro.Fields:
+                collect(field)
+            acro.CO = pikepdf.Array([f for f in acro.CO if f.is_indirect and f.objgen in reachable])
+
+    # Bookmarks: drop items that jump to removed pages (items with children keep, minus the jump).
+    if "/Outlines" in pdf.Root:
+        with pdf.open_outline() as outline:
+            def prune(items):
+                for item in list(items):
+                    prune(item.children)
+                    if targets_gone(item.destination) or targets_gone(item.action):
+                        if item.children:
+                            item.destination = None
+                            item.action = None
+                        else:
+                            items.remove(item)
+            prune(outline.root)
+
+    # Named destinations (name tree and the old /Dests dictionary).
+    names = pdf.Root.get("/Names")
+    if isinstance(names, pikepdf.Dictionary) and isinstance(names.get("/Dests"), pikepdf.Dictionary):
+        tree = pikepdf.NameTree(names.Dests)
+        for key in [k for k, v in tree.items() if targets_gone(v)]:
+            del tree[key]
+    old = pdf.Root.get("/Dests")
+    if isinstance(old, pikepdf.Dictionary):
+        for key in [k for k, v in old.items() if targets_gone(v)]:
+            del old[key]
+    if targets_gone(pdf.Root.get("/OpenAction")):
+        del pdf.Root["/OpenAction"]
+
+    # Links on kept pages that jump to removed pages.
+    for page in stays:
+        annots = page.obj.get("/Annots")
+        if isinstance(annots, pikepdf.Array):
+            kept = [a for a in annots if not (isinstance(a, pikepdf.Dictionary) and a.get("/Subtype") == Name.Link
+                                              and (targets_gone(a.get("/Dest")) or targets_gone(a.get("/A"))))]
+            if len(kept) != len(annots):
+                page.obj.Annots = pikepdf.Array(kept)
+
+    # Tagged structure: elements and marked-content references on removed pages.
+    root = pdf.Root.get("/StructTreeRoot")
+    if isinstance(root, pikepdf.Dictionary):
+        def on_gone_page(node):
+            pg = node.get("/Pg") if isinstance(node, pikepdf.Dictionary) else None
+            return isinstance(pg, pikepdf.Dictionary) and pg.is_indirect and pg.objgen in gone
+
+        seen = set()
+
+        def prune_struct(node, inherited_gone=False):
+            """False when nothing of `node` remains on kept pages. Marked-content and
+            object references without their own /Pg belong to their element's page."""
+            if not isinstance(node, pikepdf.Dictionary):
+                return True
+            if node.is_indirect:
+                if node.objgen in seen:
+                    return True
+                seen.add(node.objgen)
+            page_gone = on_gone_page(node) if "/Pg" in node else inherited_gone
+            if node.get("/Type") == Name.OBJR:
+                obj = node.get("/Obj")
+                if isinstance(obj, pikepdf.Dictionary) and obj.is_indirect and obj.get("/Subtype") is not None:
+                    return obj.objgen in on_kept or not page_gone
+                return not page_gone
+            kids = node.get("/K")
+            if kids is None:
+                return not page_gone
+            items = list(kids) if isinstance(kids, pikepdf.Array) else [kids]
+            kept = [k for k in items if (prune_struct(k, page_gone) if isinstance(k, pikepdf.Dictionary) else not page_gone)]
+            if len(kept) != len(items):
+                if not kept:
+                    del node["/K"]
+                else:
+                    node.K = pikepdf.Array(kept) if len(kept) > 1 or isinstance(kids, pikepdf.Array) else kept[0]
+            if kept and "/Pg" in node and on_gone_page(node):
+                del node["/Pg"]  # it survives only for children on kept pages
+            return bool(kept) or node.get("/Type") == Name.StructTreeRoot
+
+        prune_struct(root)
+
+        # ParentTree: entries pointing only at elements no longer in the tree go
+        # (whatever owned their key: a removed page, its annotations or forms).
+        live = set()
+
+        def collect(node):
+            if isinstance(node, pikepdf.Dictionary) and node.is_indirect and node.objgen not in live:
+                live.add(node.objgen)
+                kids = node.get("/K")
+                for kid in (list(kids) if isinstance(kids, pikepdf.Array) else [kids]) if kids is not None else []:
+                    collect(kid)
+        collect(root)
+        for kid in (list(root.K) if isinstance(root.get("/K"), pikepdf.Array) else [root.get("/K")]):
+            collect(kid)
+
+        def alive(value):
+            return isinstance(value, pikepdf.Dictionary) and value.is_indirect and value.objgen in live
+
+        def prune_numbers(tree):
+            if not isinstance(tree, pikepdf.Dictionary):
+                return
+            nums = tree.get("/Nums")
+            if isinstance(nums, pikepdf.Array):
+                kept = []
+                for i in range(0, len(nums) - 1, 2):
+                    key, value = nums[i], nums[i + 1]
+                    if isinstance(value, pikepdf.Array):
+                        cleaned = [v if alive(v) else None for v in value]
+                        if any(v is not None for v in cleaned):
+                            kept += [key, pikepdf.Array(cleaned)]
+                    elif alive(value):
+                        kept += [key, value]
+                tree.Nums = pikepdf.Array(kept)
+                if "/Limits" in tree and kept:
+                    tree.Limits = pikepdf.Array([kept[0], kept[-2]])
+            for kid in tree.get("/Kids") or []:
+                prune_numbers(kid)
+        prune_numbers(root.get("/ParentTree"))
+
+        def prune_names(tree):  # the IDTree maps element IDs to elements
+            if not isinstance(tree, pikepdf.Dictionary):
+                return
+            names = tree.get("/Names")
+            if isinstance(names, pikepdf.Array):
+                kept = [v for i in range(0, len(names) - 1, 2) if alive(names[i + 1]) for v in (names[i], names[i + 1])]
+                tree.Names = pikepdf.Array(kept)
+                if "/Limits" in tree and kept:
+                    tree.Limits = pikepdf.Array([kept[0], kept[-2]])
+            for kid in tree.get("/Kids") or []:
+                prune_names(kid)
+        prune_names(root.get("/IDTree"))
+
+
 @op("delete_pages")
 def delete_pages(ctx, pages):
     pdf = ctx.pdf
     indexes = sorted(set(_indexes(pdf, pages)), reverse=True)
     require(len(indexes) < len(pdf.pages), "EMPTY_DOCUMENT", "A PDF must keep at least one page.")
+    prune_for_removal(pdf, indexes)
     for index in indexes:
         del pdf.pages[index]
     return {"deleted": len(indexes)}
