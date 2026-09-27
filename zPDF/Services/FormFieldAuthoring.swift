@@ -28,8 +28,9 @@ enum BarcodeEncoder {
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
         context.render(image, toBitmap: &pixels, rowBytes: width * 4, bounds: extent, format: .RGBA8,
                        colorSpace: CGColorSpaceCreateDeviceRGB())
-        // Core Image rows are bottom-up; the engine expects the top row first.
-        return (0..<height).reversed().map { y in
+        // render(toBitmap:) writes the top row first, as the engine expects (reversing it
+        // mirrored QR codes, which many scanners refuse).
+        return (0..<height).map { y in
             (0..<width).map { x in pixels[(y * width + x) * 4] < 128 ? 1 : 0 }
         }
     }

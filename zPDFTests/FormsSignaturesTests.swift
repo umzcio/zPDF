@@ -386,6 +386,13 @@ final class FormsSignaturesTests: XCTestCase {
         let matrix = try XCTUnwrap(BarcodeEncoder.matrix(for: "Ada\t59801", symbology: "qr"))
         XCTAssertGreaterThan(matrix.count, 20)
         XCTAssertEqual(matrix.count, matrix.first?.count)
+        // Upright, not mirrored: QR finder patterns sit top-left, top-right and bottom-left.
+        func finder(_ row: Int, _ col: Int) -> Bool {
+            (0..<7).allSatisfy { matrix[row][col + $0] == 1 && matrix[row + 6][col + $0] == 1 && matrix[row + $0][col] == 1 && matrix[row + $0][col + 6] == 1 }
+        }
+        let far = matrix.count - 8  // one-module quiet zone
+        XCTAssertTrue(finder(1, 1) && finder(1, far) && finder(far, 1), "QR finder patterns")
+        XCTAssertFalse(finder(far, far), "a finder at the bottom-right means the code is mirrored")
         XCTAssertNotNil(BarcodeEncoder.matrix(for: "Ada", symbology: "pdf417"))
         let url = try fixture("ordinary-edge")
         let state = try makeState()
