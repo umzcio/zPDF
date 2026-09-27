@@ -187,6 +187,14 @@ public sealed partial class DocumentPane
         var content = Stack(list, Row(add, delete, up, down, outdent, indent), Row(title, page),
                             Note("Changing the page makes the bookmark open that whole page."));
         if (!await AskAsync("Edit Bookmarks", content, "Save")) return;
+        // A page typed but not yet committed (focus still in the box) still counts.
+        if (Selected() >= 0 && int.TryParse(page.Text, out var typedPage) && typedPage >= 1 && typedPage <= _document.PageCount
+            && JInt(rows[Selected()].Node["page"]) != typedPage - 1)
+        {
+            var node = rows[Selected()].Node;
+            foreach (var key in new[] { "uri", "dest_name", "fit", "left", "top", "zoom", "action" }) node.Remove(key);
+            node["page"] = typedPage - 1;
+        }
         var items = Build();
         if (items.ToJsonString() == before) return;
         await EditDocumentAsync("Saving bookmarks…", new JsonObject { ["op"] = "set_outline", ["items"] = items });
@@ -418,7 +426,11 @@ public sealed partial class DocumentPane
         var pivot = new Pivot { Width = 640, Height = 480 };
         foreach (var (header, pane) in new (string, UIElement)[]
                  { ("Description", description), ("Initial View", initial), ("Custom", customPane), ("XMP", xmpPane), ("Fonts", fontPane), ("Security", securityPane) })
-            pivot.Items.Add(new PivotItem { Header = header, Content = new ScrollViewer { Content = pane, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 8, 16, 8) } });
+        {
+            var item = new PivotItem { Header = header, Content = new ScrollViewer { Content = pane, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 8, 16, 8) } };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, header);
+            pivot.Items.Add(item);
+        }
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot, Title = "Document Properties", Content = pivot,

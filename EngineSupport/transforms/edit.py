@@ -27,7 +27,7 @@ from transforms.content import (add_content, add_resource, fmt, image_xobject, m
                                 resources, rotation, visual_matrix, select_pages, INVOCATION)
 from transforms.fonts import EmbeddedFont, STYLE_FONTS, fallback_font
 from transforms.interpret import (Plan, walk_page, rewrite_page, page_digest, quad_bbox, safe_invert, instr,
-                                  full_state_ops, num, IDENTITY, Walker)
+                                  full_state_ops, num, IDENTITY, Walker, clip_bbox)
 
 OVERLAY_KINDS = ("Watermark", "HeaderFooter", "Background", "Bates")
 
@@ -316,9 +316,14 @@ def describe_objects(walker, limit=4000):
         if item.kind == "path" and item.paint == "n":
             continue
         x0, y0, x1, y1 = item.bbox
+        if item.kind in ("image", "inline_image") and item.state is not None and (clip := clip_bbox(item.state)):
+            # A cropped image shows only its clipped part: report the visible box.
+            cx0, cy0, cx1, cy1 = max(x0, clip[0]), max(y0, clip[1]), min(x1, clip[2]), min(y1, clip[3])
+            if cx1 > cx0 and cy1 > cy0:
+                x0, y0, x1, y1 = cx0, cy0, cx1, cy1
         if x1 - x0 < 0.2 and y1 - y0 < 0.2:
             continue
-        entry = {"id": object_id(item), "kind": item.kind, "bbox": [round(v, 3) for v in item.bbox]}
+        entry = {"id": object_id(item), "kind": item.kind, "bbox": [round(v, 3) for v in (x0, y0, x1, y1)]}
         if item.quad:
             entry["quad"] = [[round(x, 3), round(y, 3)] for x, y in item.quad]
         if item.kind in ("image", "inline_image"):

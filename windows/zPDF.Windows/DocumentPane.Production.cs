@@ -338,11 +338,6 @@ public sealed partial class DocumentPane
         }
         Walk(tree["root"]!, "root");
         string ParentOf(string id) => parents.GetValueOrDefault(id, "root");
-        bool Inside(string id, string ancestor)
-        {
-            for (var at = ParentOf(id); at != "root"; at = ParentOf(at)) if (at == ancestor) return true;
-            return false;
-        }
         var entries = order["items"]!.AsArray().Select(i =>
         {
             var text = (i!["text"]?.GetValue<string>() ?? "").Replace('\n', ' ');
@@ -362,26 +357,39 @@ public sealed partial class DocumentPane
         }
         Refill();
         var list = new ListView { ItemsSource = items, SelectionMode = ListViewSelectionMode.Single, MaxHeight = 380, MinWidth = 520 };
-        // A tag and everything nested in it, as a run of the list starting at `index`.
-        int BlockEnd(int index) { var end = index + 1; while (end < ids.Count && Inside(ids[end], ids[index])) end++; return end; }
-        var changed = new HashSet<string>();  // parents whose children were reordered
+        // Rows are grouped by their ancestor that is a child of `parent` (a tag, or a container
+        // that has no content of its own on this page); moves swap those groups, which is what
+        // the engine does when it reorders the parent's children.
+        string? ChildOf(string id, string parent)
+        {
+            for (var at = id; at != "root"; at = ParentOf(at))
+                if (ParentOf(at) == parent) return at;
+            return null;
+        }
+        var changed = new Dictionary<string, List<string>>();  // parent → its children in the new order
         void Move(int direction)
         {
             if (list.SelectedIndex is not (var index and >= 0)) return;
             var id = ids[index];
             var parent = ParentOf(id);
-            var end = BlockEnd(index);
-            var block = ids.GetRange(index, end - index);
-            // The neighbouring sibling (with its contents) in that direction.
-            var siblings = Enumerable.Range(0, ids.Count).Where(i => ParentOf(ids[i]) == parent).ToList();
-            var at = siblings.IndexOf(index) + direction;
-            if (at < 0 || at >= siblings.Count) { StatusText.Text = "That tag is already first or last within its parent."; return; }
-            var other = siblings[at];
-            var otherEnd = BlockEnd(other);
-            ids.RemoveRange(index, block.Count);
-            // Up: before the previous sibling. Down: after the next sibling and its contents.
-            ids.InsertRange(direction < 0 ? other : otherEnd - block.Count, block);
-            changed.Add(parent);
+            var keys = ids.Select(i => ChildOf(i, parent)).ToList();
+            (int Start, int End) Run(int at)
+            {
+                var (from, to) = (at, at + 1);
+                while (from > 0 && keys[from - 1] == keys[at]) from--;
+                while (to < ids.Count && keys[to] == keys[at]) to++;
+                return (from, to);
+            }
+            var mine = Run(index);
+            var neighbour = direction < 0 ? mine.Start - 1 : mine.End;
+            while (neighbour >= 0 && neighbour < ids.Count && keys[neighbour] is null) neighbour += direction;
+            if (neighbour < 0 || neighbour >= ids.Count) { StatusText.Text = "That tag is already first or last within its parent."; return; }
+            var other = Run(neighbour);
+            var block = ids.GetRange(mine.Start, mine.End - mine.Start);
+            ids.RemoveRange(mine.Start, block.Count);
+            // Up: before the neighbouring group. Down: after it.
+            ids.InsertRange(direction < 0 ? other.Start : other.End - block.Count, block);
+            changed[parent] = ids.Select(i => ChildOf(i, parent)).OfType<string>().Distinct().ToList();
             Refill();
             list.SelectedIndex = ids.IndexOf(id);
         }
@@ -392,11 +400,8 @@ public sealed partial class DocumentPane
         if (!await AskAsync($"Reading Order: Page {page + 1}", Stack(Note("Select a tag and move it up or down among the tags at its level (indented tags are inside the one above and move with it)."), list, Row(up, down)), "Save")) return;
         if (changed.Count == 0) return;
         var ops = new JsonArray();
-        foreach (var parent in changed)
-        {
-            var group = ids.Where(i => ParentOf(i) == parent).ToList();
+        foreach (var (_, group) in changed)
             if (group.Count > 1) ops.Add(new JsonObject { ["op"] = "set_reading_order", ["page"] = page, ["ids"] = new JsonArray(group.Select(i => (JsonNode)i).ToArray()) });
-        }
         if (ops.Count > 0) await ApplyOpsAsync("Saving reading order…", ops, $"Reading order of page {page + 1} saved.");
     }
 

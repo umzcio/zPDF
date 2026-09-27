@@ -356,6 +356,10 @@ class ObjectTests(Base):
         bitmap = render(out2)
         self.assertEqual(bitmap.getpixel((190, 792 - 510))[:3], (0, 200, 0))
         self.assertEqual(bitmap.getpixel((210, 792 - 510))[:3], (255, 255, 255))
+        # The listed box is the visible (cropped) part, so selection outlines fit it.
+        cropped = next(o for o in content(out2)["objects"] if o["kind"] == "image")
+        self.assertLessEqual(cropped["bbox"][2], 200.01)
+        self.assertLessEqual(cropped["bbox"][3], 550.01)
         out3, _ = self.run_ops(out2, [{"op": "image_add", "page": 0, "image": str(png), "rect": [400, 100, 450, 200]}],
                                name="o3.pdf")
         self.assertEqual(render(out3).getpixel((425, 792 - 150))[:3], (0, 200, 0))

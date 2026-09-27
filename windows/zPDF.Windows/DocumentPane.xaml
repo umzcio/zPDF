@@ -229,6 +229,7 @@
                         <MenuFlyoutItem Text="Edit Bookmarks…" Click="EditBookmarks_Click" />
                         <MenuFlyoutItem Text="Bookmarks from Headings…" Click="BookmarksFromHeadings_Click" />
                         <MenuFlyoutItem Text="Named Destinations…" Click="NamedDestinations_Click" />
+                        <MenuFlyoutItem Text="Articles &amp; 3D Content…" Click="ArticlesAndMedia_Click" />
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
@@ -356,7 +357,7 @@
                 <FontIcon Glyph="&#xE72A;" FontSize="16" /></ToggleButton>
             <ToggleButton Tag="Stamp" Click="Tool_Click" ToolTipService.ToolTip="Stamp" AutomationProperties.Name="Stamp">
                 <FontIcon Glyph="&#xE8F1;" FontSize="16" /></ToggleButton>
-            <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="150" AutomationProperties.Name="Stamp type"
+            <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="150" MaxDropDownHeight="720" AutomationProperties.Name="Stamp type"
                       ToolTipService.ToolTip="Stamp to place" SelectionChanged="StampChoice_SelectionChanged" />
             <AppBarSeparator />
             <AppBarSeparator />
