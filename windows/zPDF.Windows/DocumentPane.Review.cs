@@ -205,9 +205,15 @@ public sealed partial class DocumentPane
 
     private async void Autotag_Click(object sender, RoutedEventArgs e)
     {
-        var tagged = (await Engine.QueryAsync(CurrentPath!, "accessibility_check", password: _password))["tagged"]?.GetValue<bool>() == true;
+        if (CurrentPath is null) return;
+        StatusText.Text = "Checking for existing tags…";
+        bool tagged;
+        try { tagged = (await Engine.QueryAsync(CurrentPath, "structure_tree", password: _password))["tagged"]?.GetValue<bool>() == true; }
+        catch (EngineException error) { StatusText.Text = error.Message; return; }
+        StatusText.Text = "";
         if (tagged && !await AskAsync("Replace the existing tags?", new TextBlock { Text = "This document is already tagged. Autotagging replaces its tags with new ones.", TextWrapping = TextWrapping.Wrap }, "Replace")) return;
-        await EditDocumentAsync("Tagging the document…", new JsonObject { ["op"] = "autotag", ["replace"] = tagged });
+        if (await EditDocumentAsync($"Tagging {_document?.PageCount} page{(_document?.PageCount == 1 ? "" : "s")}…", new JsonObject { ["op"] = "autotag", ["replace"] = tagged }))
+            StatusText.Text = "Tagged. Run the Accessibility Check to review headings, figures and reading order; save to keep the tags.";
     }
 
     // ---------------------------------------------------------------- measure

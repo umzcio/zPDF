@@ -316,39 +316,83 @@ public sealed partial class DocumentPane
     {
         if (CurrentPath is null) return;
         var page = _page;
-        JsonNode order;
-        try { order = await Engine.QueryAsync(CurrentPath, "reading_order", new JsonObject { ["page"] = page }, _password); }
+        JsonNode order, tree;
+        try
+        {
+            order = await Engine.QueryAsync(CurrentPath, "reading_order", new JsonObject { ["page"] = page }, _password);
+            tree = await Engine.QueryAsync(CurrentPath, "structure_tree", password: _password);
+        }
         catch (EngineException error) { StatusText.Text = error.Message; return; }
-        var items = new ObservableCollection<OrderItem>(order["items"]!.AsArray().Select(i =>
+        // Parent of every tag: moves happen among siblings, carrying each tag's contents along.
+        var parents = new Dictionary<string, string>();
+        void Walk(JsonNode node, string parent)
+        {
+            var id = node["id"]?.GetValue<string>() ?? parent;
+            if (id != parent) parents[id] = parent;
+            foreach (var child in node["children"]?.AsArray() ?? []) if (child is not null) Walk(child, id);
+        }
+        Walk(tree["root"]!, "root");
+        string ParentOf(string id) => parents.GetValueOrDefault(id, "root");
+        bool Inside(string id, string ancestor)
+        {
+            for (var at = ParentOf(id); at != "root"; at = ParentOf(at)) if (at == ancestor) return true;
+            return false;
+        }
+        var entries = order["items"]!.AsArray().Select(i =>
         {
             var text = (i!["text"]?.GetValue<string>() ?? "").Replace('\n', ' ');
-            if (text.Length > 70) text = text[..70] + "…";
-            return new OrderItem(i["id"]!.GetValue<string>(), $"{i["type"]}  {text}");
-        }));
-        if (items.Count < 2) { StatusText.Text = items.Count == 0 ? "This page has no tagged content. Autotag the document first." : "This page has only one tagged item."; return; }
-        var original = items.Select(i => i.Id).ToList();
-        var list = new ListView
+            if (text.Length > 60) text = text[..60] + "…";
+            return (Id: i["id"]!.GetValue<string>(), Label: $"{i["type"]}  {text}");
+        }).ToList();
+        if (entries.Count < 2) { StatusText.Text = entries.Count == 0 ? "This page has no tagged content. Autotag the document first." : "This page has only one tagged item."; return; }
+        var onPage = entries.Select(e => e.Id).ToHashSet();
+        int Depth(string id) { var d = 0; for (var at = ParentOf(id); at != "root"; at = ParentOf(at)) if (onPage.Contains(at)) d++; return d; }
+        var ids = entries.Select(e => e.Id).ToList();
+        var labels = entries.ToDictionary(e => e.Id, e => e.Label);
+        var items = new ObservableCollection<OrderItem>();
+        void Refill()
         {
-            ItemsSource = items, CanReorderItems = true, AllowDrop = true, CanDragItems = true, SelectionMode = ListViewSelectionMode.Single,
-            MaxHeight = 380, MinWidth = 520,
-        };
-        void Move(int delta)
+            items.Clear();
+            foreach (var id in ids) items.Add(new OrderItem(id, new string(' ', Depth(id) * 4) + labels[id]));
+        }
+        Refill();
+        var list = new ListView { ItemsSource = items, SelectionMode = ListViewSelectionMode.Single, MaxHeight = 380, MinWidth = 520 };
+        // A tag and everything nested in it, as a run of the list starting at `index`.
+        int BlockEnd(int index) { var end = index + 1; while (end < ids.Count && Inside(ids[end], ids[index])) end++; return end; }
+        var changed = new HashSet<string>();  // parents whose children were reordered
+        void Move(int direction)
         {
-            if (list.SelectedIndex is var index and >= 0 && index + delta >= 0 && index + delta < items.Count)
-            {
-                items.Move(index, index + delta);
-                list.SelectedIndex = index + delta;
-            }
+            if (list.SelectedIndex is not (var index and >= 0)) return;
+            var id = ids[index];
+            var parent = ParentOf(id);
+            var end = BlockEnd(index);
+            var block = ids.GetRange(index, end - index);
+            // The neighbouring sibling (with its contents) in that direction.
+            var siblings = Enumerable.Range(0, ids.Count).Where(i => ParentOf(ids[i]) == parent).ToList();
+            var at = siblings.IndexOf(index) + direction;
+            if (at < 0 || at >= siblings.Count) { StatusText.Text = "That tag is already first or last within its parent."; return; }
+            var other = siblings[at];
+            var otherEnd = BlockEnd(other);
+            ids.RemoveRange(index, block.Count);
+            // Up: before the previous sibling. Down: after the next sibling and its contents.
+            ids.InsertRange(direction < 0 ? other : otherEnd - block.Count, block);
+            changed.Add(parent);
+            Refill();
+            list.SelectedIndex = ids.IndexOf(id);
         }
         var up = new Button { Content = "Move Up" };
         var down = new Button { Content = "Move Down" };
         up.Click += (_, _) => Move(-1);
         down.Click += (_, _) => Move(1);
-        if (!await AskAsync($"Reading Order: Page {page + 1}", Stack(Note("Drag items (or select one and use Move Up/Down) into the order a screen reader should read them."), list, Row(up, down)), "Save")) return;
-        var ids = items.Select(i => i.Id).ToList();
-        if (ids.SequenceEqual(original)) return;
-        await ApplyOpsAsync("Saving reading order…", [new JsonObject { ["op"] = "set_reading_order", ["page"] = page, ["ids"] = new JsonArray(ids.Select(i => (JsonNode)i).ToArray()) }],
-                            $"Reading order of page {page + 1} saved.");
+        if (!await AskAsync($"Reading Order: Page {page + 1}", Stack(Note("Select a tag and move it up or down among the tags at its level (indented tags are inside the one above and move with it)."), list, Row(up, down)), "Save")) return;
+        if (changed.Count == 0) return;
+        var ops = new JsonArray();
+        foreach (var parent in changed)
+        {
+            var group = ids.Where(i => ParentOf(i) == parent).ToList();
+            if (group.Count > 1) ops.Add(new JsonObject { ["op"] = "set_reading_order", ["page"] = page, ["ids"] = new JsonArray(group.Select(i => (JsonNode)i).ToArray()) });
+        }
+        if (ops.Count > 0) await ApplyOpsAsync("Saving reading order…", ops, $"Reading order of page {page + 1} saved.");
     }
 
     // ---------------------------------------------------------------- batch processing

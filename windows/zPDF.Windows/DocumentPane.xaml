@@ -72,6 +72,9 @@
                         <MenuFlyoutItem Text="Crop Pages…" Click="CropPages_Click" />
                         <MenuFlyoutItem Text="Resize Pages…" Click="ResizePages_Click" />
                         <MenuFlyoutItem Text="Page Labels…" Click="PageLabels_Click" />
+                        <MenuFlyoutItem Text="Set Page Boxes…" Click="SetPageBoxes_Click" />
+                        <MenuFlyoutItem Text="Scale Page Content…" Click="ScalePages_Click" />
+                        <MenuFlyoutItem Text="Page Transitions…" Click="PageTransitions_Click" />
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
@@ -144,6 +147,10 @@
                         </MenuFlyoutSubItem>
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Recognize Text (OCR)…" Click="RecognizeText_Click" />
+                        <MenuFlyoutItem Text="Text Layer Status…" Click="TextStatus_Click" />
+                        <MenuFlyoutItem Text="Remove Recognized Text…" Click="RemoveOcrLayer_Click" />
+                        <MenuFlyoutItem Text="Extract All Images…" Click="ExtractImages_Click" />
+                        <MenuFlyoutItem Text="Extract Attachments…" Click="ExtractEmbedded_Click" />
                         <MenuFlyoutItem Text="Reduce File Size…" Click="ReduceSize_Click" />
                         <MenuFlyoutItem Text="Save as PDF/A…" Click="ConvertPdfA_Click" />
                         <MenuFlyoutItem Text="Save as PDF/X-4…" Click="ConvertPdfX_Click" />
@@ -163,6 +170,7 @@
                         </MenuFlyoutSubItem>
                         <MenuFlyoutItem Text="Flatten Form Fields…" Click="FlattenForm_Click" />
                         <MenuFlyoutItem Text="Compare with Another PDF…" Click="Compare_Click" />
+                        <MenuFlyoutItem Text="Compare Comments…" Click="CompareComments_Click" />
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Accessibility Check…" Click="AccessibilityCheck_Click" />
                         <MenuFlyoutItem Text="Autotag Document" Click="Autotag_Click" />
@@ -174,12 +182,18 @@
                             <MenuFlyoutItem Text="Output Preview…" Click="OutputPreview_Click" />
                             <MenuFlyoutItem Text="Printer Marks…" Click="PrinterMarks_Click" />
                         </MenuFlyoutSubItem>
+                        <MenuFlyoutSubItem Text="Print Layout">
+                            <MenuFlyoutItem Text="Booklet…" Click="Booklet_Click" />
+                            <MenuFlyoutItem Text="Multiple Pages per Sheet…" Click="NUp_Click" />
+                            <MenuFlyoutItem Text="Poster (Tile Pages)…" Click="Poster_Click" />
+                        </MenuFlyoutSubItem>
                         <MenuFlyoutItem Text="Batch Process Files…" Click="Batch_Click" />
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Measure Distance" Tag="MeasureDistance" Click="MeasureTool_Click" />
                         <MenuFlyoutItem Text="Measure Perimeter" Tag="MeasurePerimeter" Click="MeasureTool_Click" />
                         <MenuFlyoutItem Text="Measure Area" Tag="MeasureArea" Click="MeasureTool_Click" />
                         <MenuFlyoutItem Text="Set Measurement Scale…" Click="SetScale_Click" />
+                        <MenuFlyoutItem Text="Measurements…" Click="Measurements_Click" />
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
@@ -190,6 +204,15 @@
                         <MenuFlyoutItem Text="Extract Pages…" Click="ExtractPages_Click" />
                         <MenuFlyoutItem Text="Split Document…" Click="SplitDocument_Click" />
                         <MenuFlyoutItem Text="Combine Files…" Click="CombineFiles_Click" />
+                        <MenuFlyoutItem Text="Split by File Size…" Click="SplitBySize_Click" />
+                        <MenuFlyoutItem Text="Create Portfolio…" Click="CreatePortfolio_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Edit Document Properties…" Click="EditProperties_Click" />
+                        <MenuFlyoutItem Text="Space Usage…" Click="SpaceUsage_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Edit Bookmarks…" Click="EditBookmarks_Click" />
+                        <MenuFlyoutItem Text="Bookmarks from Headings…" Click="BookmarksFromHeadings_Click" />
+                        <MenuFlyoutItem Text="Named Destinations…" Click="NamedDestinations_Click" />
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
