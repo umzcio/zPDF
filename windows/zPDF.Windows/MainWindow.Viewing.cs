@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
@@ -225,7 +226,8 @@ public sealed partial class MainWindow : IPageHost
 
     private void Escape_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (FindBar.Visibility == Visibility.Visible) CloseFind();
+        if (IsFullScreen) SetFullScreen(false);
+        else if (FindBar.Visibility == Visibility.Visible) CloseFind();
         else ClearSelection();
         args.Handled = true;
     }
@@ -479,6 +481,99 @@ public sealed partial class MainWindow : IPageHost
         if (_document is null) return;
         PageScroller.ChangeView(null, PageScroller.ScrollableHeight, null, disableAnimation: true);
         args.Handled = true;
+    }
+
+    // ---------------------------------------------------------------- recent files
+
+    private void RecentMenu_Opening(object sender, object e)
+    {
+        RecentMenu.Items.Clear();
+        var recent = AppSettings.Current.RecentFiles;
+        if (recent.Count == 0)
+        {
+            RecentMenu.Items.Add(new MenuFlyoutItem { Text = "No recent files", IsEnabled = false });
+            return;
+        }
+        foreach (var path in recent)
+        {
+            var item = new MenuFlyoutItem { Text = Path.GetFileName(path), Tag = path };
+            ToolTipService.SetToolTip(item, path);
+            item.Click += RecentItem_Click;
+            RecentMenu.Items.Add(item);
+        }
+        RecentMenu.Items.Add(new MenuFlyoutSeparator());
+        var clear = new MenuFlyoutItem { Text = "Clear Recent Files" };
+        clear.Click += (_, _) => { AppSettings.Current.ClearRecent(); ShowStartRecents(); };
+        RecentMenu.Items.Add(clear);
+    }
+
+    private async void RecentItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string path }) return;
+        if (!File.Exists(path))
+        {
+            AppSettings.Current.RemoveRecent(path);
+            ShowStartRecents();
+            StatusText.Text = $"{Path.GetFileName(path)} was moved or deleted; it's been removed from Recent.";
+            return;
+        }
+        if (await ConfirmDiscardAsync()) await OpenAsync(path);
+    }
+
+    /// <summary>The recent-files list on the start screen.</summary>
+    private void ShowStartRecents()
+    {
+        StartRecentList.Children.Clear();
+        var recent = AppSettings.Current.RecentFiles.Take(8).ToList();
+        StartRecentHeader.Visibility = recent.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var path in recent)
+        {
+            var button = new HyperlinkButton
+            {
+                Tag = path,
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        new TextBlock { Text = Path.GetFileName(path) },
+                        new TextBlock
+                        {
+                            Text = Path.GetDirectoryName(path) ?? "", TextTrimming = TextTrimming.CharacterEllipsis,
+                            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                        },
+                    },
+                },
+            };
+            AutomationProperties.SetName(button, $"Open {Path.GetFileName(path)}");
+            button.Click += RecentItem_Click;
+            StartRecentList.Children.Add(button);
+        }
+    }
+
+    // ---------------------------------------------------------------- full screen
+
+    private bool IsFullScreen => AppWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen;
+
+    private void FullScreen_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (_document is null) return;
+        SetFullScreen(!IsFullScreen);
+        args.Handled = true;
+    }
+
+    private void FullScreen_Click(object sender, RoutedEventArgs e) => SetFullScreen(true);
+
+    /// <summary>Reading mode: the page view only; F11 or Esc returns.</summary>
+    private void SetFullScreen(bool on)
+    {
+        AppWindow.SetPresenter(on ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
+                                  : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
+        var chrome = on ? Visibility.Collapsed : Visibility.Visible;
+        Toolbar.Visibility = StatusBar.Visibility = chrome;
+        Sidebar.Visibility = on || _document is null ? Visibility.Collapsed : Visibility.Visible;
+        if (on) FindBar.Visibility = Visibility.Collapsed;
+        if (on) StatusText.Text = "";
     }
 
     // ---------------------------------------------------------------- print

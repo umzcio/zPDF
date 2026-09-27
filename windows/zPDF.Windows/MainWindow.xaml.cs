@@ -52,6 +52,7 @@ public sealed partial class MainWindow : Window
         ZoomInButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)187 });
         ZoomOutButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)189 });
         AppWindow.Closing += AppWindow_Closing;
+        ShowStartRecents();
         Closed += (_, _) =>
         {
             _thumbnailWork?.Cancel();
@@ -87,6 +88,7 @@ public sealed partial class MainWindow : Window
         DeleteRevisions();
         _sourcePath = _savedPath = path;
         _password = opened.Password;
+        AppSettings.Current.AddRecent(path);
         _page = 0;
         _fitWidth = true;
         Show(opened.Document, keepPosition: false);
@@ -617,6 +619,7 @@ public sealed partial class MainWindow : Window
         var open = _document is not null;
         SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = open;
         FindButton.IsEnabled = GoToPageButton.IsEnabled = PropertiesButton.IsEnabled = PrintButton.IsEnabled = open;
+        FullScreenButton.IsEnabled = open;
         RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = open;
         DeletePagesButton.IsEnabled = open && _document!.PageCount > 1;
         SaveButton.IsEnabled = IsEdited;
