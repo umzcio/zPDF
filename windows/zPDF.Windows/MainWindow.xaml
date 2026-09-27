@@ -70,6 +70,8 @@
                         <MenuFlyoutItem Text="Replace Pages…" Click="ReplacePages_Click" />
                         <MenuFlyoutItem Text="Duplicate Pages" Click="DuplicatePages_Click" />
                         <MenuFlyoutItem Text="Crop Pages…" Click="CropPages_Click" />
+                        <MenuFlyoutItem Text="Resize Pages…" Click="ResizePages_Click" />
+                        <MenuFlyoutItem Text="Page Labels…" Click="PageLabels_Click" />
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
@@ -144,6 +146,8 @@
                         <MenuFlyoutItem Text="Recognize Text (OCR)…" Click="RecognizeText_Click" />
                         <MenuFlyoutItem Text="Reduce File Size…" Click="ReduceSize_Click" />
                         <MenuFlyoutItem Text="Save as PDF/A…" Click="ConvertPdfA_Click" />
+                        <MenuFlyoutItem Text="Save as PDF/X-4…" Click="ConvertPdfX_Click" />
+                        <MenuFlyoutItem Text="Save as PDF/E…" Click="ConvertPdfE_Click" />
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
@@ -299,6 +303,8 @@
                           AutomationProperties.Name="Edit content">
                 <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE70F;" FontSize="16" /><TextBlock Text="Edit" /></StackPanel>
             </ToggleButton>
+            <ToggleButton Tag="Link" Click="LinkTool_Click" ToolTipService.ToolTip="Add or edit links" AutomationProperties.Name="Links">
+                <FontIcon Glyph="&#xE71B;" FontSize="16" /></ToggleButton>
             <Button Click="AddText_Click" ToolTipService.ToolTip="Add text to the page" AutomationProperties.Name="Add text">
                 <FontIcon Glyph="&#xE8D3;" FontSize="16" /></Button>
             <Button Click="AddImage_Click" ToolTipService.ToolTip="Add an image to the page" AutomationProperties.Name="Add image">
@@ -399,6 +405,8 @@
                     <SelectorBarItem x:Name="BookmarksTab" Text="Bookmarks" />
                     <SelectorBarItem x:Name="CommentsTab" Text="Comments" />
                     <SelectorBarItem x:Name="ChangesTab" Text="Changes" Visibility="Collapsed" />
+                    <SelectorBarItem x:Name="AttachmentsTab" Text="Files" />
+                    <SelectorBarItem x:Name="LayersTab" Text="Layers" Visibility="Collapsed" />
                 </SelectorBar>
                 <TreeView x:Name="OutlineTree" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
                           ItemInvoked="OutlineTree_ItemInvoked" AutomationProperties.Name="Bookmarks">
@@ -456,6 +464,37 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
+                <Grid x:Name="AttachmentsPanel" Grid.Row="1" Visibility="Collapsed" RowSpacing="6" Padding="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Button Content="Add…" Click="AddAttachment_Click" />
+                        <Button Content="Open" Click="OpenAttachment_Click" />
+                        <Button Content="Save…" Click="SaveAttachment_Click" />
+                        <Button Content="Remove" Click="RemoveAttachment_Click" />
+                    </StackPanel>
+                    <ListView x:Name="AttachmentList" Grid.Row="1" SelectionMode="Single" AutomationProperties.Name="Attached files">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:AttachmentItem">
+                                <StackPanel Padding="0,4">
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{x:Bind Detail}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+                <Grid x:Name="LayersPanel" Grid.Row="1" Visibility="Collapsed" RowSpacing="6" Padding="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Button Content="Flatten Layers…" Click="FlattenLayers_Click" />
+                    <ListView x:Name="LayerList" Grid.Row="1" SelectionMode="None" AutomationProperties.Name="Layers">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:LayerItem">
+                                <ToggleSwitch Header="{x:Bind Name}" IsOn="{x:Bind Visible}" Margin="{x:Bind Indent}" Toggled="LayerToggle_Toggled"
+                                              AutomationProperties.Name="{x:Bind Name}" OnContent="Shown" OffContent="Hidden" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
                 <TextBlock x:Name="NoCommentsText" Grid.Row="1" Visibility="Collapsed" Margin="16" TextWrapping="Wrap"
                            Text="No comments yet. Use the tools above the page to add some." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <TextBlock x:Name="NoBookmarksText" Grid.Row="1" Visibility="Collapsed" Margin="16" TextWrapping="Wrap"

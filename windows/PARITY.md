@@ -37,7 +37,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Rotate, delete, move, drag-to-reorder
 - [x] Insert blank page; insert from file; replace; duplicate
 - [x] Extract pages to a new PDF; split; combine files
-- [~] Crop pages — resize and page labels not in the UI yet
+- [x] Crop pages; resize; page labels
 - [x] Header & footer, Bates numbering, watermark options, background
 - [~] Insert images into a document — no File ▸ Create yet
 
@@ -54,7 +54,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 ## G. Tools
 - [x] OCR (Windows.Media.Ocr → engine text layer)
 - [x] Reduce file size (optimize presets)
-- [~] PDF/A conversion and validation — PDF/X and PDF/E not in the UI yet
+- [x] PDF/A, PDF/X-4, PDF/E conversion (PDF/A validated)
 - [x] Export to Word, Excel, PowerPoint, images, HTML, text, etc. (exporter)
 - [x] Compare two PDFs
 - [~] Accessibility: check with fixes, autotag — reading order and alt-text editing not yet
@@ -65,7 +65,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 ## H. Edit content
 - [x] Edit text blocks in place; add text; find & replace in content
 - [~] Images: add, replace; objects: move, arrange, delete — no resize/crop/align yet
-- [ ] Links: add/edit/remove; attachments; layers
+- [x] Links: add/edit/remove; attachments; layers
 
 ## I. App
 - [~] Several documents in separate windows (no tabs yet)

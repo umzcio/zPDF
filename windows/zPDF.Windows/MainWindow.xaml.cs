@@ -51,6 +51,8 @@ public sealed partial class MainWindow : Window
         _ = Updates.CheckInBackgroundAsync(this);
         Thumbnails.ItemsSource = _thumbnails;
         InitializeComments();
+        AttachmentList.ItemsSource = _attachments;
+        LayerList.ItemsSource = _layers;
         Pages.ItemsSource = _slots;
         // Ctrl with the main keyboard's =/+ and − keys (OEM keys have no XAML name).
         ZoomInButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)187 });
@@ -458,6 +460,8 @@ public sealed partial class MainWindow : Window
         _ = RenderThumbnailsAsync(document);
         _ = RefreshCommentsAsync();
         _ = RefreshFieldsAsync();
+        _ = RefreshAttachmentsAsync();
+        _ = RefreshLayersAsync();
     }
 
     /// <summary>Sizes every page for the current zoom and re-renders what is visible.</summary>
@@ -561,6 +565,7 @@ public sealed partial class MainWindow : Window
         {
             _ = Info(i);
             if (IsEditingContent) _ = LoadContentAsync(i);
+            if (_tool == CommentTool.Link) _ = LoadLinksAsync(i);
             var slot = _slots[i];
             if (slot.RenderedFor == generation) continue;
             slot.RenderedFor = generation;

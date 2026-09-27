@@ -15,7 +15,7 @@ namespace zPDF;
 public enum CommentTool
 {
     Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox,
-    MeasureDistance, MeasurePerimeter, MeasureArea, EditContent, AddText, AddImage, PrepareForm,
+    MeasureDistance, MeasurePerimeter, MeasureArea, EditContent, AddText, AddImage, PrepareForm, Link,
 }
 
 /// <summary>A comment as the engine reports it (comment_threads).</summary>
@@ -248,6 +248,7 @@ public sealed partial class MainWindow
         if (_tool == CommentTool.Redact) { RedactPointerReleased(target, new Rect(points[0], points[^1])); return true; }
         if (_tool == CommentTool.Place) { _ = PlaceAtAsync(target.Index, points[^1]); return true; }
         if (_tool == CommentTool.AddText) { _ = AddTextAtAsync(target.Index, points[0]); return true; }
+        if (_tool == CommentTool.Link) { _ = LinkGestureAsync(target.Index, points[0], points[^1]); return true; }
         if (_tool == CommentTool.AddImage) { _ = AddImageAtAsync(target.Index, new Rect(points[0], points[^1])); return true; }
         if (_tool is CommentTool.MeasureDistance or CommentTool.MeasurePerimeter or CommentTool.MeasureArea)
             return MeasurePointerReleased(target, points[0], points[^1]);

@@ -83,6 +83,7 @@ public sealed partial class MainWindow : IPageHost
     private void ResetViewingState()
     {
         ResetContent();
+        _links.Clear();
         _editing = null;
         _editorSlot = null;
         _focusedToggle = null;
@@ -395,6 +396,7 @@ public sealed partial class MainWindow : IPageHost
         foreach (var (page, rect) in RedactionMarks()) Add(page, [rect], Mark.Redaction);
         foreach (var (page, rect) in ChangeMarks()) Add(page, [rect], Mark.Change);
         foreach (var (page, rect) in PrepareMarks()) Add(page, [rect], Mark.CommentSelection);
+        foreach (var (page, rect) in LinkMarks()) Add(page, [rect], Mark.ContentOutline);
         foreach (var (page, rect, mark) in ContentMarks()) Add(page, [rect], mark);
         foreach (var (page, rect) in CommentMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var slot in _slots) slot.SetMarks(marks.TryGetValue(slot.Index, out var list) ? list : []);
@@ -407,8 +409,12 @@ public sealed partial class MainWindow : IPageHost
         var bookmarks = sender.SelectedItem == BookmarksTab;
         var comments = sender.SelectedItem == CommentsTab;
         var changes = sender.SelectedItem == ChangesTab;
-        Thumbnails.Visibility = bookmarks || comments || changes ? Visibility.Collapsed : Visibility.Visible;
+        var files = sender.SelectedItem == AttachmentsTab;
+        var layers = sender.SelectedItem == LayersTab;
+        Thumbnails.Visibility = bookmarks || comments || changes || files || layers ? Visibility.Collapsed : Visibility.Visible;
         ChangeList.Visibility = changes ? Visibility.Visible : Visibility.Collapsed;
+        AttachmentsPanel.Visibility = files ? Visibility.Visible : Visibility.Collapsed;
+        LayersPanel.Visibility = layers ? Visibility.Visible : Visibility.Collapsed;
         UpdateCommentsPanel();
         var hasOutline = (OutlineTree.ItemsSource as System.Collections.ICollection)?.Count > 0;
         OutlineTree.Visibility = bookmarks && hasOutline ? Visibility.Visible : Visibility.Collapsed;
