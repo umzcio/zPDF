@@ -49,6 +49,14 @@ internal static class SelfTest
         Console.WriteLine($"comments on page 1: {first.Count} ({string.Join(", ", first.Select(c => c!["subtype"]!.GetValue<string>()))}); " +
                           $"annotations={PdfDocument.Open(commented).AnnotationCount(0)}");
         File.Delete(commented);
+        var filled = await engine.TransformAsync(input, [new JsonObject
+        {
+            ["op"] = "fill_fields", ["values"] = new JsonObject { ["Last Name Family Name from Section 1"] = "Doe" },
+        }]);
+        var form = await engine.QueryAsync(filled, "form_fields");
+        var field = form["fields"]!.AsArray().First(f => f!["name"]!.GetValue<string>() == "Last Name Family Name from Section 1");
+        Console.WriteLine($"form: {form["fields"]!.AsArray().Count} fields; filled value = '{field!["value"]}'");
+        File.Delete(filled);
         var saved = Path.Combine(folder, "watermarked.pdf");
         var receipt = await engine.PublishAsync(edited, saved, overwrite: true);
         File.Delete(edited);

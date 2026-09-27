@@ -62,6 +62,11 @@ public sealed partial class MainWindow : IPageHost
             var info = await Task.Run(() => document.LoadPageInfo(page));
             if (document != _document) return null;
             _infos[page] = info;
+            if (_fields.Count > 0 || _comments.Count > 0)
+            {
+                RefreshMarks();  // field highlights and comment outlines need the page mapping
+                if (HasPendingFields) RefreshFieldOverlays();
+            }
             return info;
         }
         catch (Exception error) when (error is ObjectDisposedException or InvalidDataException or ArgumentOutOfRangeException)
@@ -77,6 +82,9 @@ public sealed partial class MainWindow : IPageHost
     /// <summary>Called when the shown document changes: drop per-page state.</summary>
     private void ResetViewingState()
     {
+        _editing = null;
+        _editorSlot = null;
+        _focusedToggle = null;
         _infos.Clear();
         _infoLoads.Clear();
         _selection = null;
@@ -102,6 +110,9 @@ public sealed partial class MainWindow : IPageHost
     public void PagePointerPressed(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
         if (!e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
+        if (FieldPointerPressed(slot, point)) { e.Handled = true; return; }
+        CommitEditor();  // a click outside the field being edited finishes it
+        _focusedToggle = null;
         if (CommentPointerPressed(slot, point)) { e.Handled = true; return; }
         _pressSlot = slot;
         _pressPoint = point;
@@ -369,6 +380,7 @@ public sealed partial class MainWindow : IPageHost
             Add(sel.Page, selInfo.RectsFor(Math.Min(sel.Anchor, sel.Focus), Math.Max(sel.Anchor, sel.Focus)), Mark.Selection);
         else if (_selection is { } one && _infos.GetValueOrDefault(one.Page) is { } oneInfo && _selecting)
             Add(one.Page, oneInfo.RectsFor(one.Anchor, one.Anchor), Mark.Selection);
+        foreach (var (page, rect) in FieldMarks()) Add(page, [rect], Mark.Field);
         foreach (var (page, rect) in CommentMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var slot in _slots) slot.SetMarks(marks.TryGetValue(slot.Index, out var list) ? list : []);
     }
@@ -625,6 +637,7 @@ public sealed partial class MainWindow : IPageHost
 
     private async void Print_Click(object sender, RoutedEventArgs e)
     {
+        await FlushFieldsAsync();  // print what's on screen, including just-typed form entries
         if (_document is null || CurrentPath is not { } path) return;
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         if (Printing.Ask(hwnd, _document.PageCount, _page) is not { } job) return;

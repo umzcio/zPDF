@@ -66,7 +66,7 @@ public sealed partial class MainWindow : Window
 
     private Engine Engine => _engine ??= new Engine();
     private string? CurrentPath => _revisions.TryPeek(out var top) ? top : _sourcePath;
-    private bool IsEdited => _document is not null && CurrentPath != _savedPath;
+    private bool IsEdited => _document is not null && (CurrentPath != _savedPath || HasPendingFields);
     private double RasterScale => Content.XamlRoot?.RasterizationScale ?? 1.0;
     private double Dips => _zoom * 96 / 72;  // device-independent pixels per PDF point
 
@@ -167,9 +167,15 @@ public sealed partial class MainWindow : Window
         return await dialog.ShowAsync() switch
         {
             ContentDialogResult.Primary => await SaveAsync(),
-            ContentDialogResult.Secondary => true,
+            ContentDialogResult.Secondary => DiscardAndContinue(),
             _ => false,
         };
+    }
+
+    private bool DiscardAndContinue()
+    {
+        DiscardPendingFields();
+        return true;
     }
 
     private async void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
@@ -193,7 +199,14 @@ public sealed partial class MainWindow : Window
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
 
-    private async void Undo_Click(object sender, RoutedEventArgs e) =>
+    private async void Undo_Click(object sender, RoutedEventArgs e)
+    {
+        if (HasPendingFields || _editing is not null)
+        {
+            DiscardPendingFields();  // the latest change is the unsaved form entries
+            UpdateStatus();
+            return;
+        }
         await Run("Undoing…", () =>
         {
             if (!_revisions.TryPop(out var undone)) return Task.CompletedTask;
@@ -201,6 +214,7 @@ public sealed partial class MainWindow : Window
             if (undone != _savedPath) TryDelete(undone);
             return Task.CompletedTask;
         });
+    }
 
     // ---------------------------------------------------------------- pages
 
@@ -426,6 +440,7 @@ public sealed partial class MainWindow : Window
         ToolStrip.Visibility = IsFullScreen ? Visibility.Collapsed : Visibility.Visible;
         _ = RenderThumbnailsAsync(document);
         _ = RefreshCommentsAsync();
+        _ = RefreshFieldsAsync();
     }
 
     /// <summary>Sizes every page for the current zoom and re-renders what is visible.</summary>
@@ -644,13 +659,15 @@ public sealed partial class MainWindow : Window
         ZoomInButton.IsEnabled = open && _zoom < ZoomSteps[^1] - 0.001;
         ZoomOutButton.IsEnabled = open && _zoom > ZoomSteps[0] + 0.001;
         FitWidthButton.IsEnabled = ActualSizeButton.IsEnabled = open;
-        UndoButton.IsEnabled = _revisions.Count > 0;
+        UndoButton.IsEnabled = _revisions.Count > 0 || HasPendingFields;
         PreviousButton.IsEnabled = open && _page > 0;
         NextButton.IsEnabled = open && _page < _document!.PageCount - 1;
     }
 
-    private async Task Run(string status, Func<Task> action, bool keepStatus = false)
+    private async Task Run(string status, Func<Task> action, bool keepStatus = false, bool flushFields = true)
     {
+        // Any other action first writes form entries still waiting to be saved.
+        if (flushFields && HasPendingFields) await FlushFieldsAsync();
         StatusText.Text = status;
         OpenButton.IsEnabled = false;
         try

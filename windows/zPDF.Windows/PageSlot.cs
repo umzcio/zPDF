@@ -31,6 +31,26 @@ public sealed class PageSlot(int index) : INotifyPropertyChanged
         DraftChanged?.Invoke();
     }
 
+    /// <summary>Pending form values shown over their widgets (view points).</summary>
+    public IReadOnlyList<FieldOverlay> FieldOverlays { get; private set; } = [];
+
+    public void SetFieldOverlays(IReadOnlyList<FieldOverlay> overlays)
+    {
+        if (overlays.Count == 0 && FieldOverlays.Count == 0) return;
+        FieldOverlays = overlays;
+        MarksChanged?.Invoke();
+    }
+
+    /// <summary>An inline field editor over `Rect` (view points), or none.</summary>
+    public (Microsoft.UI.Xaml.FrameworkElement? Element, Rect? Rect) Editor { get; private set; }
+    public event Action? EditorChanged;
+
+    public void SetEditor(Microsoft.UI.Xaml.FrameworkElement? element, Rect? rect)
+    {
+        Editor = (element, rect);
+        EditorChanged?.Invoke();
+    }
+
     public void SetMarks(IReadOnlyList<(Rect Rect, Mark Mark)> marks)
     {
         if (marks.Count == 0 && Marks.Count == 0) return;

@@ -11,7 +11,10 @@ using Windows.Foundation;
 namespace zPDF;
 
 /// <summary>What a page overlay rectangle shows.</summary>
-public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection }
+public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection, Field }
+
+/// <summary>A form value typed but not yet written into the PDF, drawn over its widget.</summary>
+public sealed record FieldOverlay(Rect Rect, string Text, bool IsCheck, bool Checked, double FontSize);
 
 /// <summary>An in-progress drawing (view points), shown until the comment is created.</summary>
 public sealed record Draft(DraftShape Shape, IReadOnlyList<Point> Points, Windows.UI.Color Color);
@@ -37,9 +40,13 @@ public sealed partial class PageView : Grid
     private static readonly SolidColorBrush FindBrush = new(ColorHelper.FromArgb(0x66, 0xFF, 0xD4, 0x00));
     private static readonly SolidColorBrush CurrentFindBrush = new(ColorHelper.FromArgb(0x88, 0xFF, 0x8C, 0x00));
     private static readonly SolidColorBrush CommentSelectionBrush = new(ColorHelper.FromArgb(0xFF, 0x00, 0x67, 0xC0));
+    private static readonly SolidColorBrush FieldBrush = new(ColorHelper.FromArgb(0x33, 0x33, 0x88, 0xFF));
+    private static readonly SolidColorBrush PendingBrush = new(ColorHelper.FromArgb(0xFF, 0xF4, 0xF8, 0xFF));
 
     private readonly Image _image = new() { Stretch = Stretch.Fill };
     private readonly Canvas _overlay = new() { IsHitTestVisible = false };
+    private readonly Canvas _editorLayer = new();  // an inline field editor, when one is open
+    private FrameworkElement? _editor;
     private InputSystemCursorShape _cursor = InputSystemCursorShape.Arrow;
 
     public PageView()
@@ -49,6 +56,7 @@ public sealed partial class PageView : Grid
         BorderBrush = (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"];
         Children.Add(_image);
         Children.Add(_overlay);
+        Children.Add(_editorLayer);
         PointerPressed += (_, e) => Forward(e, (h, s, p) => h.PagePointerPressed(s, p, e), capture: true);
         PointerMoved += (_, e) =>
         {
@@ -56,7 +64,7 @@ public sealed partial class PageView : Grid
             if (Slot?.Host is { } host && Slot is { } slot) SetCursor(host.CursorAt(slot, ToPoints(e.GetCurrentPoint(this).Position)));
         };
         PointerReleased += (_, e) => { Forward(e, (h, s, p) => h.PagePointerReleased(s, p, e)); ReleasePointerCaptures(); };
-        SizeChanged += (_, _) => DrawOverlay();
+        SizeChanged += (_, _) => { DrawOverlay(); PlaceEditor(); };
     }
 
     public PageSlot? Slot
@@ -68,8 +76,17 @@ public sealed partial class PageView : Grid
     private static void OnSlotChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var view = (PageView)d;
-        if (e.OldValue is PageSlot old) { old.PropertyChanged -= view.Slot_PropertyChanged; old.MarksChanged -= view.DrawOverlay; old.DraftChanged -= view.DrawOverlay; }
-        if (e.NewValue is PageSlot slot) { slot.PropertyChanged += view.Slot_PropertyChanged; slot.MarksChanged += view.DrawOverlay; slot.DraftChanged += view.DrawOverlay; }
+        if (e.OldValue is PageSlot old)
+        {
+            old.PropertyChanged -= view.Slot_PropertyChanged; old.MarksChanged -= view.DrawOverlay; old.DraftChanged -= view.DrawOverlay;
+            old.EditorChanged -= view.PlaceEditor;
+        }
+        if (e.NewValue is PageSlot slot)
+        {
+            slot.PropertyChanged += view.Slot_PropertyChanged; slot.MarksChanged += view.DrawOverlay; slot.DraftChanged += view.DrawOverlay;
+            slot.EditorChanged += view.PlaceEditor;
+        }
+        view.PlaceEditor();
         view.Refresh();
     }
 
@@ -125,6 +142,24 @@ public sealed partial class PageView : Grid
         return box;
     }
 
+    /// <summary>Shows (or removes) the slot's inline editor over its field.</summary>
+    private void PlaceEditor()
+    {
+        var wanted = Slot?.Editor ?? (null, null);
+        if (_editor != wanted.Element)
+        {
+            _editorLayer.Children.Clear();
+            _editor = wanted.Element;
+            if (_editor is not null) _editorLayer.Children.Add(_editor);
+        }
+        if (_editor is null || Slot?.Editor.Rect is not { } rect) return;
+        var scale = PointScale;
+        _editor.Width = Math.Max(24, rect.Width * scale);
+        if (_editor is not ComboBox) _editor.Height = Math.Max(20, rect.Height * scale);
+        Canvas.SetLeft(_editor, rect.X * scale);
+        Canvas.SetTop(_editor, rect.Y * scale);
+    }
+
     private void DrawOverlay()
     {
         _overlay.Children.Clear();
@@ -137,7 +172,11 @@ public sealed partial class PageView : Grid
                 Width = Math.Max(1, rect.Width * scale),
                 Height = Math.Max(1, rect.Height * scale),
             };
-            if (mark == Mark.CommentSelection)
+            if (mark == Mark.Field)
+            {
+                shape.Fill = FieldBrush;
+            }
+            else if (mark == Mark.CommentSelection)
             {
                 shape.Stroke = CommentSelectionBrush;
                 shape.StrokeThickness = 1.5;
@@ -152,5 +191,25 @@ public sealed partial class PageView : Grid
             _overlay.Children.Add(shape);
         }
         if (slot.Draft is { Points.Count: > 0 } draft) _overlay.Children.Add(DraftShapeFor(draft, scale));
+        foreach (var field in slot.FieldOverlays)
+        {
+            // Pending form values: covers the widget's old appearance until the engine writes it.
+            var box = new Border
+            {
+                Width = Math.Max(1, field.Rect.Width * scale), Height = Math.Max(1, field.Rect.Height * scale),
+                Background = PendingBrush, Padding = new Thickness(2 * scale, 0, 2 * scale, 0),
+            };
+            var size = Math.Clamp((field.FontSize > 0 ? field.FontSize : Math.Min(12, field.Rect.Height * 0.72)) * scale, 6, 72);
+            box.Child = new TextBlock
+            {
+                Text = field.IsCheck ? (field.Checked ? "✓" : "") : field.Text, FontSize = size,
+                HorizontalAlignment = field.IsCheck ? HorizontalAlignment.Center : HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.Clip,
+                Foreground = new SolidColorBrush(Colors.Black),
+            };
+            Canvas.SetLeft(box, field.Rect.X * scale);
+            Canvas.SetTop(box, field.Rect.Y * scale);
+            _overlay.Children.Add(box);
+        }
     }
 }
