@@ -291,14 +291,18 @@ public sealed partial class MainWindow
         var (factor, unit, ratio) = await ScaleForAsync(page);
         var pts = viewPoints.Select(info.ToPage).ToList();
         var points = new JsonArray(pts.Select(p => (JsonNode)new JsonArray(Math.Round(p.X, 2), Math.Round(p.Y, 2))).ToArray());
-        await EditDocumentAsync("Adding measurement…", new JsonObject
+        // The label drawn on the page and kept as the comment's text (like the Mac app).
+        var length = pts.Zip(pts.Skip(1), (a, b) => Distance(a, b)).Sum();
+        var area = Math.Abs(pts.Select((p, i) => p.X * pts[(i + 1) % pts.Count].Y - pts[(i + 1) % pts.Count].X * p.Y).Sum()) / 2;
+        var label = kind == "area" ? $"{area * factor * factor:0.00} sq {unit}" : $"{length * factor:0.00} {unit}";
+        if (await EditDocumentAsync("Adding measurement…", new JsonObject
         {
             ["op"] = "add_measurements",
             ["items"] = new JsonArray(new JsonObject
             {
                 ["page"] = page, ["kind"] = kind, ["points"] = points, ["factor"] = factor, ["unit"] = unit, ["ratio"] = ratio,
-                ["author"] = AuthorName,
+                ["author"] = AuthorName, ["label"] = label,
             }),
-        });
+        })) StatusText.Text = $"{char.ToUpper(kind[0])}{kind[1..]}: {label}{(ratio.Length > 0 ? $" (scale {ratio})" : "")}";
     }
 }

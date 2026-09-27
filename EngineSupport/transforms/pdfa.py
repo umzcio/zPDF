@@ -23,7 +23,7 @@ from pikepdf import Name
 import logging
 
 from engine.errors import EngineError, require
-from transforms.fonts import name_text, system_path, system_font_folders
+from transforms.fonts import ZAPF_UNICODE, name_text, system_path, system_font_folders
 from transforms import op, query
 from transforms.optimize import walk, SUBSET_TAG, STANDARD14, _used_codes
 
@@ -287,7 +287,11 @@ def embed_font(pdf, font, used_codes):
     for code in codes:
         gid = None
         if symbolic:
-            glyph = mac.get(code)
+            if name == "ZapfDingbats" and "zapf" not in Path(path).name.lower():
+                # A Unicode font stands in for Zapf Dingbats (Windows): map its codes to dingbats.
+                glyph = best.get(0x20 if code == 32 else ZAPF_UNICODE.get(code, -1))
+            else:
+                glyph = mac.get(code)
             if glyph is None and names and names.get(code):
                 uni = agl.toUnicode(names[code])
                 glyph = best.get(ord(uni)) if uni else None

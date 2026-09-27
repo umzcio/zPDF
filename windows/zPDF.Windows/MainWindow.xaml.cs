@@ -57,6 +57,7 @@ public sealed partial class MainWindow : Window
         // Ctrl with the main keyboard's =/+ and − keys (OEM keys have no XAML name).
         ZoomInButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)187 });
         ZoomOutButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)189 });
+        HoistToolbarAccelerators();
         AppWindow.Closing += AppWindow_Closing;
         ShowStartRecents();
         Closed += (_, _) =>
@@ -670,6 +671,41 @@ public sealed partial class MainWindow : Window
         Title = $"{(IsEdited ? "• " : "")}{Path.GetFileName(_sourcePath)} — zPDF";
         SyncThumbnailSelection();
         UpdateCommands();
+    }
+
+    /// <summary>A toolbar button's shortcut stops working once the button moves into the
+    /// overflow menu (narrow windows), so every shortcut lives on the window's root instead and
+    /// invokes its button (when enabled). The button still shows the shortcut in its tooltip.</summary>
+    private void HoistToolbarAccelerators()
+    {
+        foreach (var button in Toolbar.PrimaryCommands.Concat(Toolbar.SecondaryCommands).OfType<AppBarButton>())
+        {
+            var shortcuts = button.KeyboardAccelerators.ToList();
+            if (shortcuts.Count == 0) continue;
+            button.KeyboardAccelerators.Clear();
+            button.KeyboardAcceleratorTextOverride = ShortcutText(shortcuts[0]);
+            foreach (var shortcut in shortcuts)
+            {
+                var hoisted = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = shortcut.Key, Modifiers = shortcut.Modifiers };
+                hoisted.Invoked += (_, args) =>
+                {
+                    if (!button.IsEnabled) return;
+                    args.Handled = true;
+                    (new Microsoft.UI.Xaml.Automation.Peers.AppBarButtonAutomationPeer(button) as Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider).Invoke();
+                };
+                RootGrid.KeyboardAccelerators.Add(hoisted);
+            }
+        }
+    }
+
+    private static string ShortcutText(Microsoft.UI.Xaml.Input.KeyboardAccelerator shortcut)
+    {
+        var parts = new List<string>();
+        if (shortcut.Modifiers.HasFlag(VirtualKeyModifiers.Control)) parts.Add("Ctrl");
+        if (shortcut.Modifiers.HasFlag(VirtualKeyModifiers.Shift)) parts.Add("Shift");
+        if (shortcut.Modifiers.HasFlag(VirtualKeyModifiers.Menu)) parts.Add("Alt");
+        parts.Add((int)shortcut.Key switch { 187 => "+", 189 => "-", _ => shortcut.Key.ToString() });
+        return string.Join("+", parts);
     }
 
     private void UpdateCommands()

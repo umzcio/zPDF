@@ -174,6 +174,27 @@ class OptimizeTests(Base):
 
 
 class StandardsTests(Base):
+    def test_zapf_dingbats_from_a_unicode_font(self):
+        # Windows has no Zapf Dingbats: a Unicode font's dingbats stand in, by code.
+        unicode_font = Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf")
+        if not unicode_font.exists():
+            self.skipTest("needs Arial Unicode")
+        from unittest import mock
+        from fontTools.ttLib import TTFont
+        from transforms import pdfa
+        with mock.patch.dict(pdfa.SUBSTITUTES, {"ZapfDingbats": str(unicode_font)}):
+            out, _ = self.run_ops(self.fixture("uscis-i9.pdf"), [{"op": "convert_pdfa", "level": "2b"}])
+        self.assertTrue(transforms.inspect(out, "validate_standard", {"standard": "PDF/A-2b"})["compliant"])
+        source = TTFont(str(unicode_font))
+        check = source["glyf"][source.getBestCmap()[0x2714]]
+        with pikepdf.open(out) as pdf:
+            fonts = [o for o in pdf.objects if isinstance(o, pikepdf.Dictionary) and "/FontDescriptor" in o
+                     and str(o.get("/BaseFont", "")).endswith("ZapfDingbats")]
+            self.assertTrue(fonts)
+            embedded = TTFont(io.BytesIO(fonts[0].FontDescriptor.FontFile2.read_bytes()))
+            glyph = embedded["glyf"][embedded["cmap"].tables[0].cmap[0xF000 + 52]]  # "4" = heavy check mark
+            self.assertEqual((glyph.xMin, glyph.yMax), (check.xMin, check.yMax))
+
     def test_pdfa_conversion_and_validation(self):
         src = text_pdf(self.tmp / "t.pdf", ["Archive", "Two"])  # unembedded Helvetica, no XMP
         report = transforms.inspect(src, "validate_standard", {"standard": "PDF/A-2b"})
