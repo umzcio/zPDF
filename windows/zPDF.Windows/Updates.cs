@@ -12,7 +12,12 @@ internal static class Updates
     private const string Repository = "https://github.com/umzcio/zPDF";
     private static bool _offered;
 
-    private static UpdateManager Manager() => new(new GithubSource(Repository, null, false));
+    /// <summary>GitHub Releases, or (for testing an update end to end) a local folder of
+    /// packages named by ZPDF_UPDATE_SOURCE.</summary>
+    private static UpdateManager Manager() =>
+        Environment.GetEnvironmentVariable("ZPDF_UPDATE_SOURCE") is { Length: > 0 } local && Directory.Exists(local)
+            ? new(new SimpleFileSource(new DirectoryInfo(local)))
+            : new(new GithubSource(Repository, null, false));
 
     public static async Task CheckInBackgroundAsync(DocumentPane window)
     {

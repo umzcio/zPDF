@@ -10,6 +10,7 @@ public static class Program
     {
         // Installer and update hooks (install, update, uninstall); returns at once otherwise.
         Velopack.VelopackApp.Build().Run();
+        AppSettings.MigrateDataFolder();
         if (args is ["--printtest", var source, var printed])
         {
             // Prints every page to a file through "Microsoft Print to PDF" (no dialog).

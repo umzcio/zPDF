@@ -14,7 +14,7 @@ namespace zPDF;
 /// <summary>Fill &amp; Sign (signature, initials, text, date, ✓ ✗ ●) and digital signatures.</summary>
 public sealed partial class DocumentPane
 {
-    private static readonly string SignFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zPDF");
+    private static readonly string SignFolder = AppSettings.DataFolder;
     private (byte[] Png, string Kind, double Width)? _placing;       // an image waiting to be placed with a click
     private (DigitalId Id, string Password, JsonObject Options)? _signing;  // a visible digital signature waiting for its box
 

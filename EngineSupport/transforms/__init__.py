@@ -146,11 +146,44 @@ def _damage_errors():
     return (pikepdf.PdfError, pikepdf.DataDecodingError, pdfium.PdfiumError, UnicodeDecodeError)
 
 
-def _normalize(pdf):
+def _unshare_annots(pdf):
+    """Pages made by duplication often share one /Annots array: a comment added to one
+    page would appear on all of them. Give each later page its own array, and its own
+    copies of the comments in it (/P, popups and replies relinked). Form-field widgets
+    stay shared: their field's /Kids points at them."""
+    import pikepdf
+    owners, changed = set(), False
+    for page in pdf.pages:
+        annots = page.obj.get("/Annots")
+        if not isinstance(annots, pikepdf.Array) or not annots.is_indirect:
+            continue
+        if annots.objgen not in owners:
+            owners.add(annots.objgen)
+            continue
+        copies, items = {}, pikepdf.Array()
+        for annot in annots:
+            if isinstance(annot, pikepdf.Dictionary) and annot.is_indirect and annot.get("/Subtype") != pikepdf.Name.Widget:
+                copy = pdf.make_indirect(pikepdf.Dictionary({key: value for key, value in annot.items()}))
+                copy.P = page.obj
+                copies[annot.objgen] = copy
+                items.append(copy)
+            else:
+                items.append(annot)
+        for copy in copies.values():
+            for key in ("/Popup", "/Parent", "/IRT"):
+                target = copy.get(key)
+                if isinstance(target, pikepdf.Dictionary) and target.is_indirect and target.objgen in copies:
+                    copy[key] = copies[target.objgen]
+        page.obj.Annots = pdf.make_indirect(items)
+        changed = True
+    return changed
+
+
+def _normalize(pdf, unshare=True):
     """Repair harmless structural damage common in real-world files before any
     operation sees it. Returns True when something was repaired."""
     import pikepdf
-    changed = False
+    changed = _unshare_annots(pdf) if unshare else False
     for page in pdf.pages:
         annots = page.obj.get("/Annots")
         if annots is None:
@@ -227,11 +260,13 @@ def run(source, destination, ops, password=None):
         ctx = Context(pdf, source, workdir, password)
         try:
             names = {item["op"] for item in ops}
+            from transforms import incremental
+            signed = incremental.is_signed(pdf)
             if not names & REWRITE and not pdf.is_encrypted:
-                from transforms import incremental
-                if names & INCREMENTAL or incremental.is_signed(pdf):
+                if names & INCREMENTAL or signed:
                     ctx.tracker = incremental.Tracker(pdf, source)
-            _normalize(ctx.pdf)
+            # Signed files keep their page objects as signed (a later change must not rewrite them).
+            _normalize(ctx.pdf, unshare=not signed)
             for item in ops:
                 params = {k: v for k, v in item.items() if k != "op"}
                 try:

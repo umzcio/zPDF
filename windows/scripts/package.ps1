@@ -5,19 +5,23 @@
 .PARAMETER SignParams
   signtool parameters for a code-signing certificate (e.g. '/a /fd sha256 /tr http://timestamp.digicert.com /td sha256 /f cert.pfx /p ...').
   Without it the installer is unsigned and Windows SmartScreen warns when it's run.
+.PARAMETER Version
+  Package this version instead of the project's (e.g. a 0.1.4 test build to try updating).
+.PARAMETER OutputDir
+  Where Setup.exe and the packages go (default windows\build\releases).
 #>
-param([string]$SignParams = $env:ZPDF_SIGN_PARAMS)
+param([string]$SignParams = $env:ZPDF_SIGN_PARAMS, [string]$Version = "", [string]$OutputDir = "")
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\..\.."
 $project = "$root\windows\zPDF.Windows\zPDF.Windows.csproj"
-$version = ([xml](Get-Content $project)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+$version = if ($Version) { $Version } else { ([xml](Get-Content $project)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1 }
 $publish = "$root\windows\build\publish"
-$releases = "$root\windows\build\releases"
+$releases = if ($OutputDir) { $OutputDir } else { "$root\windows\build\releases" }
 
 Write-Host "==> zPDF $version for Windows x64"
 py -3 "$root\windows\scripts\prepare_runtime.py"
 if (Test-Path $publish) { Remove-Item -Recurse -Force $publish }
-dotnet publish $project -c Release -r win-x64 -p:Platform=x64 --self-contained -o $publish
+dotnet publish $project -c Release -r win-x64 -p:Platform=x64 "-p:Version=$version" --self-contained -o $publish
 if ($LASTEXITCODE) { throw "dotnet publish failed" }
 if (-not (Test-Path "$publish\EngineRuntime\python\python.exe")) { throw "The engine runtime is missing from the publish folder." }
 

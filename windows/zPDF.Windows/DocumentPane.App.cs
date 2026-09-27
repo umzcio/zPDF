@@ -236,7 +236,7 @@ public sealed partial class DocumentPane
             Text = $"zPDF {Version} for Windows (preview)\n\nA PDF editor: read, comment, fill and sign, edit, redact, organize, convert and protect PDFs.\n\n" +
                    "Built on PDFium (BSD-3-Clause), QPDF (Apache-2.0), pikepdf (MPL-2.0), fontTools (MIT), pdf417gen (MIT), cryptography (Apache-2.0/BSD), " +
                    "Python (PSF), the Windows App SDK (MIT) and .NET (MIT). zPDF is licensed under the Apache License 2.0.\n\n" +
-                   "License texts are in the EngineRuntime folder next to zPDF.exe.",
+                   "License texts are in the EngineRuntime and licenses folders next to zPDF.exe.",
         };
         var dialog = new ContentDialog { XamlRoot = Content.XamlRoot, Title = "About zPDF", Content = text, CloseButtonText = "OK" };
         await dialog.ShowAsync();

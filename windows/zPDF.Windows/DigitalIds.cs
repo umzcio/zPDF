@@ -10,7 +10,7 @@ public sealed record DigitalId(string Id, string Name, string Email, string Issu
 /// password-protected .p12, additionally encrypted for this Windows user (DPAPI).</summary>
 internal static class DigitalIds
 {
-    private static readonly string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zPDF", "ids");
+    private static readonly string Folder = Path.Combine(AppSettings.DataFolder, "ids");
 
     public static List<DigitalId> All()
     {

@@ -7,7 +7,39 @@ namespace zPDF;
 public sealed class AppSettings
 {
     private const int MaxRecent = 15;
-    private static readonly string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zPDF");
+    /// <summary>zPDF's own data (settings, saved signatures, digital IDs, error log), in
+    /// %APPDATA%\zPDF. Not %LOCALAPPDATA%\zPDF: that is where the installer puts the app,
+    /// and installing, repairing or uninstalling replaces that folder.</summary>
+    public static readonly string DataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "zPDF");
+    private static readonly string Folder = DataFolder;
+
+    /// <summary>Moves data written by earlier builds out of %LOCALAPPDATA%\zPDF (only zPDF's
+    /// own files; never the installed app), then removes that folder if nothing else is left.</summary>
+    public static void MigrateDataFolder()
+    {
+        var old = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zPDF");
+        try
+        {
+            if (!Directory.Exists(old)) return;
+            Directory.CreateDirectory(DataFolder);
+            foreach (var name in new[] { "settings.json", "signature.png", "initials.png", "errors.log" })
+            {
+                var (from, to) = (Path.Combine(old, name), Path.Combine(DataFolder, name));
+                if (File.Exists(from) && !File.Exists(to)) File.Move(from, to);
+            }
+            var ids = Path.Combine(old, "ids");
+            if (Directory.Exists(ids))
+            {
+                var target = Path.Combine(DataFolder, "ids");
+                Directory.CreateDirectory(target);
+                foreach (var file in Directory.GetFiles(ids))
+                    if (Path.Combine(target, Path.GetFileName(file)) is var to && !File.Exists(to)) File.Move(file, to);
+                if (!Directory.EnumerateFileSystemEntries(ids).Any()) Directory.Delete(ids);
+            }
+            if (!Directory.EnumerateFileSystemEntries(old).Any()) Directory.Delete(old);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+    }
     private static readonly string FilePath = Path.Combine(Folder, "settings.json");
     private static AppSettings? _current;
 

@@ -295,6 +295,31 @@ class CommentEditTests(Base):
         with pikepdf.open(path) as pdf:
             return [str(a.Subtype) for a in pdf.pages[page].obj.get("/Annots", [])]
 
+    def test_pages_sharing_one_annots_array(self):
+        # Page duplication often leaves several pages pointing at one /Annots array.
+        src = self.tmp / "shared.pdf"
+        with pikepdf.new() as pdf:
+            for _ in range(3):
+                pdf.add_blank_page(page_size=(612, 792))
+            note = pdf.make_indirect(Dictionary(Type=Name.Annot, Subtype=Name.Text, Rect=Array([50, 700, 70, 720]),
+                                                Contents=pikepdf.String("shared note")))
+            popup = pdf.make_indirect(Dictionary(Type=Name.Annot, Subtype=Name.Popup, Rect=Array([80, 600, 280, 700]), Parent=note))
+            note.Popup = popup
+            shared = pdf.make_indirect(Array([note, popup]))
+            for page in pdf.pages:
+                page.obj.Annots = shared
+            pdf.save(src)
+        out, _ = self.run_edits(src, [{"action": "add", "page": 0, "annot": {"subtype": "Square", "rect": [100, 100, 200, 200]}}])
+        self.assertEqual(self.subtypes(out, 0), ["/Text", "/Popup", "/Square"])
+        self.assertEqual(self.subtypes(out, 1), ["/Text", "/Popup"])
+        self.assertEqual(self.subtypes(out, 2), ["/Text", "/Popup"])
+        with pikepdf.open(out) as pdf:
+            note1, popup1 = list(pdf.pages[1].obj.Annots)
+            self.assertEqual(note1.P.objgen, pdf.pages[1].obj.objgen)
+            self.assertEqual(note1.Popup.objgen, popup1.objgen)     # relinked to its own popup
+            self.assertEqual(popup1.Parent.objgen, note1.objgen)
+            self.assertNotEqual(note1.objgen, pdf.pages[0].obj.Annots[0].objgen)
+
     def test_add_every_kind_with_appearances(self):
         src = self.blank()
         quad = [100, 700, 300, 700, 100, 680, 300, 680]

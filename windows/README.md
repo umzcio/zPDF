@@ -40,4 +40,4 @@ development Python (`ZPDF_PYTHON`, `ZPDF_ENGINE`, `QPDF_BIN`).
   PASS/FAIL lines; the exit code is the number of failures. Needs a desktop
   session (WinUI can't start over SSH).
 
-Unexpected errors are logged to `%LOCALAPPDATA%\zPDF\errors.log`.
+Unexpected errors are logged to `%APPDATA%\zPDF\errors.log`; settings, saved signatures and digital IDs live in the same folder (not `%LOCALAPPDATA%\zPDF`, which is the installed app).

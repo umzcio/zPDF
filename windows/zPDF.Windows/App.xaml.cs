@@ -28,7 +28,7 @@ public partial class App : Application
         DocumentPane.NoteError($"{error.GetType().Name}: {error.Message}");
         try
         {
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zPDF");
+            var folder = AppSettings.DataFolder;
             Directory.CreateDirectory(folder);
             var log = Path.Combine(folder, "errors.log");
             if (File.Exists(log) && new FileInfo(log).Length > 1 << 20) File.Delete(log);
