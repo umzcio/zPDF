@@ -15,7 +15,8 @@ type ReportKind = "bug" | "suggestion";
 interface Diagnostics {
   appVersion: string;
   build: string;
-  macOS: string;
+  macOS: string;  // the OS version (named for the first client; Windows sends "os" too)
+  os?: string;    // "macOS" or "Windows"
   chip: string;
   locale?: string;
   lastError?: string;
@@ -153,6 +154,7 @@ function validate(input: unknown): Report {
       build: text(d.build, "build", LIMITS.field, true)!,
       macOS: text(d.macOS, "macOS", LIMITS.field, true)!,
       chip: text(d.chip, "chip", LIMITS.field, true)!,
+      os: text(d.os, "os", LIMITS.field),
       locale: text(d.locale, "locale", LIMITS.field),
       lastError: text(d.lastError, "lastError", LIMITS.lastError),
     };
@@ -206,7 +208,7 @@ async function createIssue(env: Env, report: Report, id: string, screenshot?: st
     report.expected ? `### Expected\n\n${inert(report.expected)}` : "",
     screenshot ? `### Screenshot\n\n![Screenshot](${screenshot})` : "",
     d
-      ? `### Diagnostics\n\n| | |\n|---|---|\n| zPDF | ${inert(d.appVersion)} (${inert(d.build)}) |\n| macOS | ${inert(d.macOS)} |\n| Chip | ${inert(d.chip)} |` +
+      ? `### Diagnostics\n\n| | |\n|---|---|\n| zPDF | ${inert(d.appVersion)} (${inert(d.build)}) |\n| ${d.os ? inert(d.os) : "macOS"} | ${inert(d.macOS)} |\n| Chip | ${inert(d.chip)} |` +
         (d.locale ? `\n| Locale | ${inert(d.locale)} |` : "") +
         (d.lastError ? `\n\n**Last engine error**\n\n${fenced(d.lastError)}` : "")
       : "",

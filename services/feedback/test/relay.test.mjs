@@ -68,6 +68,15 @@ try {
     const tampered = await fetch(link.replace(/^https?:\/\/[^/]+/, base).replace(/sig=../, "sig=00"));
     assert.equal(tampered.status, 404);
   });
+  await test("reports from Windows label the OS row", async () => {
+    const windows = { ...good, screenshot: undefined,
+      diagnostics: { appVersion: "0.2.0", build: "1", macOS: "Windows 11 Pro 26100", os: "Windows", chip: "x64", locale: "en-US" } };
+    const r = await post(windows, "203.0.113.19");
+    assert.equal(r.status, 201, await r.clone().text());
+    const body = received.at(-1).payload.body;
+    assert.ok(body.includes("| Windows | Windows 11 Pro 26100 |"), body);
+    assert.ok(!body.includes("| macOS |"));
+  });
   await test("missing title is rejected with a friendly message", async () => {
     const r = await post({ ...good, title: " ", screenshot: undefined }, "203.0.113.11");
     assert.equal(r.status, 400); assert.equal((await r.json()).error.code, "MISSING_FIELD");
