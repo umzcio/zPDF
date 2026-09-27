@@ -30,7 +30,7 @@ public sealed partial class DocumentPane
             Check("replace", edited && Text().Contains("Worker") && _revisions.Count == 1, State());
             await UndoAsync();
             Check("undo", Text() == before && _redo.Count == 1 && _revisions.Count == 0, State());
-            Check("redo enabled", RedoButton.IsEnabled, State());
+            Check("redo enabled", RedoItem.IsEnabled, State());
             await RedoAsync();
             Check("redo", Text().Contains("Worker") && _redo.Count == 0 && _revisions.Count == 1, State());
             await UndoAsync();

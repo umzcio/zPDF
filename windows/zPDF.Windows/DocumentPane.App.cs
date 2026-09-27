@@ -50,7 +50,7 @@ public sealed partial class DocumentPane
     // ---------------------------------------------------------------- windows
 
     private void NewWindow_Click(object sender, RoutedEventArgs e) => App.OpenWindow(null);
-    private void NewTab_Click(object sender, RoutedEventArgs e) => Host.AddTab(null);
+    private void NewTab_Click(object sender, RoutedEventArgs e) => _ = Host.OpenFileAsync();
     private void CloseTab_Click(object sender, RoutedEventArgs e) => _ = Host.CloseTabAsync(this);
 
     /// <summary>Opens a file here, or in a new window when this one already has a document.</summary>
@@ -103,7 +103,7 @@ public sealed partial class DocumentPane
         settings.OpenInTabs = windows.IsChecked == true;
         settings.Save();
         _highlightFields = settings.HighlightFields;
-        HighlightFieldsButton.IsChecked = _highlightFields;
+        HighlightFieldsButton.IsOn = _highlightFields;
         RefreshMarks();
     }
 

@@ -56,6 +56,7 @@ public sealed partial class DocumentPane : UserControl
         ZoomInButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)187 });
         ZoomOutButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)189 });
         HoistToolbarAccelerators();
+        InitializeWorkspace();
         ShowStartRecents();
     }
 
@@ -109,12 +110,13 @@ public sealed partial class DocumentPane : UserControl
         _sourcePath = _savedPath = path;
         _password = opened.Password;
         AppSettings.Current.AddRecent(path);
+        RefreshRecentMenu();
         _security = null;
         _page = 0;
         _fitWidth = AppSettings.Current.FitWidthOnOpen;
         if (!_fitWidth) _zoom = 1;
         _highlightFields = AppSettings.Current.HighlightFields;
-        HighlightFieldsButton.IsChecked = _highlightFields;
+        HighlightFieldsButton.IsOn = _highlightFields;
         Show(opened.Document, keepPosition: false);
         NoteOpenedSecurity();
     });
@@ -347,6 +349,17 @@ public sealed partial class DocumentPane : UserControl
         Relayout(keepPage: true);
     }
 
+    /// <summary>The whole current page in the window.</summary>
+    private void FitPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_document is null || _page >= _pageSizes.Length) return;
+        var (w, h) = _pageSizes[_page];
+        var width = Math.Max(200, PageScroller.ActualWidth - 2 * ViewMargin - 20) / (w * 96 / 72);
+        var height = Math.Max(200, PageScroller.ActualHeight - 2 * ViewMargin) / (h * 96 / 72);
+        SetZoom(Math.Min(width, height));
+        ScrollTo(_page, PageTop(_page) - ViewMargin / 2);
+    }
+
     private void SetZoom(double zoom)
     {
         _fitWidth = false;
@@ -435,7 +448,8 @@ public sealed partial class DocumentPane : UserControl
             for (var i = 0; i < document.PageCount; i++) _slots.Add(new PageSlot(i) { Host = this, PointWidth = _pageSizes[i].Width });
             ResetViewingState();
             EmptyText.Visibility = Visibility.Collapsed;
-            Sidebar.Visibility = Visibility.Visible;
+            if (!_docPanelChosen) ShowDocPanel(_docPanel, toggle: false);  // Pages, the first time
+            else RefreshDocPanel();
             Relayout(keepPage: false);
             if (focus is { } page && page < document.PageCount)
             {
@@ -458,7 +472,7 @@ public sealed partial class DocumentPane : UserControl
             _rebuilding = false;
         }
         UpdateStatus();
-        ToolStrip.Visibility = IsFullScreen ? Visibility.Collapsed : Visibility.Visible;
+        QuickTools.Visibility = IsFullScreen ? Visibility.Collapsed : Visibility.Visible;
         _ = RenderThumbnailsAsync(document);
         _ = RefreshCommentsAsync();
         _ = RefreshFieldsAsync();
@@ -663,10 +677,15 @@ public sealed partial class DocumentPane : UserControl
     {
         if (_document is null) return;
         var label = _document.PageLabel(_page);
+        // As on the Mac: "Page 4 of 12", or "Page iv (4 of 12)" with page labels.
         PageText.Text = label.Length > 0 && label != (_page + 1).ToString()
-            ? $"Page {_page + 1} ({label}) of {_document.PageCount}"
+            ? $"Page {label} ({_page + 1} of {_document.PageCount})"
             : $"Page {_page + 1} of {_document.PageCount}";
-        ZoomText.Text = $"{_zoom * 100:0}%";
+        ZoomText.Text = ToolbarZoomText.Text = $"{_zoom * 100:0}%";
+        if (PageBox.FocusState == FocusState.Unfocused) PageBox.Text = label.Length > 0 ? label : $"{_page + 1}";
+        PageCountText.Text = $"of {_document.PageCount}";
+        if (_page < _pageSizes.Length) PageSizeText.Text = $"{_pageSizes[_page].Width / 72:0.00} × {_pageSizes[_page].Height / 72:0.00} in";
+        UpdateReadyText();
         DocumentTitle = _sourcePath is null ? "New Tab" : $"{(IsEdited ? "• " : "")}{Path.GetFileName(_sourcePath)}";
         Host.PaneChanged(this);
         SyncThumbnailSelection();
@@ -676,25 +695,38 @@ public sealed partial class DocumentPane : UserControl
     /// <summary>A toolbar button's shortcut stops working once the button moves into the
     /// overflow menu (narrow windows), so every shortcut lives on the window's root instead and
     /// invokes its button (when enabled). The button still shows the shortcut in its tooltip.</summary>
+    /// <summary>Menu shortcuts live on the pane's root so they work without opening the menu
+    /// (and while it's collapsed); each invokes its menu item when that item and its menu
+    /// are enabled. The item still shows the shortcut.</summary>
     private void HoistToolbarAccelerators()
     {
-        foreach (var button in Toolbar.PrimaryCommands.Concat(Toolbar.SecondaryCommands).OfType<AppBarButton>())
-        {
-            var shortcuts = button.KeyboardAccelerators.ToList();
-            if (shortcuts.Count == 0) continue;
-            button.KeyboardAccelerators.Clear();
-            button.KeyboardAcceleratorTextOverride = ShortcutText(shortcuts[0]);
-            foreach (var shortcut in shortcuts)
+        foreach (var menu in AppMenu.Items)
+            foreach (var item in MenuItems(menu.Items))
             {
-                var hoisted = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = shortcut.Key, Modifiers = shortcut.Modifiers };
-                hoisted.Invoked += (_, args) =>
+                var shortcuts = item.KeyboardAccelerators.ToList();
+                if (shortcuts.Count == 0) continue;
+                item.KeyboardAccelerators.Clear();
+                item.KeyboardAcceleratorTextOverride = ShortcutText(shortcuts[0]);
+                foreach (var shortcut in shortcuts)
                 {
-                    if (!button.IsEnabled) return;
-                    args.Handled = true;
-                    (new Microsoft.UI.Xaml.Automation.Peers.AppBarButtonAutomationPeer(button) as Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider).Invoke();
-                };
-                RootGrid.KeyboardAccelerators.Add(hoisted);
+                    var hoisted = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = shortcut.Key, Modifiers = shortcut.Modifiers };
+                    hoisted.Invoked += (_, args) =>
+                    {
+                        if (!item.IsEnabled || !menu.IsEnabled) return;
+                        args.Handled = true;
+                        (new Microsoft.UI.Xaml.Automation.Peers.MenuFlyoutItemAutomationPeer(item) as Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider)?.Invoke();
+                    };
+                    RootGrid.KeyboardAccelerators.Add(hoisted);
+                }
             }
+    }
+
+    private static IEnumerable<MenuFlyoutItem> MenuItems(IEnumerable<MenuFlyoutItemBase> items)
+    {
+        foreach (var item in items)
+        {
+            if (item is MenuFlyoutItem leaf) yield return leaf;
+            else if (item is MenuFlyoutSubItem sub) foreach (var inner in MenuItems(sub.Items)) yield return inner;
         }
     }
 
@@ -711,19 +743,19 @@ public sealed partial class DocumentPane : UserControl
     private void UpdateCommands()
     {
         var open = _document is not null;
-        SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = PagesMenuButton.IsEnabled = DocumentMenuButton.IsEnabled = ProtectMenuButton.IsEnabled = SignMenuButton.IsEnabled = ConvertMenuButton.IsEnabled = ToolsMenuButton.IsEnabled = open;
-        FindButton.IsEnabled = GoToPageButton.IsEnabled = PropertiesButton.IsEnabled = PrintButton.IsEnabled = open;
-        FullScreenButton.IsEnabled = open;
-        RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = open;
-        DeletePagesButton.IsEnabled = open && _document!.PageCount > 1;
-        SaveButton.IsEnabled = IsEdited;
+        SaveAsItem.IsEnabled = ExportMenu.IsEnabled = ReduceItem.IsEnabled = PrintItem.IsEnabled = PropertiesItem.IsEnabled = PrintAreaItem.IsEnabled = open;
+        EditMenu.IsEnabled = ViewMenu.IsEnabled = NavigateMenu.IsEnabled = CommentMenu.IsEnabled = FormsMenu.IsEnabled = DocumentMenu.IsEnabled = open;
+        FindButton.IsEnabled = ShareButton.IsEnabled = FitPageButton.IsEnabled = RotateButton.IsEnabled = PageBox.IsEnabled = open;
+        SaveItem.IsEnabled = IsEdited;
         ZoomInButton.IsEnabled = open && _zoom < ZoomSteps[^1] - 0.001;
         ZoomOutButton.IsEnabled = open && _zoom > ZoomSteps[0] + 0.001;
         FitWidthButton.IsEnabled = ActualSizeButton.IsEnabled = open;
-        UndoButton.IsEnabled = _revisions.Count > 0 || HasPendingFields;
-        RedoButton.IsEnabled = _redo.Count > 0 && !HasPendingFields;
+        UndoItem.IsEnabled = _revisions.Count > 0 || HasPendingFields;
+        RedoItem.IsEnabled = _redo.Count > 0 && !HasPendingFields;
         PreviousButton.IsEnabled = open && _page > 0;
         NextButton.IsEnabled = open && _page < _document!.PageCount - 1;
+        QuickTools.Visibility = open && !IsFullScreen ? Visibility.Visible : Visibility.Collapsed;
+        AllToolsButton.IsEnabled = open;
     }
 
     /// <summary>Runs `action` with a status message; errors go to the status bar. True if it succeeded.</summary>
@@ -732,7 +764,7 @@ public sealed partial class DocumentPane : UserControl
         // Any other action first writes form entries still waiting to be saved.
         if (flushFields && HasPendingFields) await FlushFieldsAsync();
         StatusText.Text = status;
-        OpenButton.IsEnabled = false;
+        OpenItem.IsEnabled = false;
         try
         {
             await action();
@@ -747,7 +779,7 @@ public sealed partial class DocumentPane : UserControl
         }
         finally
         {
-            OpenButton.IsEnabled = true;
+            OpenItem.IsEnabled = true;
             UpdateStatus();
             UpdateCommands();
         }

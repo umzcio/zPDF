@@ -91,7 +91,7 @@ public sealed partial class DocumentPane
             ChangesTab.Visibility = Visibility.Visible;
             ChangeList.ItemsSource = _changes;
             SetTabLabel(ChangesTab, $"Changes ({_changes.Count})");
-            SidebarTabs.SelectedItem = ChangesTab;
+            ShowDocPanel("Changes");
             StatusText.Text = _changes.Count == 0
                 ? $"No differences from {Path.GetFileName(file.Path)}."
                 : $"{_changes.Count(c => c.Kind != "Visual")} text change(s) and {_changes.Count(c => c.Kind == "Visual")} visual difference(s) compared with {Path.GetFileName(file.Path)}.";

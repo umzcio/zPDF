@@ -180,8 +180,8 @@ public sealed partial class DocumentPane
             _measurePoints.Clear();
         }
         _tool = tool;
-        foreach (var child in ToolStrip.Children)
-            if (child is ToggleButton { Tag: string name } button) button.IsChecked = name == tool.ToString();
+        foreach (var button in ToolToggles())
+            button.IsChecked = button.Tag as string == tool.ToString();
         if (tool != CommentTool.Select) SelectComment(null);
         UpdateColorSwatch();
         UpdateContentCommands();
@@ -483,7 +483,7 @@ public sealed partial class DocumentPane
 
     private void UpdateCommentsPanel()
     {
-        var comments = SidebarTabs.SelectedItem == CommentsTab;
+        var comments = _docPanel == "Comments" && Sidebar.Visibility == Visibility.Visible;
         CommentList.Visibility = comments && _commentItems.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         NoCommentsText.Visibility = comments && _commentItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         SetTabLabel(CommentsTab, _commentItems.Count > 0 ? $"Comments ({_commentItems.Count})" : "Comments");

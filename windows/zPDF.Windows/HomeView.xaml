@@ -1,0 +1,67 @@
+<UserControl x:Class="zPDF.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Home, as on the Mac (zPDF/Views/Home/HomeView.swift): a Files column (Recent,
+         Starred), a greeting, Open File / Combine PDFs, and recent-file cards. -->
+    <Grid Background="{ThemeResource ZWindow}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="190" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Background="{ThemeResource ZSidebar}" Padding="10,16" Spacing="2"
+                    BorderBrush="{ThemeResource ZHairline}" BorderThickness="0,0,1,0">
+            <TextBlock Text="FILES" Style="{StaticResource ZSectionLabel}" Margin="8,0,0,6" />
+            <ToggleButton x:Name="RecentFilter" Tag="recent" IsChecked="True" Click="Filter_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          Height="30" Padding="8,0" CornerRadius="6" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Recent">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE81C;" FontSize="13" />
+                        <TextBlock Text="Recent" FontSize="12.5" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="RecentCount" HorizontalAlignment="Right" FontSize="11" VerticalAlignment="Center" Opacity="0.7" />
+                </Grid>
+            </ToggleButton>
+            <ToggleButton x:Name="StarredFilter" Tag="starred" Click="Filter_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          Height="30" Padding="8,0" CornerRadius="6" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Starred">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE734;" FontSize="13" />
+                        <TextBlock Text="Starred" FontSize="12.5" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="StarredCount" HorizontalAlignment="Right" FontSize="11" VerticalAlignment="Center" Opacity="0.7" />
+                </Grid>
+            </ToggleButton>
+        </StackPanel>
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Padding="36" Spacing="24">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Welcome back" FontSize="22" FontWeight="Bold" />
+                    <TextBlock Text="Pick up where you left off, or start something new." FontSize="12.5" Foreground="{ThemeResource ZMuted}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Style="{StaticResource AccentButtonStyle}" Click="Open_Click" AutomationProperties.Name="Open File">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8A5;" FontSize="14" />
+                            <TextBlock Text="Open File" FontSize="12.5" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Combine_Click" Content="Combine PDFs…" FontSize="12.5" />
+                </StackPanel>
+                <TextBlock x:Name="ListTitle" Text="Recent files" FontSize="14" FontWeight="SemiBold" />
+                <GridView x:Name="Cards" SelectionMode="None" IsItemClickEnabled="False" Padding="0">
+                    <GridView.ItemContainerStyle>
+                        <Style TargetType="GridViewItem" BasedOn="{StaticResource DefaultGridViewItemStyle}">
+                            <Setter Property="Margin" Value="0,0,16,16" />
+                            <Setter Property="Padding" Value="0" />
+                        </Style>
+                    </GridView.ItemContainerStyle>
+                </GridView>
+                <StackPanel x:Name="EmptyState" Visibility="Collapsed" Spacing="8" HorizontalAlignment="Left" Margin="0,24,0,0">
+                    <FontIcon Glyph="&#xE721;" FontSize="34" Foreground="{ThemeResource ZMuted}" HorizontalAlignment="Left" />
+                    <TextBlock x:Name="EmptyTitle" Text="No files yet" FontSize="14" FontWeight="SemiBold" />
+                    <TextBlock x:Name="EmptyDetail" Text="PDFs you open appear here." FontSize="12" Foreground="{ThemeResource ZMuted}" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -41,11 +41,19 @@ public partial class App : Application
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        if (Environment.GetCommandLineArgs().Skip(1).ToArray() is ["--screenshot", var shotInput, var shotFolder])
+        {
+            var window = new MainWindow();
+            window.Activate();
+            await Screenshots.CaptureAsync(window, Path.GetFullPath(shotInput), Path.GetFullPath(shotFolder));
+            Environment.Exit(0);
+            return;
+        }
         if (Environment.GetCommandLineArgs().Skip(1).ToArray() is ["--uitest", var input, var log])
         {
             var test = new MainWindow();
             test.Activate();
-            var failures = await test.ActivePane!.RunUiTestAsync(Path.GetFullPath(input), Path.GetFullPath(log));
+            var failures = await test.AddTab(null).RunUiTestAsync(Path.GetFullPath(input), Path.GetFullPath(log));
             Environment.Exit(failures);
             return;
         }

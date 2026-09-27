@@ -77,8 +77,7 @@ public sealed partial class DocumentPane
             if (field.Widgets.Count > 0) fields.Add(field);
         }
         _fields = fields;
-        HighlightFieldsButton.Visibility = _fields.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ResetFormButton.Visibility = HighlightFieldsButton.Visibility;
+        HighlightFieldsItem.IsEnabled = _fields.Count > 0;
         RefreshMarks();
         RefreshFieldOverlays();
     }
@@ -398,11 +397,13 @@ public sealed partial class DocumentPane
 
     // ---------------------------------------------------------------- toolbar
 
-    private void HighlightFields_Click(object sender, RoutedEventArgs e)
+    private void HighlightFields_Toggled(object sender, RoutedEventArgs e)
     {
-        _highlightFields = HighlightFieldsButton.IsChecked == true;
+        _highlightFields = HighlightFieldsButton.IsOn;
         RefreshMarks();
     }
+
+    private void HighlightFieldsMenu_Click(object sender, RoutedEventArgs e) => HighlightFieldsButton.IsOn = !HighlightFieldsButton.IsOn;
 
     private async void ResetForm_Click(object sender, RoutedEventArgs e)
     {

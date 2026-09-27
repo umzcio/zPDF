@@ -44,6 +44,10 @@ public sealed class AppSettings
     private static AppSettings? _current;
 
     public List<string> RecentFiles { get; set; } = [];
+    /// <summary>Files starred on Home.</summary>
+    public List<string> StarredFiles { get; set; } = [];
+    /// <summary>When each recent file was last opened (Home shows it).</summary>
+    public Dictionary<string, DateTime> LastOpened { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Name on new comments, signatures' "signed by" and replies (empty: the Windows user name).</summary>
     public string AuthorName { get; set; } = "";
     public bool FitWidthOnOpen { get; set; } = true;
@@ -78,6 +82,7 @@ public sealed class AppSettings
     {
         RecentFiles.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
         RecentFiles.Insert(0, path);
+        LastOpened[path] = DateTime.Now;
         if (RecentFiles.Count > MaxRecent) RecentFiles.RemoveRange(MaxRecent, RecentFiles.Count - MaxRecent);
         Save();
         // Windows' own recent list, which fills zPDF's taskbar jump list (Recent).

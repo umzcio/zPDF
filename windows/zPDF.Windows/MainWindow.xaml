@@ -1,14 +1,36 @@
 <Window x:Class="zPDF.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:zPDF"
         Title="zPDF">
-    <TabView x:Name="Tabs" IsAddTabButtonVisible="True" TabWidthMode="SizeToContent" CanReorderTabs="True"
-             AddTabButtonClick="Tabs_AddTabButtonClick" TabCloseRequested="Tabs_TabCloseRequested"
-             SelectionChanged="Tabs_SelectionChanged" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
-        <TabView.KeyboardAccelerators>
-            <KeyboardAccelerator Modifiers="Control" Key="Tab" Invoked="NextTab_Invoked" />
-            <KeyboardAccelerator Modifiers="Control,Shift" Key="Tab" Invoked="PreviousTab_Invoked" />
-            <KeyboardAccelerator Modifiers="Control" Key="F4" Invoked="CloseTab_Invoked" />
-        </TabView.KeyboardAccelerators>
-    </TabView>
+    <!-- As on the Mac (zPDF/Views/RootView.swift): a Home button and the document tabs in the
+         title bar; below them either Home or the selected document. Windows keeps its own
+         minimize / maximize / close buttons. -->
+    <Grid Background="{ThemeResource ZWindow}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TabView x:Name="Tabs" IsAddTabButtonVisible="True" TabWidthMode="SizeToContent" CanReorderTabs="True" VerticalAlignment="Top"
+                 AddTabButtonClick="Tabs_AddTabButtonClick" TabCloseRequested="Tabs_TabCloseRequested"
+                 SelectionChanged="Tabs_SelectionChanged" Background="{ThemeResource ZWindow}">
+            <TabView.TabStripHeader>
+                <Button x:Name="HomeButton" Click="Home_Click" Width="36" Height="32" Padding="0" Margin="8,4,4,0" CornerRadius="6"
+                        Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Home" AutomationProperties.Name="Home">
+                    <FontIcon x:Name="HomeIcon" Glyph="&#xE80F;" FontSize="16" />
+                </Button>
+            </TabView.TabStripHeader>
+            <TabView.TabStripFooter>
+                <Grid x:Name="DragRegion" Background="Transparent" MinWidth="160" />
+            </TabView.TabStripFooter>
+            <TabView.KeyboardAccelerators>
+                <KeyboardAccelerator Modifiers="Control" Key="Tab" Invoked="NextTab_Invoked" />
+                <KeyboardAccelerator Modifiers="Control,Shift" Key="Tab" Invoked="PreviousTab_Invoked" />
+                <KeyboardAccelerator Modifiers="Control" Key="F4" Invoked="CloseTab_Invoked" />
+            </TabView.KeyboardAccelerators>
+        </TabView>
+        <Grid x:Name="ContentHost" Grid.Row="1">
+            <local:HomeView x:Name="Home" />
+        </Grid>
+    </Grid>
 </Window>

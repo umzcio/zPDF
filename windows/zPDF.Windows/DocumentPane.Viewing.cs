@@ -94,7 +94,7 @@ public sealed partial class DocumentPane : IPageHost
         _findWork?.Cancel();
         _hits.Clear();
         _hitIndex = -1;
-        if (FindBar.Visibility == Visibility.Visible && FindBox.Text.Length > 0) _ = FindAsync(keepIndex: true);
+        if (_findOpen && FindBox.Text.Length > 0) _ = FindAsync(keepIndex: true);
         LoadOutline();
     }
 
@@ -245,7 +245,7 @@ public sealed partial class DocumentPane : IPageHost
     private void ShowFind()
     {
         if (_document is null) return;
-        FindBar.Visibility = Visibility.Visible;
+        if (!_findOpen) Microsoft.UI.Xaml.Controls.Primitives.FlyoutBase.ShowAttachedFlyout(FindButton);
         if (_selection is { } sel && Info(sel.Page) is { } info)
         {
             var text = info.TextOf(Math.Min(sel.Anchor, sel.Focus), Math.Max(sel.Anchor, sel.Focus)).Trim();
@@ -259,7 +259,12 @@ public sealed partial class DocumentPane : IPageHost
 
     private void CloseFind()
     {
-        FindBar.Visibility = Visibility.Collapsed;
+        FindFlyout.Hide();
+        ClearFind();
+    }
+
+    private void ClearFind()
+    {
         PageScroller.Focus(FocusState.Programmatic);  // not the first toolbar button
         _findWork?.Cancel();
         _hits.Clear();
@@ -272,7 +277,7 @@ public sealed partial class DocumentPane : IPageHost
     {
         if (IsFullScreen) SetFullScreen(false);
         else if (_croppingImage) { _croppingImage = false; StatusText.Text = ""; }
-        else if (FindBar.Visibility == Visibility.Visible) CloseFind();
+        else if (_findOpen) CloseFind();
         else if (IsEditingContent && _contentSelection is not null) { _contentSelection = null; UpdateContentCommands(); RefreshMarks(); }
         else if (_tool != CommentTool.Select) SetTool(CommentTool.Select);
         else if (_selectedComment is not null) SelectComment(null);
@@ -355,7 +360,7 @@ public sealed partial class DocumentPane : IPageHost
 
     private void StepFind(int step)
     {
-        if (FindBar.Visibility != Visibility.Visible) { ShowFind(); return; }
+        if (!_findOpen) { ShowFind(); return; }
         if (_hits.Count == 0) return;
         _hitIndex = (_hitIndex + step + _hits.Count) % _hits.Count;
         ShowHit();
@@ -420,27 +425,10 @@ public sealed partial class DocumentPane : IPageHost
     // ---------------------------------------------------------------- bookmarks
 
     /// <summary>Sidebar tabs are icons; the label (with a count) is the tooltip and accessible name.</summary>
-    private static void SetTabLabel(SelectorBarItem tab, string label)
+    private static void SetTabLabel(FrameworkElement tab, string label)
     {
         ToolTipService.SetToolTip(tab, label);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(tab, label);
-    }
-
-    private void SidebarTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs? args)
-    {
-        var bookmarks = sender.SelectedItem == BookmarksTab;
-        var comments = sender.SelectedItem == CommentsTab;
-        var changes = sender.SelectedItem == ChangesTab;
-        var files = sender.SelectedItem == AttachmentsTab;
-        var layers = sender.SelectedItem == LayersTab;
-        Thumbnails.Visibility = bookmarks || comments || changes || files || layers ? Visibility.Collapsed : Visibility.Visible;
-        ChangeList.Visibility = changes ? Visibility.Visible : Visibility.Collapsed;
-        AttachmentsPanel.Visibility = files ? Visibility.Visible : Visibility.Collapsed;
-        LayersPanel.Visibility = layers ? Visibility.Visible : Visibility.Collapsed;
-        UpdateCommentsPanel();
-        var hasOutline = (OutlineTree.ItemsSource as System.Collections.ICollection)?.Count > 0;
-        OutlineTree.Visibility = bookmarks && hasOutline ? Visibility.Visible : Visibility.Collapsed;
-        NoBookmarksText.Visibility = bookmarks && OutlineTree.Visibility != Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void LoadOutline()
@@ -448,7 +436,7 @@ public sealed partial class DocumentPane : IPageHost
         var items = _document?.Outline() ?? [];
         // Expand the top level when it's short, like most readers.
         OutlineTree.ItemsSource = new ObservableCollection<OutlineNode>(items.Select(i => new OutlineNode(i, items.Count <= 12)));
-        SidebarTabs_SelectionChanged(SidebarTabs, null);
+        RefreshDocPanel();
     }
 
     private async void OutlineTree_ItemInvoked(TreeView sender, TreeViewItemInvokedEventArgs args)
@@ -586,7 +574,8 @@ public sealed partial class DocumentPane : IPageHost
 
     // ---------------------------------------------------------------- recent files
 
-    private void RecentMenu_Opening(object sender, object e)
+    /// <summary>File ▸ Open Recent.</summary>
+    private void RefreshRecentMenu()
     {
         RecentMenu.Items.Clear();
         var recent = AppSettings.Current.RecentFiles;
@@ -624,6 +613,7 @@ public sealed partial class DocumentPane : IPageHost
     /// <summary>The recent-files list on the start screen.</summary>
     private void ShowStartRecents()
     {
+        RefreshRecentMenu();
         StartRecentList.Children.Clear();
         var recent = AppSettings.Current.RecentFiles.Take(8).ToList();
         StartRecentHeader.Visibility = recent.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -668,16 +658,27 @@ public sealed partial class DocumentPane : IPageHost
     /// <summary>Reading mode: the page view only; F11 or Esc returns.</summary>
     private void SetFullScreen(bool on)
     {
-        ToolStrip.Visibility = on || _document is null ? Visibility.Collapsed : Visibility.Visible;
         Host.SetTabStripVisible(!on);
         AppWindow.SetPresenter(on ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
                                   : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
         var chrome = on ? Visibility.Collapsed : Visibility.Visible;
-        Toolbar.Visibility = StatusBar.Visibility = chrome;
-        Sidebar.Visibility = on || _document is null ? Visibility.Collapsed : Visibility.Visible;
-        if (on) FindBar.Visibility = Visibility.Collapsed;
-        if (on) StatusText.Text = "";
+        AppMenu.Visibility = Toolbar.Visibility = StatusBar.Visibility = RailColumn.Visibility = chrome;
+        QuickTools.Visibility = on || _document is null ? Visibility.Collapsed : Visibility.Visible;
+        if (on)
+        {
+            _chromeBeforeFullScreen = (ToolsDrawer.Visibility, Sidebar.Visibility);
+            ToolsDrawer.Visibility = Sidebar.Visibility = Visibility.Collapsed;
+            if (_findOpen) CloseFind();
+            StatusText.Text = "";
+        }
+        else if (_chromeBeforeFullScreen is { } before)
+        {
+            (ToolsDrawer.Visibility, Sidebar.Visibility) = before;
+            _chromeBeforeFullScreen = null;
+        }
     }
+
+    private (Visibility Drawer, Visibility Panel)? _chromeBeforeFullScreen;
 
     // ---------------------------------------------------------------- print
 

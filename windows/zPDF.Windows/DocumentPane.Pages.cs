@@ -260,10 +260,25 @@ public sealed partial class DocumentPane
 
     private async void CombineFiles_Click(object sender, RoutedEventArgs e)
     {
+        if (await CombineAsync() is { } combined) await OpenHereOrNewAsync(combined);
+    }
+
+    /// <summary>Home ▸ Combine PDFs: this (empty) tab opens the result. False if cancelled.</summary>
+    public async Task<bool> CombineIntoThisTabAsync()
+    {
+        while (XamlRoot is null) await Task.Delay(20);  // dialogs need the tab on screen
+        if (await CombineAsync() is not { } combined) return false;
+        await OpenAsync(combined);
+        return _document is not null;
+    }
+
+    /// <summary>Combines picked PDFs (and optionally this document) into a new file; its path, or null.</summary>
+    private async Task<string?> CombineAsync()
+    {
         var picker = new FileOpenPicker(AppWindow.Id);
         picker.FileTypeFilter.Add(".pdf");
         var picked = await picker.PickMultipleFilesAsync();
-        if (picked is not { Count: > 0 }) return;
+        if (picked is not { Count: > 0 }) return null;
         var files = new List<string>();
         if (CurrentPath is not null) files.Add(CurrentPath);
         files.AddRange(picked.Select(f => f.Path));
@@ -272,12 +287,12 @@ public sealed partial class DocumentPane
         var items = new System.Collections.ObjectModel.ObservableCollection<string>(names);
         order.ItemsSource = items;
         var includeOpen = new CheckBox { Content = "Include the open document", IsChecked = CurrentPath is not null, IsEnabled = CurrentPath is not null };
-        if (!await AskAsync("Combine Files", Stack(new TextBlock { Text = "Drag to change the order.", Opacity = 0.75 }, order, includeOpen), "Combine…")) return;
+        if (!await AskAsync("Combine Files", Stack(new TextBlock { Text = "Drag to change the order.", Opacity = 0.75 }, order, includeOpen), "Combine…")) return null;
         var ordered = items.Select(n => files[names.IndexOf(n)])
                            .Where(f => includeOpen.IsChecked == true || f != CurrentPath).ToList();
-        if (ordered.Count < 2) { StatusText.Text = "Choose at least two PDFs to combine."; return; }
-        if (await AskSavePathAsync("Combined") is not { } destination) return;
-        await Run("Combining…", async () =>
+        if (ordered.Count < 2) { StatusText.Text = "Choose at least two PDFs to combine."; return null; }
+        if (await AskSavePathAsync("Combined") is not { } destination) return null;
+        var combined = await Run("Combining…", async () =>
         {
             var ops = new JsonArray();
             foreach (var path in ordered.Skip(1)) ops.Add(new JsonObject { ["op"] = "insert_pages", ["path"] = path });
@@ -287,6 +302,7 @@ public sealed partial class DocumentPane
             TryDelete(output);
             StatusText.Text = $"Saved {Path.GetFileName(destination)}";
         }, keepStatus: true);
+        return combined ? destination : null;
     }
 
     // ---------------------------------------------------------------- create
