@@ -481,6 +481,34 @@ public sealed partial class MainWindow : IPageHost
         args.Handled = true;
     }
 
+    // ---------------------------------------------------------------- print
+
+    private async void Print_Click(object sender, RoutedEventArgs e)
+    {
+        if (_document is null || CurrentPath is not { } path) return;
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        if (Printing.Ask(hwnd, _document.PageCount, _page) is not { } job) return;
+        var title = Path.GetFileName(_sourcePath) ?? "zPDF";
+        var password = _password;
+        var total = job.Pages.Count;
+        var progress = new Progress<int>(done => StatusText.Text = $"Printing page {Math.Min(done + 1, total)} of {total}…");
+        StatusText.Text = $"Printing page 1 of {total}…";
+        try
+        {
+            // Its own copy, so edits while printing can't close the document under it.
+            await Task.Run(() =>
+            {
+                using var copy = PdfDocument.Open(path, password);
+                Printing.Print(copy, job, title, progress: progress);
+            });
+            StatusText.Text = total == 1 ? "Sent 1 page to the printer" : $"Sent {total} pages to the printer";
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException)
+        {
+            StatusText.Text = $"Printing failed: {error.Message}";
+        }
+    }
+
     // ---------------------------------------------------------------- passwords
 
     /// <summary>Opens a PDF, asking for its password when it has one.</summary>

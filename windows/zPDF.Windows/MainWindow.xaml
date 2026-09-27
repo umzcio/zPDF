@@ -40,6 +40,12 @@
                     <KeyboardAccelerator Modifiers="Control,Shift" Key="S" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
+            <AppBarButton x:Name="PrintButton" Icon="Print" Label="Print…" LabelPosition="Collapsed" ToolTipService.ToolTip="Print (Ctrl+P)"
+                          Click="Print_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="P" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
             <AppBarSeparator />
             <AppBarButton x:Name="WatermarkButton" Label="Add Watermark" Click="Watermark_Click" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8D2;" /></AppBarButton.Icon>

@@ -12,6 +12,8 @@
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Build output (any BaseOutputPath) holds the Python runtime, whose Tcl files use .cs. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**;out/**</DefaultItemExcludes>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Program.cs owns Main so the self-test mode can run without starting WinUI. -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>

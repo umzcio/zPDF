@@ -616,7 +616,7 @@ public sealed partial class MainWindow : Window
     {
         var open = _document is not null;
         SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = open;
-        FindButton.IsEnabled = GoToPageButton.IsEnabled = PropertiesButton.IsEnabled = open;
+        FindButton.IsEnabled = GoToPageButton.IsEnabled = PropertiesButton.IsEnabled = PrintButton.IsEnabled = open;
         RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = open;
         DeletePagesButton.IsEnabled = open && _document!.PageCount > 1;
         SaveButton.IsEnabled = IsEdited;

@@ -256,6 +256,17 @@ public sealed partial class PdfDocument
         }
     }
 
+    /// <summary>Runs `action` with a loaded PDFium page, under the document lock.</summary>
+    public void WithPage(int index, Action<IntPtr> action)
+    {
+        lock (Gate)
+        {
+            var page = LoadPage(index);
+            try { action(page); }
+            finally { Native.FPDF_ClosePage(page); }
+        }
+    }
+
     public string PageLabel(int index)
     {
         lock (Gate) return Native.Utf16((b, n) => Native.FPDF_GetPageLabel(_handle, index, b, n));
