@@ -252,13 +252,23 @@ public sealed partial class MainWindow
         StatusText.Text = $"{(widget.Field.Tooltip.Length > 0 ? widget.Field.Tooltip.Trim() : widget.Field.Name)} — Space to toggle, Tab for the next field";
     }
 
-    private void Tab_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    /// <summary>Tab/Shift+Tab and Space for a checkbox or radio that has the keyboard. Handled
+    /// before focus navigation and the scroll view (which would otherwise take these keys).</summary>
+    private void Root_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (_focusedToggle is not { } widget || _editing is not null) return;
-        args.Handled = true;
-        var shift = sender.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Shift);
-        _focusedToggle = null;
-        MoveToField(widget, shift ? -1 : 1);
+        if (_focusedToggle is not { } widget || _editing is not null || FindBox.FocusState != FocusState.Unfocused) return;
+        if (e.Key == VirtualKey.Tab)
+        {
+            e.Handled = true;
+            var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            _focusedToggle = null;
+            MoveToField(widget, shift ? -1 : 1);
+        }
+        else if (e.Key == VirtualKey.Space)
+        {
+            e.Handled = ToggleFocusedField();
+        }
     }
 
     private void EnsureVisible(FormWidget widget)

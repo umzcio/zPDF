@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:zPDF"
         Title="zPDF">
-    <Grid AllowDrop="True" DragOver="Root_DragOver" Drop="Root_Drop">
+    <Grid AllowDrop="True" DragOver="Root_DragOver" Drop="Root_Drop" PreviewKeyDown="Root_PreviewKeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -28,8 +28,6 @@
             <KeyboardAccelerator Key="Delete" Invoked="PageDelete_Invoked" />
             <KeyboardAccelerator Key="Enter" Invoked="PageEnter_Invoked" />
             <KeyboardAccelerator Key="Space" Invoked="Space_Invoked" />
-            <KeyboardAccelerator Key="Tab" Invoked="Tab_Invoked" />
-            <KeyboardAccelerator Modifiers="Shift" Key="Tab" Invoked="Tab_Invoked" />
         </Grid.KeyboardAccelerators>
         <CommandBar x:Name="Toolbar" DefaultLabelPosition="Right" HorizontalAlignment="Left">
             <AppBarButton x:Name="OpenButton" Icon="OpenFile" Label="Open…" Click="Open_Click">

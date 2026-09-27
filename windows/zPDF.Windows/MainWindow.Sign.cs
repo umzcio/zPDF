@@ -159,11 +159,15 @@ public sealed partial class MainWindow
     /// <summary>Place tool: a click puts the waiting image (or date) on the page.</summary>
     private async Task PlaceAtAsync(int page, Point point)
     {
-        if (await InfoAsync(page) is not { } info) return;
+        // Take what's waiting first: returning to the Select tool clears it.
+        var placingDate = _placingDate;
+        var waiting = _placing;
+        _placingDate = null;
+        _placing = null;
         SetTool(CommentTool.Select);
-        if (_placingDate is { } date)
+        if (await InfoAsync(page) is not { } info) return;
+        if (placingDate is { } date)
         {
-            _placingDate = null;
             var dateRect = new Rect(point.X, point.Y - 8, 90, 16);
             await AddAsync(page, new JsonObject
             {
@@ -172,8 +176,7 @@ public sealed partial class MainWindow
             });
             return;
         }
-        if (_placing is not { } placing) return;
-        _placing = null;
+        if (waiting is not { } placing) return;
         var (w, h) = SignatureArt.Size(placing.Png);
         var width = placing.Width;
         var height = width * h / Math.Max(1, w);
@@ -353,9 +356,10 @@ public sealed partial class MainWindow
     /// <summary>SignBox tool: the dragged box becomes the visible signature.</summary>
     private async Task FinishSignBoxAsync(int page, Rect box)
     {
-        SetTool(CommentTool.Select);
-        if (_signing is not { } signing) return;
+        var waiting = _signing;  // before returning to Select, which clears it
         _signing = null;
+        SetTool(CommentTool.Select);
+        if (waiting is not { } signing) return;
         if (box.Width < 24 || box.Height < 12) box = new Rect(box.X, box.Y, 180, 54);
         if (await InfoAsync(page) is not { } info) return;
         await SignAsync(signing.Id, signing.Password, signing.Options, page, PdfRect(info, box));
