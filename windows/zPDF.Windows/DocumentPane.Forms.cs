@@ -262,6 +262,13 @@ public sealed partial class DocumentPane
     /// before focus navigation and the scroll view (which would otherwise take these keys).</summary>
     private void Root_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Esc leaves full screen before any focused control (a scroller, a field) can take it.
+        if (e.Key == VirtualKey.Escape && IsFullScreen && !DialogOpen())
+        {
+            SetFullScreen(false);
+            e.Handled = true;
+            return;
+        }
         // Enter finishes a perimeter or area wherever focus is (a toolbar button would take it).
         if (_measureSlot is not null && e.Key == VirtualKey.Enter)
         {

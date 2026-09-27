@@ -35,6 +35,9 @@
             <SolidColorBrush x:Key="ZCanvas" Color="#1F1F1F" />
             <SolidColorBrush x:Key="ZStar" Color="#FFC15E" />
             <SolidColorBrush x:Key="ZOnAccent" Color="#FFFFFF" />
+            <!-- WinUI's dark disabled text (36% white) is hard to read on the panel greys. -->
+            <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#8CFFFFFF" />
+            <SolidColorBrush x:Key="ToggleButtonForegroundDisabled" Color="#8CFFFFFF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="ZAccent" Color="{ThemeResource SystemColorHighlightColor}" />

@@ -657,7 +657,7 @@ public sealed partial class DocumentPane : IPageHost
         args.Handled = true;
     }
 
-    private void FullScreen_Click(object sender, RoutedEventArgs e) => SetFullScreen(true);
+    private void FullScreen_Click(object sender, RoutedEventArgs e) => SetFullScreen(!IsFullScreen);
 
     /// <summary>Reading mode: the page view only; F11 or Esc returns.</summary>
     private void SetFullScreen(bool on)
@@ -674,6 +674,8 @@ public sealed partial class DocumentPane : IPageHost
             ToolsDrawer.Visibility = Sidebar.Visibility = Visibility.Collapsed;
             if (_findOpen) CloseFind();
             StatusText.Text = "";
+            // The menu or toolbar that had focus is now collapsed; keep keys (Esc, F11) in the pane.
+            PageScroller.Focus(FocusState.Programmatic);
         }
         else if (_chromeBeforeFullScreen is { } before)
         {

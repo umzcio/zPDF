@@ -206,7 +206,12 @@ public sealed partial class DocumentPane
         if (CurrentPath is null) return;
         StatusText.Text = "Checking for existing tags…";
         bool tagged;
-        try { tagged = (await Engine.QueryAsync(CurrentPath, "structure_tree", password: _password))["tagged"]?.GetValue<bool>() == true; }
+        try
+        {
+            // A tag tree without the Marked flag still counts (the engine won't retag it without Replace).
+            var tree = await Engine.QueryAsync(CurrentPath, "structure_tree", new JsonObject { ["max_nodes"] = 1 }, _password);
+            tagged = tree["tagged"]?.GetValue<bool>() == true || tree["root"] is not null;
+        }
         catch (EngineException error) { StatusText.Text = error.Message; return; }
         StatusText.Text = "";
         if (tagged && !await AskAsync("Replace the existing tags?", new TextBlock { Text = "This document is already tagged. Autotagging replaces its tags with new ones.", TextWrapping = TextWrapping.Wrap }, "Replace")) return;

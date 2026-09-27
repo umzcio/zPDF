@@ -40,7 +40,7 @@ public sealed partial class HomeView : UserControl
 
     private void Filter_Click(object sender, RoutedEventArgs e)
     {
-        _starred = sender == StarredFilter;
+        _starred = ReferenceEquals(sender, StarredFilter);
         Refresh();
     }
 

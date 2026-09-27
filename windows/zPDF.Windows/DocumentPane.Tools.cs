@@ -228,6 +228,7 @@ public sealed partial class DocumentPane
         var levels = new[] { "2b", "3b", "2u", "3u" };
         var chosen = levels[Math.Max(0, level.SelectedIndex)];
         if (!await EditDocumentAsync("Converting to PDF/A…", new JsonObject { ["op"] = "convert_pdfa", ["level"] = chosen })) return;
+        StatusText.Text = $"Converted. Checking PDF/A-{chosen} conformance…";  // the check can take a while
         try
         {
             var report = await Engine.QueryAsync(CurrentPath!, "validate_standard", new JsonObject { ["standard"] = $"PDF/A-{chosen}" }, _password);
