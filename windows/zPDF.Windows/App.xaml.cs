@@ -6,7 +6,38 @@ public partial class App : Application
 {
     private static readonly List<MainWindow> Windows = [];
 
-    public App() => InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
+        // An unexpected error in one command shouldn't close every document: log it, say so in
+        // the status bar and keep it for Report a Bug.
+        UnhandledException += (_, e) =>
+        {
+            e.Handled = true;
+            Report(e.Exception);
+        };
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            e.SetObserved();
+            Report(e.Exception);
+        };
+    }
+
+    private static void Report(Exception error)
+    {
+        DocumentPane.NoteError($"{error.GetType().Name}: {error.Message}");
+        try
+        {
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zPDF");
+            Directory.CreateDirectory(folder);
+            var log = Path.Combine(folder, "errors.log");
+            if (File.Exists(log) && new FileInfo(log).Length > 1 << 20) File.Delete(log);
+            File.AppendAllText(log, $"{DateTime.Now:O} {DocumentPane.Version}\n{error}\n\n");
+        }
+        catch (Exception logging) when (logging is IOException or UnauthorizedAccessException) { }
+        var pane = Windows.LastOrDefault()?.ActivePane;
+        pane?.DispatcherQueue.TryEnqueue(() => pane.ShowProblem("Something went wrong with that command. Undo is available if it changed anything; details are kept for Report a Bug."));
+    }
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {

@@ -110,6 +110,8 @@ public sealed partial class DocumentPane
     // ---------------------------------------------------------------- Report a Bug
 
     /// <summary>Remembers the latest error for the next report's diagnostics.</summary>
+    public void ShowProblem(string message) => StatusText.Text = message;
+
     public static void NoteError(string message) => _lastError = message.Length > 500 ? message[..500] : message;
 
     private async void ReportBug_Click(object sender, RoutedEventArgs e) => await ReportBugAsync();
