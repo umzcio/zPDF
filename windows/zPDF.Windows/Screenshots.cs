@@ -25,6 +25,8 @@ internal static class Screenshots
         for (var i = 0; i < 100 && pane.IsEmpty; i++) await Task.Delay(100);
         Step($"document loaded: {!pane.IsEmpty}");
         await Task.Delay(2500);
+        pane.ShowForScreenshot("closed");
+        await Task.Delay(600);
         await SaveAsync(window, Path.Combine(folder, "2-document.png"));
         Step("document saved");
         foreach (var (step, name) in new[] { ("tools", "3-all-tools"), ("comment", "4-comment"), ("protect", "5-protect"), ("fillSign", "6-fill-forms"), ("edit", "7-edit") })

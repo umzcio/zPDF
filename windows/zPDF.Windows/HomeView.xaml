@@ -11,15 +11,31 @@
         <StackPanel Background="{ThemeResource ZSidebar}" Padding="10,16" Spacing="2"
                     BorderBrush="{ThemeResource ZHairline}" BorderThickness="0,0,1,0">
             <StackPanel.Resources>
-                <!-- Selected = accent icon on an accent tint (Mac rail / panel tiles), not a solid fill. -->
-                <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="ZAccentTint" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ZAccentTint" />
-                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ZAccentTint" />
-                <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="ZAccent" />
-                <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="ZAccent" />
-                <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="ZAccent" />
-                <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="ZAccent" />
-                <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="ZAccent" />
+                <!-- Selected = accent icon on an accent tint (Mac rail / panel tiles), per theme. -->
+                <ResourceDictionary>
+                  <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Light">
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="{ThemeResource SystemAccentColor}" Opacity="0.18" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="{ThemeResource SystemAccentColor}" Opacity="0.24" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="{ThemeResource SystemAccentColor}" Opacity="0.30" />
+                        <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="{ThemeResource SystemAccentColorDark2}" />
+                        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="{ThemeResource SystemAccentColorDark2}" />
+                        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource SystemAccentColorDark2}" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemAccentColorDark2}" Opacity="0.5" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemAccentColorDark2}" Opacity="0.5" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark">
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="{ThemeResource SystemAccentColor}" Opacity="0.18" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="{ThemeResource SystemAccentColor}" Opacity="0.24" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="{ThemeResource SystemAccentColor}" Opacity="0.30" />
+                        <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="{ThemeResource SystemAccentColorLight2}" />
+                        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="{ThemeResource SystemAccentColorLight2}" />
+                        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource SystemAccentColorLight2}" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
+                    </ResourceDictionary>
+                  </ResourceDictionary.ThemeDictionaries>
+                </ResourceDictionary>
             </StackPanel.Resources>
             <TextBlock Text="FILES" Style="{StaticResource ZSectionLabel}" Margin="8,0,0,6" />
             <ToggleButton x:Name="RecentFilter" Tag="recent" IsChecked="True" Click="Filter_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"

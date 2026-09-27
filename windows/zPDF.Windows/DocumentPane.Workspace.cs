@@ -16,7 +16,38 @@ public sealed partial class DocumentPane
     // ---------------------------------------------------------------- tool catalogue
 
     /// <summary>A tool in All tools (Mac zPDF/Models/ToolID.swift: same names, groups, order).</summary>
-    private sealed record ToolDef(string Id, string Name, string Glyph, string Group, string Description, Action Open);
+    private sealed record ToolDef(string Id, string Name, string Glyph, string Group, string Description, Action Open)
+    {
+        /// <summary>What "Find a tool" also matches: the actions inside the tool's panel.</summary>
+        public string Keywords => ToolKeywords.GetValueOrDefault(Id, "");
+    }
+
+    private static readonly Dictionary<string, string> ToolKeywords = new()
+    {
+        ["comment"] = "highlight underline strikethrough note sticky text box stamp draw ink rectangle ellipse line arrow color import export xfdf fdf flatten comments",
+        ["fillSign"] = "fill form signature initials sign date check mark cross dot clear reset flatten fields",
+        ["organize"] = "insert blank pages from file images replace duplicate rotate delete extract split number page labels page boxes page size resize scale transitions reorder move",
+        ["combine"] = "merge join files",
+        ["reduce"] = "compress optimize smaller size",
+        ["export"] = "word excel powerpoint html markdown rtf xml epub text png jpeg images extract attachments convert",
+        ["create"] = "new blank images portfolio",
+        ["edit"] = "edit text images add text add image link crop header footer watermark background bates find replace align arrange",
+        ["share"] = "send email",
+        ["protect"] = "password encrypt security permissions remove security sanitize hidden information",
+        ["redact"] = "black out remove search redact hidden information marks",
+        ["optimize"] = "reduce compress space usage audit",
+        ["certificates"] = "digital id sign certify validate ltv long-term signed version clear signature",
+        ["prepareForm"] = "form fields text check box radio drop-down list date signature button detect tab order calculation barcode xfa",
+        ["signCertificate"] = "digital id certify timestamp ltv",
+        ["compare"] = "differences versions compare comments",
+        ["ocr"] = "recognize text scan straighten deskew clean text layer",
+        ["measure"] = "distance perimeter area scale ruler measurements csv",
+        ["printProduction"] = "preflight output preview inks spot printer marks pdf/x booklet n-up poster print area",
+        ["actionWizard"] = "batch automate javascript actions",
+        ["accessibility"] = "autotag tags reading order alt text alternate text pdf/ua bookmarks headings screen reader",
+        ["archive"] = "pdf/a pdf/e standards",
+        ["bates"] = "legal numbering",
+    };
 
     private static readonly string[] ToolGroups = ["Create & Edit", "Share & Review", "Protect & Optimize", "Forms & Signatures", "Advanced"];
 
@@ -74,7 +105,8 @@ public sealed partial class DocumentPane
         foreach (var group in ToolGroups)
         {
             var tools = Tools.Where(t => t.Group == group && (filter.Length == 0
-                || t.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) || t.Description.Contains(filter, StringComparison.OrdinalIgnoreCase))).ToList();
+                || t.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) || t.Description.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                || t.Keywords.Contains(filter, StringComparison.OrdinalIgnoreCase))).ToList();
             if (tools.Count == 0) continue;
             ToolListItems.Children.Add(Section(group));
             foreach (var tool in tools)
@@ -625,6 +657,7 @@ public sealed partial class DocumentPane
     public void ShowForScreenshot(string step)
     {
         if (step == "tools") ShowToolList();
+        else if (step == "closed") CloseDrawer();
         else OpenTool(step);
     }
 
