@@ -3,12 +3,34 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Home, as on the Mac (zPDF/Views/Home/HomeView.swift): a Files column (Recent,
          Starred), a greeting, Open File / Combine PDFs, and recent-file cards. -->
-    <Grid Background="{ThemeResource ZWindow}">
+    <Grid x:Name="HomeRoot" Background="{ThemeResource ZWindow}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="190" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <StackPanel Background="{ThemeResource ZSidebar}" Padding="10,16" Spacing="2"
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <!-- The app's menus on Home too (the Mac's menu bar is always there). -->
+        <MenuBar Grid.ColumnSpan="2" Background="{ThemeResource ZBar}" Height="32" Padding="4,0"
+                 BorderBrush="{ThemeResource ZHairline}" BorderThickness="0,0,0,1">
+            <MenuBarItem Title="File">
+                <MenuFlyoutItem Text="Open…" Click="Open_Click" />
+                <MenuFlyoutItem Text="Combine PDFs…" Click="Combine_Click" />
+                <MenuFlyoutItem Text="New Window" Tag="newWindow" Click="Command_Click" />
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Text="Preferences…" Tag="preferences" Click="Command_Click" />
+            </MenuBarItem>
+            <MenuBarItem Title="Help">
+                <MenuFlyoutItem Text="Keyboard Shortcuts" Tag="shortcuts" Click="Command_Click" />
+                <MenuFlyoutItem Text="Report a Bug…" Tag="bug" Click="Command_Click" />
+                <MenuFlyoutItem Text="Check for Updates…" Tag="updates" Click="Command_Click" />
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Text="About zPDF" Tag="about" Click="Command_Click" />
+            </MenuBarItem>
+        </MenuBar>
+        <StackPanel Grid.Row="1" Background="{ThemeResource ZSidebar}" Padding="10,16" Spacing="2"
                     BorderBrush="{ThemeResource ZHairline}" BorderThickness="0,0,1,0">
             <StackPanel.Resources>
                 <!-- Selected = accent icon on an accent tint (Mac rail / panel tiles), per theme. -->
@@ -59,7 +81,7 @@
                 </Grid>
             </ToggleButton>
         </StackPanel>
-        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Padding="36" Spacing="24">
                 <StackPanel Spacing="4">
                     <TextBlock Text="Welcome back" FontSize="22" FontWeight="Bold" />

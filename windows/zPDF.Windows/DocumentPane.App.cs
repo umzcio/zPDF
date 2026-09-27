@@ -50,6 +50,20 @@ public sealed partial class DocumentPane
     // ---------------------------------------------------------------- windows
 
     private void NewWindow_Click(object sender, RoutedEventArgs e) => App.OpenWindow(null);
+
+    /// <summary>App commands Home's menus run through a pane: preferences, shortcuts, bug, updates, about.</summary>
+    public void RunAppCommand(string command)
+    {
+        var args = new RoutedEventArgs();
+        switch (command)
+        {
+            case "preferences": Preferences_Click(this, args); break;
+            case "shortcuts": KeyboardShortcuts_Click(this, args); break;
+            case "bug": ReportBug_Click(this, args); break;
+            case "updates": CheckUpdates_Click(this, args); break;
+            case "about": About_Click(this, args); break;
+        }
+    }
     private void NewTab_Click(object sender, RoutedEventArgs e) => _ = Host.OpenFileAsync();
     private void CloseTab_Click(object sender, RoutedEventArgs e) => _ = Host.CloseTabAsync(this);
 

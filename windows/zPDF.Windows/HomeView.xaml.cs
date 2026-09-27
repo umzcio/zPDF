@@ -15,6 +15,19 @@ public sealed partial class HomeView : UserControl
     public event Action<string>? OpenRequested;
     public event Action? OpenFileRequested;
     public event Action? CombineRequested;
+    /// <summary>An app command from Home's menus (preferences, shortcuts, bug, updates, about, newWindow).</summary>
+    public event Action<string>? CommandRequested;
+
+    /// <summary>Keeps MainWindow's invisible command pane in Home's tree, so its dialogs can show.</summary>
+    public void HostUtility(UIElement pane)
+    {
+        if (!HomeRoot.Children.Contains(pane)) HomeRoot.Children.Add(pane);
+    }
+
+    private void Command_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string command }) CommandRequested?.Invoke(command);
+    }
 
     public HomeView()
     {

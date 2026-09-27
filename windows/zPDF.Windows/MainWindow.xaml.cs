@@ -30,6 +30,7 @@ public sealed partial class MainWindow : Window
         Home.OpenRequested += OpenPath;
         Home.OpenFileRequested += () => _ = OpenFileAsync();
         Home.CombineRequested += () => _ = CombineFromHomeAsync();
+        Home.CommandRequested += RunHomeCommand;
         if (path is not null) AddTab(path);
         else ShowHome();
     }
@@ -79,6 +80,21 @@ public sealed partial class MainWindow : Window
     {
         var pane = AddTab(null);
         if (!await pane.CombineIntoThisTabAsync()) await CloseTabAsync(pane);
+    }
+
+    private DocumentPane? _utility;
+
+    /// <summary>Home's menu commands run in an invisible pane (their dialogs need one on screen).</summary>
+    private void RunHomeCommand(string command)
+    {
+        if (command == "newWindow") { App.OpenWindow(null); return; }
+        if (_utility is null)
+        {
+            _utility = new DocumentPane(this) { Visibility = Visibility.Collapsed, IsHitTestVisible = false };
+            Grid.SetRow(_utility, 0);
+        }
+        Home.HostUtility(_utility);
+        _utility.RunAppCommand(command);
     }
 
     public DocumentPane? FindTab(string path) =>
