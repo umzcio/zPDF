@@ -650,7 +650,7 @@ public sealed partial class MainWindow : Window
     private void UpdateCommands()
     {
         var open = _document is not null;
-        SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = open;
+        SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = PagesMenuButton.IsEnabled = DocumentMenuButton.IsEnabled = open;
         FindButton.IsEnabled = GoToPageButton.IsEnabled = PropertiesButton.IsEnabled = PrintButton.IsEnabled = open;
         FullScreenButton.IsEnabled = open;
         RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = open;

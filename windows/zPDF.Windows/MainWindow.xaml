@@ -58,8 +58,41 @@
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
             <AppBarSeparator />
-            <AppBarButton x:Name="WatermarkButton" Label="Add Watermark" Click="Watermark_Click" IsEnabled="False">
+            <AppBarButton x:Name="PagesMenuButton" Label="Pages" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8A1;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Insert Blank Page" Click="InsertBlank_Click" />
+                        <MenuFlyoutItem Text="Insert Pages from File…" Click="InsertFromFile_Click" />
+                        <MenuFlyoutItem Text="Insert Images…" Click="InsertImages_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Replace Pages…" Click="ReplacePages_Click" />
+                        <MenuFlyoutItem Text="Duplicate Pages" Click="DuplicatePages_Click" />
+                        <MenuFlyoutItem Text="Crop Pages…" Click="CropPages_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="WatermarkButton" Label="Page Design" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8D2;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Header &amp; Footer…" Click="HeaderFooter_Click" />
+                        <MenuFlyoutItem Text="Bates Numbering…" Click="Bates_Click" />
+                        <MenuFlyoutItem Text="Watermark…" Click="WatermarkOptions_Click" />
+                        <MenuFlyoutItem Text="Remove Watermarks" Click="RemoveWatermarks_Click" />
+                        <MenuFlyoutItem Text="Background…" Click="Background_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="DocumentMenuButton" Label="Document" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8F4;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Extract Pages…" Click="ExtractPages_Click" />
+                        <MenuFlyoutItem Text="Split Document…" Click="SplitDocument_Click" />
+                        <MenuFlyoutItem Text="Combine Files…" Click="CombineFiles_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
             </AppBarButton>
             <AppBarButton x:Name="UndoButton" Icon="Undo" Label="Undo" Click="Undo_Click" IsEnabled="False">
                 <AppBarButton.KeyboardAccelerators>
