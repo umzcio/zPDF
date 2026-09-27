@@ -382,6 +382,7 @@ public sealed partial class MainWindow : IPageHost
             Add(one.Page, oneInfo.RectsFor(one.Anchor, one.Anchor), Mark.Selection);
         foreach (var (page, rect) in FieldMarks()) Add(page, [rect], Mark.Field);
         foreach (var (page, rect) in RedactionMarks()) Add(page, [rect], Mark.Redaction);
+        foreach (var (page, rect) in ChangeMarks()) Add(page, [rect], Mark.Change);
         foreach (var (page, rect) in CommentMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var slot in _slots) slot.SetMarks(marks.TryGetValue(slot.Index, out var list) ? list : []);
     }
@@ -392,7 +393,9 @@ public sealed partial class MainWindow : IPageHost
     {
         var bookmarks = sender.SelectedItem == BookmarksTab;
         var comments = sender.SelectedItem == CommentsTab;
-        Thumbnails.Visibility = bookmarks || comments ? Visibility.Collapsed : Visibility.Visible;
+        var changes = sender.SelectedItem == ChangesTab;
+        Thumbnails.Visibility = bookmarks || comments || changes ? Visibility.Collapsed : Visibility.Visible;
+        ChangeList.Visibility = changes ? Visibility.Visible : Visibility.Collapsed;
         UpdateCommentsPanel();
         var hasOutline = (OutlineTree.ItemsSource as System.Collections.ICollection)?.Count > 0;
         OutlineTree.Visibility = bookmarks && hasOutline ? Visibility.Visible : Visibility.Collapsed;

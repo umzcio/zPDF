@@ -85,6 +85,19 @@ internal static class SelfTest
         var sig = report["signatures"]!.AsArray().First(x => x!["signed"]?.GetValue<bool>() == true)!;
         Console.WriteLine($"signature image {SignatureArt.Size(png)}; digital signature by {sig["name"]}: integrity={sig["integrity"]} covers={sig["covers_document"]}");
         File.Delete(stamped); File.Delete(signed);
+        string[] Split(string text) => text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var (before, after, expected) in new[]
+        {
+            ("the quick brown fox", "the quick red fox", "(2, 1, 2, 1)"),
+            ("a b c", "a b c d", "(3, 0, 3, 1)"),
+            ("a b c", "b c", "(0, 1, 0, 0)"),
+            ("", "x y", "(0, 0, 0, 2)"),
+            ("same words", "same words", ""),
+        })
+        {
+            var runs = string.Join(" ", TextDiff.Diff(Split(before), Split(after)));
+            Console.WriteLine($"diff '{before}' → '{after}': {runs} {(runs == expected ? "ok" : $"EXPECTED {expected}")}");
+        }
         var docx = Path.Combine(folder, "export.docx");
         var exported = await Exporter.ExportAsync(input, "docx", [0, 1], docx, null, null, CancellationToken.None);
         Console.WriteLine($"export: {Path.GetFileName(exported.Path)} {exported.Bytes} bytes, notices [{string.Join(", ", exported.Notices)}]");

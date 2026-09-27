@@ -146,6 +146,22 @@
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
+            <AppBarButton x:Name="ToolsMenuButton" Label="Tools" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE90F;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Compare with Another PDF…" Click="Compare_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Accessibility Check…" Click="AccessibilityCheck_Click" />
+                        <MenuFlyoutItem Text="Autotag Document" Click="Autotag_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Measure Distance" Tag="MeasureDistance" Click="MeasureTool_Click" />
+                        <MenuFlyoutItem Text="Measure Perimeter" Tag="MeasurePerimeter" Click="MeasureTool_Click" />
+                        <MenuFlyoutItem Text="Measure Area" Tag="MeasureArea" Click="MeasureTool_Click" />
+                        <MenuFlyoutItem Text="Set Measurement Scale…" Click="SetScale_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
             <AppBarButton x:Name="DocumentMenuButton" Label="Document" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8F4;" /></AppBarButton.Icon>
                 <AppBarButton.Flyout>
@@ -312,6 +328,7 @@
                     <SelectorBarItem x:Name="PagesTab" Text="Pages" IsSelected="True" />
                     <SelectorBarItem x:Name="BookmarksTab" Text="Bookmarks" />
                     <SelectorBarItem x:Name="CommentsTab" Text="Comments" />
+                    <SelectorBarItem x:Name="ChangesTab" Text="Changes" Visibility="Collapsed" />
                 </SelectorBar>
                 <TreeView x:Name="OutlineTree" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
                           ItemInvoked="OutlineTree_ItemInvoked" AutomationProperties.Name="Bookmarks">
@@ -353,6 +370,18 @@
                                            Visibility="{x:Bind HasContents}" />
                                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Footer}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind HasFooter}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <ListView x:Name="ChangeList" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
+                          IsItemClickEnabled="True" ItemClick="ChangeList_ItemClick" AutomationProperties.Name="Changes">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:ChangeItem">
+                            <StackPanel Padding="0,6" Spacing="2" AutomationProperties.Name="{x:Bind Summary}">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="{x:Bind Heading}" />
+                                <TextBlock Text="{x:Bind Detail}" TextWrapping="Wrap" MaxLines="4" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </DataTemplate>
                     </ListView.ItemTemplate>

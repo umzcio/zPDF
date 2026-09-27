@@ -12,7 +12,11 @@ using Windows.UI;
 
 namespace zPDF;
 
-public enum CommentTool { Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox }
+public enum CommentTool
+{
+    Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox,
+    MeasureDistance, MeasurePerimeter, MeasureArea,
+}
 
 /// <summary>A comment as the engine reports it (comment_threads).</summary>
 public sealed record CommentRecord(int Page, int Index, string Subtype, double[] Rect, string Author, string Contents,
@@ -130,6 +134,12 @@ public sealed partial class MainWindow
     private void SetTool(CommentTool tool)
     {
         if (tool == CommentTool.Select) { _placing = null; _placingDate = null; _signing = null; }
+        if (tool is not (CommentTool.MeasurePerimeter or CommentTool.MeasureArea) && _measureSlot is { } measuring)
+        {
+            measuring.SetDraft(null);
+            _measureSlot = null;
+            _measurePoints.Clear();
+        }
         _tool = tool;
         foreach (var child in ToolStrip.Children)
             if (child is ToggleButton { Tag: string name } button) button.IsChecked = name == tool.ToString();
@@ -192,11 +202,12 @@ public sealed partial class MainWindow
         if (_tool == CommentTool.Ink) _drawPoints.Add(point);
         else if (_drawPoints.Count == 1) _drawPoints.Add(point);
         else _drawPoints[^1] = point;
+        if (_tool is CommentTool.MeasurePerimeter or CommentTool.MeasureArea) return true;  // clicks, not drags
         var shape = _tool switch
         {
             CommentTool.Ink => DraftShape.Polyline,
             CommentTool.Circle => DraftShape.Ellipse,
-            CommentTool.Line or CommentTool.Arrow => DraftShape.Line,
+            CommentTool.Line or CommentTool.Arrow or CommentTool.MeasureDistance => DraftShape.Line,
             _ => DraftShape.Rectangle,
         };
         if (_tool is not (CommentTool.Text or CommentTool.Stamp or CommentTool.Place)) _drawSlot.SetDraft(new Draft(shape, _drawPoints.ToList(), CurrentColor));
@@ -224,6 +235,8 @@ public sealed partial class MainWindow
         if (points.Count == 1) points.Add(point);
         if (_tool == CommentTool.Redact) { RedactPointerReleased(target, new Rect(points[0], points[^1])); return true; }
         if (_tool == CommentTool.Place) { _ = PlaceAtAsync(target.Index, points[^1]); return true; }
+        if (_tool is CommentTool.MeasureDistance or CommentTool.MeasurePerimeter or CommentTool.MeasureArea)
+            return MeasurePointerReleased(target, points[0], points[^1]);
         if (_tool == CommentTool.SignBox) { _ = FinishSignBoxAsync(target.Index, new Rect(points[0], points[^1])); return true; }
         _ = CreateCommentAsync(target.Index, points);
         return true;
@@ -513,6 +526,13 @@ public sealed partial class MainWindow
 
     private void PageEnter_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (_tool is CommentTool.MeasurePerimeter or CommentTool.MeasureArea && _measurePoints.Count > 0)
+        {
+            args.Handled = true;
+            FinishMeasurement();
+            SetTool(CommentTool.Select);
+            return;
+        }
         if (_selectedComment is null || FindBox.FocusState != FocusState.Unfocused) return;
         args.Handled = true;
         _ = EditSelectedCommentAsync(_selectedComment);
