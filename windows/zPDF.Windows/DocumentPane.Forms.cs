@@ -170,7 +170,7 @@ public sealed partial class DocumentPane
         {
             var combo = new ComboBox
             {
-                IsEditable = widget.Field.Editable, MinWidth = 0, MinHeight = 0, Padding = new Thickness(4, 0, 0, 0),
+                IsEditable = widget.Field.Editable, MinWidth = 0, MinHeight = 0, Padding = new Thickness(6, 0, 0, 0), VerticalContentAlignment = VerticalAlignment.Center,
                 FontSize = Math.Clamp((widget.Field.FontSize > 0 ? widget.Field.FontSize : Math.Min(11, rect.Height * 0.7)) * slot.Width / slot.PointWidth, 8, 48),
                 ItemsSource = widget.Field.Options.Select(o => o.Label).ToList(),
             };

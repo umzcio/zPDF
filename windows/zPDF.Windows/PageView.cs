@@ -178,8 +178,23 @@ public sealed partial class PageView : Grid
         }
         if (_editor is null || Slot?.Editor.Rect is not { } rect) return;
         var scale = PointScale;
-        _editor.Width = Math.Max(24, rect.Width * scale);
-        if (_editor is not ComboBox) _editor.Height = Math.Max(20, rect.Height * scale);
+        double width = rect.Width * scale, height = rect.Height * scale;
+        if (_editor is ComboBox combo)
+        {
+            // The dropdown arrow takes ~32 px: at least room for a short value beside it, and a
+            // usable height, centred on the field rather than hanging below it.
+            var fieldHeight = height;
+            width = Math.Max(width, 84);
+            height = Math.Max(height, 28);
+            combo.FontSize = Math.Min(combo.FontSize, height * 0.5);
+            _editor.Width = width;
+            _editor.Height = height;
+            Canvas.SetLeft(_editor, rect.X * scale);
+            Canvas.SetTop(_editor, rect.Y * scale - (height - fieldHeight) / 2);
+            return;
+        }
+        _editor.Width = Math.Max(24, width);
+        _editor.Height = Math.Max(20, height);
         Canvas.SetLeft(_editor, rect.X * scale);
         Canvas.SetTop(_editor, rect.Y * scale);
     }
