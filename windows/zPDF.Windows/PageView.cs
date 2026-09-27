@@ -11,7 +11,7 @@ using Windows.Foundation;
 namespace zPDF;
 
 /// <summary>What a page overlay rectangle shows.</summary>
-public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection, Field }
+public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection, Field, Redaction }
 
 /// <summary>A form value typed but not yet written into the PDF, drawn over its widget.</summary>
 public sealed record FieldOverlay(Rect Rect, string Text, bool IsCheck, bool Checked, double FontSize);
@@ -41,6 +41,8 @@ public sealed partial class PageView : Grid
     private static readonly SolidColorBrush CurrentFindBrush = new(ColorHelper.FromArgb(0x88, 0xFF, 0x8C, 0x00));
     private static readonly SolidColorBrush CommentSelectionBrush = new(ColorHelper.FromArgb(0xFF, 0x00, 0x67, 0xC0));
     private static readonly SolidColorBrush FieldBrush = new(ColorHelper.FromArgb(0x33, 0x33, 0x88, 0xFF));
+    private static readonly SolidColorBrush RedactFill = new(ColorHelper.FromArgb(0x44, 0xFF, 0x30, 0x30));
+    private static readonly SolidColorBrush RedactStroke = new(ColorHelper.FromArgb(0xFF, 0xD0, 0x10, 0x10));
     private static readonly SolidColorBrush PendingBrush = new(ColorHelper.FromArgb(0xFF, 0xF4, 0xF8, 0xFF));
 
     private readonly Image _image = new() { Stretch = Stretch.Fill };
@@ -175,6 +177,12 @@ public sealed partial class PageView : Grid
             if (mark == Mark.Field)
             {
                 shape.Fill = FieldBrush;
+            }
+            else if (mark == Mark.Redaction)
+            {
+                shape.Fill = RedactFill;
+                shape.Stroke = RedactStroke;
+                shape.StrokeThickness = 1.5;
             }
             else if (mark == Mark.CommentSelection)
             {

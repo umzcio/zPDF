@@ -381,6 +381,7 @@ public sealed partial class MainWindow : IPageHost
         else if (_selection is { } one && _infos.GetValueOrDefault(one.Page) is { } oneInfo && _selecting)
             Add(one.Page, oneInfo.RectsFor(one.Anchor, one.Anchor), Mark.Selection);
         foreach (var (page, rect) in FieldMarks()) Add(page, [rect], Mark.Field);
+        foreach (var (page, rect) in RedactionMarks()) Add(page, [rect], Mark.Redaction);
         foreach (var (page, rect) in CommentMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var slot in _slots) slot.SetMarks(marks.TryGetValue(slot.Index, out var list) ? list : []);
     }

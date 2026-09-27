@@ -84,6 +84,18 @@
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
+            <AppBarButton x:Name="ProtectMenuButton" Label="Protect" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE72E;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Password Protection…" Click="Protect_Click" />
+                        <MenuFlyoutItem Text="Remove Security" Click="RemoveSecurity_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Search &amp; Redact…" Click="SearchRedact_Click" />
+                        <MenuFlyoutItem Text="Remove Hidden Information…" Click="RemoveHidden_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
             <AppBarButton x:Name="DocumentMenuButton" Label="Document" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8F4;" /></AppBarButton.Icon>
                 <AppBarButton.Flyout>
@@ -193,6 +205,15 @@
                 <x:String>TopSecret</x:String>
             </ComboBox>
             <AppBarSeparator />
+            <AppBarSeparator />
+            <ToggleButton Tag="Redact" Click="Tool_Click" ToolTipService.ToolTip="Mark for redaction (drag an area, or select text first)"
+                          AutomationProperties.Name="Mark for redaction">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE7E6;" FontSize="16" Foreground="Red" /><TextBlock Text="Redact" /></StackPanel>
+            </ToggleButton>
+            <Button x:Name="ApplyRedactionsButton" Content="Apply" IsEnabled="False" Click="ApplyRedactions_Click"
+                    ToolTipService.ToolTip="Apply the marked redactions" AutomationProperties.Name="Apply redactions" />
+            <Button x:Name="ClearRedactionsButton" Content="Clear" IsEnabled="False" Click="ClearRedactions_Click"
+                    ToolTipService.ToolTip="Clear redaction marks" AutomationProperties.Name="Clear redaction marks" />
             <AppBarSeparator />
             <ToggleButton x:Name="HighlightFieldsButton" IsChecked="True" Click="HighlightFields_Click" Visibility="Collapsed"
                           ToolTipService.ToolTip="Highlight form fields" AutomationProperties.Name="Highlight form fields">

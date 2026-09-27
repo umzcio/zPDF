@@ -66,7 +66,7 @@ public sealed partial class MainWindow : Window
 
     private Engine Engine => _engine ??= new Engine();
     private string? CurrentPath => _revisions.TryPeek(out var top) ? top : _sourcePath;
-    private bool IsEdited => _document is not null && (CurrentPath != _savedPath || HasPendingFields);
+    private bool IsEdited => _document is not null && (CurrentPath != _savedPath || HasPendingFields || _security is not null);
     private double RasterScale => Content.XamlRoot?.RasterizationScale ?? 1.0;
     private double Dips => _zoom * 96 / 72;  // device-independent pixels per PDF point
 
@@ -91,9 +91,11 @@ public sealed partial class MainWindow : Window
         _sourcePath = _savedPath = path;
         _password = opened.Password;
         AppSettings.Current.AddRecent(path);
+        _security = null;
         _page = 0;
         _fitWidth = true;
         Show(opened.Document, keepPosition: false);
+        NoteOpenedSecurity();
     });
 
     private void Root_DragOver(object sender, DragEventArgs e)
@@ -122,7 +124,10 @@ public sealed partial class MainWindow : Window
         var saved = false;
         await Run("Saving…", async () =>
         {
-            await Engine.PublishAsync(CurrentPath!, _sourcePath, overwrite: true);
+            var candidate = await FinalCandidateAsync();
+            await Engine.PublishAsync(candidate, _sourcePath, overwrite: true);
+            if (candidate != CurrentPath) TryDelete(candidate);
+            NoteSavedSecurity();
             _savedPath = CurrentPath;
             saved = true;
             StatusText.Text = $"Saved {Path.GetFileName(_sourcePath)}";
@@ -142,7 +147,10 @@ public sealed partial class MainWindow : Window
         if (file is null) return;
         await Run("Saving…", async () =>
         {
-            await Engine.PublishAsync(CurrentPath!, file.Path, overwrite: true);
+            var candidate = await FinalCandidateAsync();
+            await Engine.PublishAsync(candidate, file.Path, overwrite: true);
+            if (candidate != CurrentPath) TryDelete(candidate);
+            NoteSavedSecurity();
             // The window now edits the new file, like Save As elsewhere.
             _sourcePath = file.Path;
             _savedPath = CurrentPath;
@@ -402,6 +410,7 @@ public sealed partial class MainWindow : Window
         var atTop = PageScroller.VerticalOffset <= 1;
         if (keepPosition && anchor < _slots.Count && _slots[anchor].Height > 0)
             within = Math.Clamp((ReadingLine - PageTop(anchor)) / _slots[anchor].Height, 0, 1);
+        if (_document is not null && _document.PageCount != document.PageCount) _redactions.Clear();
         _document?.Dispose();
         _document = document;
         _pageSizes = Enumerable.Range(0, document.PageCount).Select(document.PageSize).ToArray();
@@ -650,7 +659,7 @@ public sealed partial class MainWindow : Window
     private void UpdateCommands()
     {
         var open = _document is not null;
-        SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = PagesMenuButton.IsEnabled = DocumentMenuButton.IsEnabled = open;
+        SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = PagesMenuButton.IsEnabled = DocumentMenuButton.IsEnabled = ProtectMenuButton.IsEnabled = open;
         FindButton.IsEnabled = GoToPageButton.IsEnabled = PropertiesButton.IsEnabled = PrintButton.IsEnabled = open;
         FullScreenButton.IsEnabled = open;
         RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = open;
