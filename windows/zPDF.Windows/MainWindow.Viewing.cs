@@ -404,6 +404,13 @@ public sealed partial class MainWindow : IPageHost
 
     // ---------------------------------------------------------------- bookmarks
 
+    /// <summary>Sidebar tabs are icons; the label (with a count) is the tooltip and accessible name.</summary>
+    private static void SetTabLabel(SelectorBarItem tab, string label)
+    {
+        ToolTipService.SetToolTip(tab, label);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(tab, label);
+    }
+
     private void SidebarTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs? args)
     {
         var bookmarks = sender.SelectedItem == BookmarksTab;

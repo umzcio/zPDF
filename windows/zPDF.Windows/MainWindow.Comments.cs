@@ -419,7 +419,7 @@ public sealed partial class MainWindow
         var comments = SidebarTabs.SelectedItem == CommentsTab;
         CommentList.Visibility = comments && _commentItems.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         NoCommentsText.Visibility = comments && _commentItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        CommentsTab.Text = _commentItems.Count > 0 ? $"Comments ({_commentItems.Count})" : "Comments";
+        SetTabLabel(CommentsTab, _commentItems.Count > 0 ? $"Comments ({_commentItems.Count})" : "Comments");
     }
 
     // ---------------------------------------------------------------- selection and hit-testing

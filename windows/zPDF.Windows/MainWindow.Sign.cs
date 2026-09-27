@@ -383,7 +383,7 @@ public sealed partial class MainWindow
             var status = !ok ? "✗ The document was altered after this signature — it is no longer valid."
                 : s["mdp_violation"]?.GetValue<bool>() == true ? "✗ Changes after certifying break its permissions."
                 : covers ? "✓ Signed and unchanged since signing."
-                : $"✓ Signed; {changes} later change{(changes == 1 ? "" : "s")} were appended after it.";
+                : $"✓ Signed; {changes} later change{(changes == 1 ? " was" : "s were")} appended after it.";
             var trust = errors.Count > 0 ? $"Identity: {string.Join(" ", errors)}" : "Identity: trusted";
             var lines = new List<string>
             {

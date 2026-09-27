@@ -35,9 +35,10 @@ public sealed partial class MainWindow
         picker.FileTypeChoices.Add(label, [extension]);
         if (await picker.PickSaveFileAsync() is not { } file) return;
         var options = new JsonObject();
-        if (layout is not null) options["layout_mode"] = layout.SelectedIndex == 1 ? "exact" : "flowing";
+        if (layout is not null) options["layout_mode"] = layout.SelectedIndex == 1 ? "preserve" : "reflow";
         var progress = new Progress<string>(text => StatusText.Text = text);
-        await Run($"Exporting to {label}…", async () =>
+        var existed = File.Exists(file.Path) && new FileInfo(file.Path).Length > 0;
+        var exported = await Run($"Exporting to {label}…", async () =>
         {
             // The exporter reads an unencrypted snapshot of what's on screen.
             var source = CurrentPath!;
@@ -58,6 +59,8 @@ public sealed partial class MainWindow
                 if (snapshot is not null) TryDelete(snapshot);
             }
         }, keepStatus: true);
+        // The save picker creates an empty file; don't leave it behind when nothing was exported.
+        if (!exported && !existed && File.Exists(file.Path) && new FileInfo(file.Path).Length == 0) TryDelete(file.Path);
     }
 
     private async Task ExportTextAsync()
@@ -98,13 +101,13 @@ public sealed partial class MainWindow
             {
                 StatusText.Text = $"Exporting page {page + 1} ({++done} of {pages.Count})…";
                 var target = Path.Combine(folder.Path, $"{stem} page {page + 1}.{format}");
-                await Task.Run(() => SaveImage(copy.Render(page, resolution / 72.0), target, format));
+                await Task.Run(() => SaveImage(copy.Render(page, resolution / 72.0), target, format, resolution));
             }
             StatusText.Text = $"Exported {pages.Count} image{(pages.Count == 1 ? "" : "s")} to {Path.GetFileName(folder.Path)}";
         }, keepStatus: true);
     }
 
-    private static void SaveImage(RenderedPage page, string path, string format)
+    private static void SaveImage(RenderedPage page, string path, string format, double dpi = 96)
     {
         using var bitmap = new System.Drawing.Bitmap(page.Width, page.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
         var data = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, page.Width, page.Height), System.Drawing.Imaging.ImageLockMode.WriteOnly,
@@ -115,6 +118,7 @@ public sealed partial class MainWindow
                 System.Runtime.InteropServices.Marshal.Copy(page.Pixels, row * page.Width * 4, data.Scan0 + row * data.Stride, page.Width * 4);
         }
         finally { bitmap.UnlockBits(data); }
+        bitmap.SetResolution((float)dpi, (float)dpi);
         bitmap.Save(path, format == "jpg" ? System.Drawing.Imaging.ImageFormat.Jpeg : System.Drawing.Imaging.ImageFormat.Png);
     }
 
@@ -184,10 +188,11 @@ public sealed partial class MainWindow
         var before = new FileInfo(CurrentPath!).Length;
         var op = new JsonObject { ["op"] = "optimize", ["preset"] = new[] { "high", "medium", "low" }[Math.Max(0, preset.SelectedIndex)] };
         if (extras.IsChecked == true) op["remove"] = new JsonObject { ["metadata"] = true, ["thumbnails"] = true, ["private_data"] = true };
-        await EditDocumentAsync("Reducing file size…", op);
+        if (!await EditDocumentAsync("Reducing file size…", op)) return;
         var after = new FileInfo(CurrentPath!).Length;
         StatusText.Text = after < before
             ? $"Reduced from {FormatSize(before)} to {FormatSize(after)} ({100 - after * 100 / before}% smaller). Save to keep it."
+            : extras.IsChecked == true ? "Metadata and private data removed; the file size didn't shrink further. Save to keep it."
             : "This document is already compact; nothing more to reduce.";
     }
 
@@ -197,14 +202,30 @@ public sealed partial class MainWindow
         if (!await AskAsync("Save as PDF/A (archival)", Stack(level, new TextBlock { Text = "Fonts are embedded, colours are given a profile and features PDF/A forbids (scripts, transparency groups without a profile…) are removed. Save afterwards to keep it.", TextWrapping = TextWrapping.Wrap, Opacity = 0.75 }), "Convert")) return;
         var levels = new[] { "2b", "3b", "2u", "3u" };
         var chosen = levels[Math.Max(0, level.SelectedIndex)];
-        await EditDocumentAsync("Converting to PDF/A…", new JsonObject { ["op"] = "convert_pdfa", ["level"] = chosen });
+        if (!await EditDocumentAsync("Converting to PDF/A…", new JsonObject { ["op"] = "convert_pdfa", ["level"] = chosen })) return;
         try
         {
             var report = await Engine.QueryAsync(CurrentPath!, "validate_standard", new JsonObject { ["standard"] = $"PDF/A-{chosen}" }, _password);
-            StatusText.Text = report["compliant"]?.GetValue<bool>() == true
-                ? $"The document now conforms to PDF/A-{chosen}. Save to keep it."
-                : $"Converted, but {report["issues"]?.AsArray().Count ?? 0} issue(s) remain for PDF/A-{chosen}.";
+            if (report["compliant"]?.GetValue<bool>() == true)
+            {
+                StatusText.Text = $"The document now conforms to PDF/A-{chosen}. Save to keep it.";
+                return;
+            }
+            var issues = report["issues"]?.AsArray() ?? [];
+            StatusText.Text = $"Converted, but {issues.Count} issue{(issues.Count == 1 ? "" : "s")} remain for PDF/A-{chosen}. Save to keep the conversion.";
+            await AskAsync($"PDF/A-{chosen}: {issues.Count} issue{(issues.Count == 1 ? "" : "s")} remain", Stack(issues.Take(100).Select(i => (UIElement)new TextBlock
+            {
+                Text = IssueText(i), TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true,
+            }).ToArray()), "OK");
         }
         catch (EngineException error) { StatusText.Text = error.Message; }
     }
+
+    private static string IssueText(JsonNode? issue) => issue switch
+    {
+        JsonValue v => v.ToString(),
+        JsonObject o => string.Join(" — ", new[] { o["message"] ?? o["title"], o["rule"] ?? o["clause"], o["detail"] }
+                                               .Select(x => x?.ToString()).Where(x => !string.IsNullOrWhiteSpace(x))) is { Length: > 0 } text ? text : o.ToJsonString(),
+        _ => "",
+    };
 }

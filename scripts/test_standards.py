@@ -129,6 +129,20 @@ class OptimizeTests(Base):
             im = list(pdf.pages[0].obj.Resources.XObject.values())[0]
             self.assertEqual(im.ColorSpace, pikepdf.Name.DeviceGray)
 
+    def test_indirect_indexed_color_space(self):
+        # An Indexed image whose /ColorSpace is an indirect array (unhashable in pikepdf).
+        src = scan_pdf(self.tmp)
+        with pikepdf.open(src, allow_overwriting_input=True) as pdf:
+            palette = pikepdf.Array([pikepdf.Name.Indexed, pikepdf.Name.DeviceRGB, 1, pikepdf.String(b"\x00\x00\x00\xff\xff\xff")])
+            data = bytes([0, 1] * 50)
+            image = pdf.make_stream(data, Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image, Width=10, Height=10,
+                                    BitsPerComponent=8, ColorSpace=pdf.make_indirect(palette))
+            pdf.pages[0].obj.Resources.XObject.Pal = image
+            pdf.save(src)
+        out, result = self.run_ops(src, [{"op": "optimize", "preset": "medium"}])
+        with pikepdf.open(out) as pdf:
+            self.assertIn("/Pal", pdf.pages[0].obj.Resources.XObject)
+
     def test_font_subset_and_unembed(self):
         # Embed a full TrueType font for a simple WinAnsi font, then subset it.
         src = text_pdf(self.tmp / "t.pdf", ["Subset me"])

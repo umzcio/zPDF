@@ -243,6 +243,12 @@ public sealed partial class MainWindow
 
     private FormWidget? _focusedToggle;
 
+    /// <summary>The same widget in the current field list (fields reload after each write).</summary>
+    private FormWidget LiveWidget(FormWidget widget) =>
+        _fields.Contains(widget.Field) ? widget
+            : _fields.Where(f => f.Name == widget.Field.Name).SelectMany(f => f.Widgets)
+                     .FirstOrDefault(w => w.Page == widget.Page && w.Rect.SequenceEqual(widget.Rect) && w.Export == widget.Export) ?? widget;
+
     /// <summary>A checkbox or radio button is the keyboard target: Space toggles it,
     /// Tab / Shift+Tab move on. Focus goes to the page so no toolbar button takes the key.</summary>
     private void FocusToggle(FormWidget widget)
@@ -256,7 +262,8 @@ public sealed partial class MainWindow
     /// before focus navigation and the scroll view (which would otherwise take these keys).</summary>
     private void Root_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (_focusedToggle is not { } widget || _editing is not null || FindBox.FocusState != FocusState.Unfocused) return;
+        if (_focusedToggle is null || _editing is not null || FindBox.FocusState != FocusState.Unfocused) return;
+        var widget = _focusedToggle = LiveWidget(_focusedToggle);
         if (e.Key == VirtualKey.Tab)
         {
             e.Handled = true;
@@ -357,7 +364,14 @@ public sealed partial class MainWindow
             PushRevision(edited);
             _pendingValues.Clear();
             written = true;
+            // Reloading the view drops per-page state; keep the checkbox or radio that has the keyboard.
+            var toggle = _focusedToggle;
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
+            if (toggle is not null && _editing is null)
+            {
+                _focusedToggle = toggle;
+                PageScroller.Focus(FocusState.Programmatic);
+            }
         });
         if (!written)
         {
@@ -408,7 +422,8 @@ public sealed partial class MainWindow
     /// <summary>Space toggles a checkbox or radio reached with Tab.</summary>
     private bool ToggleFocusedField()
     {
-        if (_focusedToggle is not { } widget) return false;
+        if (_focusedToggle is null) return false;
+        var widget = _focusedToggle = LiveWidget(_focusedToggle);
         if (widget.Field.Kind == "checkbox") SetPending(widget.Field, JsonValue.Create(!IsChecked(widget.Field)));
         else if (widget.Export is { } export) SetPending(widget.Field, JsonValue.Create(export));
         return true;

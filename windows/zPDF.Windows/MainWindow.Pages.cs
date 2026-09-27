@@ -63,7 +63,7 @@ public sealed partial class MainWindow
     }
 
     /// <summary>One edit of the open document as one undo step.</summary>
-    private Task EditDocumentAsync(string status, JsonObject op, int? focus = null) =>
+    private Task<bool> EditDocumentAsync(string status, JsonObject op, int? focus = null) =>
         ApplyAsync(status, op, focus is { } f ? [f] : [_page], focus);
 
     // ---------------------------------------------------------------- Pages menu

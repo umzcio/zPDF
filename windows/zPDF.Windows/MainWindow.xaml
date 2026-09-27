@@ -166,6 +166,15 @@
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Accessibility Check…" Click="AccessibilityCheck_Click" />
                         <MenuFlyoutItem Text="Autotag Document" Click="Autotag_Click" />
+                        <MenuFlyoutItem Text="Alternate Text…" Click="AltText_Click" />
+                        <MenuFlyoutItem Text="Reading Order (Current Page)…" Click="ReadingOrder_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutSubItem Text="Print Production">
+                            <MenuFlyoutItem Text="Preflight…" Click="Preflight_Click" />
+                            <MenuFlyoutItem Text="Output Preview…" Click="OutputPreview_Click" />
+                            <MenuFlyoutItem Text="Printer Marks…" Click="PrinterMarks_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="Batch Process Files…" Click="Batch_Click" />
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Measure Distance" Tag="MeasureDistance" Click="MeasureTool_Click" />
                         <MenuFlyoutItem Text="Measure Perimeter" Tag="MeasurePerimeter" Click="MeasureTool_Click" />
@@ -401,12 +410,24 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <SelectorBar x:Name="SidebarTabs" SelectionChanged="SidebarTabs_SelectionChanged">
-                    <SelectorBarItem x:Name="PagesTab" Text="Pages" IsSelected="True" />
-                    <SelectorBarItem x:Name="BookmarksTab" Text="Bookmarks" />
-                    <SelectorBarItem x:Name="CommentsTab" Text="Comments" />
-                    <SelectorBarItem x:Name="ChangesTab" Text="Changes" Visibility="Collapsed" />
-                    <SelectorBarItem x:Name="AttachmentsTab" Text="Files" />
-                    <SelectorBarItem x:Name="LayersTab" Text="Layers" Visibility="Collapsed" />
+                    <SelectorBarItem x:Name="PagesTab" ToolTipService.ToolTip="Pages" AutomationProperties.Name="Pages" IsSelected="True">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE8A9;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="BookmarksTab" ToolTipService.ToolTip="Bookmarks" AutomationProperties.Name="Bookmarks">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE8A4;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="CommentsTab" ToolTipService.ToolTip="Comments" AutomationProperties.Name="Comments">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE90A;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="ChangesTab" ToolTipService.ToolTip="Changes" AutomationProperties.Name="Changes" Visibility="Collapsed">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE81C;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="AttachmentsTab" ToolTipService.ToolTip="Attachments" AutomationProperties.Name="Attachments">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE723;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="LayersTab" ToolTipService.ToolTip="Layers" AutomationProperties.Name="Layers" Visibility="Collapsed">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE81E;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
                 </SelectorBar>
                 <TreeView x:Name="OutlineTree" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
                           ItemInvoked="OutlineTree_ItemInvoked" AutomationProperties.Name="Bookmarks">

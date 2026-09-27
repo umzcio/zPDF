@@ -110,7 +110,7 @@ public sealed partial class MainWindow
                                                     item["page"] is JsonValue p && p.TryGetValue<int>(out var page) ? page : null));
         }
         catch (EngineException) { }
-        AttachmentsTab.Text = _attachments.Count > 0 ? $"Files ({_attachments.Count})" : "Files";
+        SetTabLabel(AttachmentsTab, _attachments.Count > 0 ? $"Attachments ({_attachments.Count})" : "Attachments");
     }
 
     private async void AddAttachment_Click(object sender, RoutedEventArgs e)

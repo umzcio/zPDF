@@ -89,7 +89,8 @@ public sealed partial class MainWindow
             if (older.PageCount != document.PageCount)
                 _changes.Add(new ChangeItem("Visual", "", $"Page count changed: {older.PageCount} → {document.PageCount}", null, [], null));
             ChangesTab.Visibility = Visibility.Visible;
-            ChangesTab.Text = $"Changes ({_changes.Count})";
+            ChangeList.ItemsSource = _changes;
+            SetTabLabel(ChangesTab, $"Changes ({_changes.Count})");
             SidebarTabs.SelectedItem = ChangesTab;
             StatusText.Text = _changes.Count == 0
                 ? $"No differences from {Path.GetFileName(file.Path)}."
@@ -237,11 +238,11 @@ public sealed partial class MainWindow
         try
         {
             var scales = await Engine.QueryAsync(CurrentPath!, "page_scales", password: _password);
-            var entry = scales.AsArray().FirstOrDefault(s => s!["page"]?.GetValue<int>() == page);
+            var entry = (scales["pages"] as JsonArray ?? scales as JsonArray)?.FirstOrDefault(s => s!["page"]?.GetValue<int>() == page);
             if (entry?["factor"] is JsonValue f && f.TryGetValue<double>(out var factor))
                 return (factor, entry["unit"]?.GetValue<string>() ?? "in", entry["ratio"]?.GetValue<string>() ?? "");
         }
-        catch (EngineException) { }
+        catch (Exception error) when (error is EngineException or InvalidOperationException) { }
         return (1.0 / 72, "in", "1 in = 1 in");
     }
 

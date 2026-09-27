@@ -323,7 +323,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>One engine edit as one undo step; reselects `select` afterwards.</summary>
     /// <summary>`focus`: scroll to this page afterwards instead of keeping the scroll position.</summary>
-    private Task ApplyAsync(string status, JsonObject op, List<int> select, int? focus = null) =>
+    private Task<bool> ApplyAsync(string status, JsonObject op, List<int> select, int? focus = null) =>
         Run(status, async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [op], _password);
@@ -688,7 +688,8 @@ public sealed partial class MainWindow : Window
         NextButton.IsEnabled = open && _page < _document!.PageCount - 1;
     }
 
-    private async Task Run(string status, Func<Task> action, bool keepStatus = false, bool flushFields = true)
+    /// <summary>Runs `action` with a status message; errors go to the status bar. True if it succeeded.</summary>
+    private async Task<bool> Run(string status, Func<Task> action, bool keepStatus = false, bool flushFields = true)
     {
         // Any other action first writes form entries still waiting to be saved.
         if (flushFields && HasPendingFields) await FlushFieldsAsync();
@@ -698,11 +699,13 @@ public sealed partial class MainWindow : Window
         {
             await action();
             if (!keepStatus) StatusText.Text = "";
+            return true;
         }
         catch (Exception error) when (error is EngineException or IOException or InvalidDataException or UnauthorizedAccessException)
         {
             StatusText.Text = error.Message;
             NoteError(error is EngineException engine ? $"{engine.Code}: {engine.Message}" : error.Message);
+            return false;
         }
         finally
         {

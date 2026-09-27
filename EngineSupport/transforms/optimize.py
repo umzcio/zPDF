@@ -186,6 +186,8 @@ def _space_kind(xobj):
     if isinstance(space, pikepdf.Array) and len(space) and space[0] == Name.ICCBased:
         n = int(space[1].get("/N", 3))
         return {1: "gray", 3: "rgb", 4: "cmyk"}.get(n), space
+    if not isinstance(space, Name):  # Indexed, Separation, Lab…: arrays, often indirect (unhashable)
+        return None, space
     return {Name.DeviceRGB: "rgb", Name.DeviceGray: "gray", Name.DeviceCMYK: "cmyk"}.get(space), space
 
 
