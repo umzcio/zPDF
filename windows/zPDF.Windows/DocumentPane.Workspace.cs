@@ -58,7 +58,7 @@ public sealed partial class DocumentPane
     [
         new("comment", "Comment", "", "Share & Review", "Annotate with highlights and notes", () => ShowPanel("Comment", CommentBox, alsoPanel: "Comments")),
         new("fillSign", "Fill forms", "", "Forms & Signatures", "Complete existing form fields", () => ShowPanel("Fill forms", FillBox)),
-        new("organize", "Organize Pages", "", "Create & Edit", "Reorder, rotate, delete, or extract pages", () => ShowGenerated("Organize Pages", OrganizeSections(), alsoPanel: "Pages")),
+        new("organize", "Organize Pages", "", "Create & Edit", "Reorder, rotate, delete, or extract pages", () => ShowGenerated("Organize Pages", OrganizeSections())),
         new("combine", "Combine Files", "", "Create & Edit", "Merge multiple files into one PDF", () => CombineFiles_Click(this, new RoutedEventArgs())),
         new("reduce", "Reduce File Size", "", "Create & Edit", "Reduce file size for sharing", () => ReduceSize_Click(this, new RoutedEventArgs())),
         new("export", "Export PDF", "", "Create & Edit", "Convert to Word, Excel, HTML, Markdown or images", () => ShowGenerated("Export PDF", ExportSections())),
@@ -212,6 +212,7 @@ public sealed partial class DocumentPane
     /// <summary>Leaving a panel ends the mode it started (Prepare Form, Edit, Redact, Measure…).</summary>
     private void LeaveToolModes()
     {
+        SetOrganizing(false);
         if (_tool is not (CommentTool.Select or CommentTool.Highlight or CommentTool.Underline or CommentTool.Text)) SetTool(CommentTool.Select);
     }
 
@@ -221,6 +222,7 @@ public sealed partial class DocumentPane
             panel.Visibility = panel == box ? Visibility.Visible : Visibility.Collapsed;
         if (_openTool != title) LeaveToolModes();
         _openTool = title;
+        SetOrganizing(title == "Organize Pages");
         ToolPanelTitle.Text = title;
         ToolList.Visibility = Visibility.Collapsed;
         ToolPanelHost.Visibility = ToolsDrawer.Visibility = Visibility.Visible;
@@ -346,7 +348,7 @@ public sealed partial class DocumentPane
         PanelRow("Split by File Size…", "", SplitBySize_Click),
         PanelRow("Combine Files…", "", CombineFiles_Click),
         PanelRow("Reduce File Size…", "", ReduceSize_Click),
-        PanelNote("Select pages in the Pages panel first; drag thumbnails to reorder them."),
+        PanelNote("Drag a page to its new position. Right-click a page for more actions. Save to keep your changes; Back to all tools returns to reading the document."),
     ];
 
     private IEnumerable<UIElement> ExportSections() =>

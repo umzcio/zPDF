@@ -87,6 +87,8 @@ public sealed partial class DocumentPane
         var settings = AppSettings.Current;
         var author = Text("Your name (on comments, replies and marks)", settings.AuthorName, Environment.UserName);
         var zoom = Choice("Open documents at", ["Fit width", "Actual size (100%)"], settings.FitWidthOnOpen ? 0 : 1);
+        var layouts = new[] { "single", "continuous", "facing" };
+        var layout = Choice("Default page layout", ["Single Page", "Continuous", "Facing Pages"], Math.Max(0, Array.IndexOf(layouts, settings.DefaultViewMode)));
         var fields = new CheckBox { Content = "Highlight form fields", IsChecked = settings.HighlightFields };
         var windows = new CheckBox { Content = "Open files in tabs (clear to open each in its own window)", IsChecked = settings.OpenInTabs };
         var clear = new Button { Content = "Clear Recent Files" };
@@ -110,9 +112,10 @@ public sealed partial class DocumentPane
             Text = "zPDF appears in \"Open with\". Windows lets only you choose the default app, so this opens Settings ▸ Default apps.",
             TextWrapping = TextWrapping.Wrap, Opacity = 0.75,
         };
-        if (!await AskAsync("Preferences", Stack(author, zoom, fields, windows, clear, defaults, defaultsNote), "Save")) return;
+        if (!await AskAsync("Preferences", Stack(author, zoom, layout, fields, windows, clear, defaults, defaultsNote), "Save")) return;
         settings.AuthorName = author.Text.Trim();
         settings.FitWidthOnOpen = zoom.SelectedIndex == 0;
+        settings.DefaultViewMode = layouts[Math.Max(0, layout.SelectedIndex)];
         settings.HighlightFields = fields.IsChecked == true;
         settings.OpenInTabs = windows.IsChecked == true;
         settings.Save();

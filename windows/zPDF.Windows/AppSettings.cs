@@ -51,6 +51,8 @@ public sealed class AppSettings
     /// <summary>Name on new comments, signatures' "signed by" and replies (empty: the Windows user name).</summary>
     public string AuthorName { get; set; } = "";
     public bool FitWidthOnOpen { get; set; } = true;
+    /// <summary>The page layout new documents open in: "single", "continuous" or "facing".</summary>
+    public string DefaultViewMode { get; set; } = "continuous";
     public bool HighlightFields { get; set; } = true;
     public bool OpenInNewWindow { get; set; } = true;  // older setting (tabs replaced it)
     public bool OpenInTabs { get; set; } = true;

@@ -556,7 +556,10 @@ public sealed partial class DocumentPane : IPageHost
     private void ScrollBy(KeyboardAcceleratorInvokedEventArgs args, double screens)
     {
         if (_document is null || FindBox.FocusState != FocusState.Unfocused) return;
-        PageScroller.ChangeView(null, PageScroller.VerticalOffset + screens * PageScroller.ViewportHeight, null, disableAnimation: true);
+        // Single Page / Facing Pages: at the end of the page, turn to the next.
+        if (Paged && screens > 0 && PageScroller.VerticalOffset >= PageScroller.ScrollableHeight - 1) StepPage(1);
+        else if (Paged && screens < 0 && PageScroller.VerticalOffset <= 1) StepPage(-1, toBottom: true);
+        else PageScroller.ChangeView(null, PageScroller.VerticalOffset + screens * PageScroller.ViewportHeight, null, disableAnimation: true);
         args.Handled = true;
     }
 
@@ -572,7 +575,8 @@ public sealed partial class DocumentPane : IPageHost
     private void End_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         if (_document is null) return;
-        PageScroller.ChangeView(null, PageScroller.ScrollableHeight, null, disableAnimation: true);
+        if (Paged) GoTo(_document.PageCount - 1, toBottom: true);
+        else PageScroller.ChangeView(null, PageScroller.ScrollableHeight, null, disableAnimation: true);
         args.Handled = true;
     }
 

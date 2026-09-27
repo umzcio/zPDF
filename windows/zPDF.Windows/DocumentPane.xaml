@@ -134,6 +134,13 @@
                     <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="Number0" /></MenuFlyoutItem.KeyboardAccelerators>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem Text="Fit Page" Click="FitPage_Click" />
+                <MenuFlyoutSubItem Text="Page Display">
+                    <RadioMenuFlyoutItem x:Name="SinglePageItem" Text="Single Page View" GroupName="PageDisplay" Tag="single" Click="ViewMode_Click" />
+                    <RadioMenuFlyoutItem x:Name="ContinuousItem" Text="Enable Scrolling" GroupName="PageDisplay" Tag="continuous" Click="ViewMode_Click" />
+                    <RadioMenuFlyoutItem x:Name="FacingItem" Text="Two Page View" GroupName="PageDisplay" Tag="facing" Click="ViewMode_Click" />
+                    <MenuFlyoutSeparator />
+                    <ToggleMenuFlyoutItem x:Name="CoverPageItem" Text="Show Cover Page in Two Page View" Click="CoverPage_Click" />
+                </MenuFlyoutSubItem>
                 <MenuFlyoutSeparator />
                 <MenuFlyoutItem Text="Full Screen" Click="FullScreen_Click" />
                 <MenuFlyoutItem x:Name="HighlightFieldsItem" Text="Highlight Form Fields" Click="HighlightFieldsMenu_Click" />
@@ -633,7 +640,7 @@
                         <ItemsControl x:Name="Pages" Margin="24" HorizontalAlignment="Center" IsTabStop="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Vertical" Spacing="16" />
+                                    <local:PageRowsPanel />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
@@ -649,6 +656,68 @@
                         </StackPanel>
                     </Grid>
                 </ScrollViewer>
+                <!-- Organize Pages (Mac OrganizePagesView): the pages as a grid in place of the page
+                     view while the tool is open. Drag to reorder; each page has its own actions. -->
+                <GridView x:Name="OrganizeGrid" Grid.ColumnSpan="2" Visibility="Collapsed" Padding="28" SelectionMode="Extended"
+                          Background="{ThemeResource ZCanvas}" CanDragItems="True" CanReorderItems="True" AllowDrop="True"
+                          DragItemsCompleted="Thumbnails_DragItemsCompleted" SelectionChanged="OrganizeGrid_SelectionChanged"
+                          AutomationProperties.Name="Organize pages">
+                    <GridView.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Delete" Invoked="DeleteAccelerator_Invoked" />
+                    </GridView.KeyboardAccelerators>
+                    <GridView.ItemContainerStyle>
+                        <Style TargetType="GridViewItem">
+                            <Setter Property="Margin" Value="0,0,20,20" />
+                            <Setter Property="Padding" Value="6" />
+                        </Style>
+                    </GridView.ItemContainerStyle>
+                    <GridView.ContextFlyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="Insert Blank Page After" Click="InsertBlank_Click" />
+                            <MenuFlyoutItem Text="Insert Pages from File…" Click="InsertFromFile_Click" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Duplicate Page" Click="DuplicatePages_Click" />
+                            <MenuFlyoutItem Text="Replace Page…" Click="ReplacePages_Click" />
+                            <MenuFlyoutItem Text="Extract Page…" Click="ExtractPages_Click" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Rotate Counterclockwise" Click="RotateLeft_Click" />
+                            <MenuFlyoutItem Text="Rotate Clockwise" Click="RotateRight_Click" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Delete Page" Click="DeletePages_Click" />
+                        </MenuFlyout>
+                    </GridView.ContextFlyout>
+                    <GridView.ItemTemplate>
+                        <DataTemplate x:DataType="local:Thumbnail">
+                            <StackPanel Spacing="5" Width="150" RightTapped="OrganizeCell_RightTapped" Tag="{x:Bind Index}"
+                                        AutomationProperties.Name="{x:Bind Label}">
+                                <Border Width="150" Height="{x:Bind GridHeight}" Background="White" CornerRadius="2"
+                                        BorderThickness="1" BorderBrush="{ThemeResource ZHairline}">
+                                    <Image Source="{x:Bind Image, Mode=OneWay}" Stretch="Uniform" />
+                                </Border>
+                                <TextBlock Text="{x:Bind Number}" HorizontalAlignment="Center" FontSize="11" Foreground="{ThemeResource ZMuted}" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="2">
+                                    <Button Style="{StaticResource ZBarButton}" Tag="{x:Bind Index}" Click="OrganizeEarlier_Click" ToolTipService.ToolTip="Move page earlier" AutomationProperties.Name="Move page earlier">
+                                        <FontIcon Glyph="&#xE72B;" FontSize="11" />
+                                    </Button>
+                                    <Button Style="{StaticResource ZBarButton}" Tag="{x:Bind Index}" Click="OrganizeLater_Click" ToolTipService.ToolTip="Move page later" AutomationProperties.Name="Move page later">
+                                        <FontIcon Glyph="&#xE72A;" FontSize="11" />
+                                    </Button>
+                                    <Button Style="{StaticResource ZBarButton}" Tag="{x:Bind Index}" Click="OrganizeRotate_Click" ToolTipService.ToolTip="Rotate page clockwise" AutomationProperties.Name="Rotate page clockwise">
+                                        <FontIcon Glyph="&#xE7AD;" FontSize="11" RenderTransformOrigin="0.5,0.5">
+                                            <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
+                                        </FontIcon>
+                                    </Button>
+                                    <Button Style="{StaticResource ZBarButton}" Tag="{x:Bind Index}" Click="OrganizeExtract_Click" ToolTipService.ToolTip="Extract page" AutomationProperties.Name="Extract page">
+                                        <FontIcon Glyph="&#xE8A5;" FontSize="11" />
+                                    </Button>
+                                    <Button Style="{StaticResource ZBarButton}" Tag="{x:Bind Index}" Click="OrganizeDelete_Click" ToolTipService.ToolTip="Delete page" AutomationProperties.Name="Delete page">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="11" />
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </GridView.ItemTemplate>
+                </GridView>
                 <!-- Quick tools (Mac DocumentQuickTools): floats left of the page. -->
                 <Border x:Name="QuickTools" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,12,0,0" Width="44"
                         Background="{ThemeResource ZSurface}" CornerRadius="8" BorderBrush="{ThemeResource ZHairline}" BorderThickness="1" Padding="4">

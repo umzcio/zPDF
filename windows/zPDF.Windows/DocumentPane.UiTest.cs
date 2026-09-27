@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.UI.Xaml;
 using Windows.Foundation;
 
 namespace zPDF;
@@ -69,6 +70,33 @@ public sealed partial class DocumentPane
             await Host.CloseTabAsync(second);
             Check("close tab", Host.Panes.Count() == 1 && Host.ActivePane == this);
             Check("find open tab", Host.FindTab(input) == this);
+
+            // Page Display: Two Page View pairs pages; Single Page shows one; Next steps by row.
+            var n = _document.PageCount;
+            SetViewMode(PageViewMode.Facing, cover: false);
+            await Task.Delay(300);
+            Check("facing rows", _rows.Count == (n + 1) / 2 && (n < 2 || PageTop(1) == PageTop(0)), $"{_rows.Count} rows for {n} pages");
+            GoTo(0);
+            StepPage(1);
+            Check("facing next", n < 3 || _page == 2, $"page {_page}");
+            SetViewMode(PageViewMode.Facing, cover: true);
+            Check("cover page alone", _rows[0] is [-1, 0], string.Join(" ", _rows.Select(r => $"[{string.Join(",", r)}]")));
+            SetViewMode(PageViewMode.Single, cover: false);
+            await Task.Delay(300);
+            Check("single page extent", PageScroller.ExtentHeight < _slots[_page].Height + 2 * ViewMargin + 40, $"extent {PageScroller.ExtentHeight:0}, page {_slots[_page].Height:0}");
+            var at = _page;
+            StepPage(1);
+            Check("single next", n < 2 || _page == at + 1, $"{at} → {_page}");
+            SetViewMode(PageViewMode.Continuous);
+            await Task.Delay(300);
+            Check("continuous extent", n < 2 || PageScroller.ExtentHeight > _slots[0].Height + _slots[1].Height, $"extent {PageScroller.ExtentHeight:0}");
+
+            // Organize Pages shows the page grid in place of the page view.
+            OpenTool("organize");
+            await Task.Delay(300);
+            Check("organize grid", OrganizeGrid.Visibility == Visibility.Visible && PageScroller.Visibility == Visibility.Collapsed && OrganizeGrid.Items.Count == n, $"grid {OrganizeGrid.Visibility}, scroller {PageScroller.Visibility}, items {OrganizeGrid.Items.Count}, tool {_openTool}");
+            ShowToolList();
+            Check("organize closes", OrganizeGrid.Visibility == Visibility.Collapsed && PageScroller.Visibility == Visibility.Visible);
 
             // Preflight and reading order queries parse.
             var preflight = await Engine.QueryAsync(CurrentPath!, "preflight", new JsonObject { ["profile"] = "commercial" }, _password);

@@ -47,11 +47,12 @@ public sealed partial class DocumentPane : UserControl
     {
         Host = host;
         InitializeComponent();
-        Thumbnails.ItemsSource = _thumbnails;
+        Thumbnails.ItemsSource = OrganizeGrid.ItemsSource = _thumbnails;
         InitializeComments();
         AttachmentList.ItemsSource = _attachments;
         LayerList.ItemsSource = _layers;
         Pages.ItemsSource = _slots;
+        PageScroller.AddHandler(PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(PageScroller_Wheel), handledEventsToo: true);
         // Ctrl with the main keyboard's =/+ and − keys (OEM keys have no XAML name). On the root,
         // not on the buttons: a button's tooltip can't display an OEM key and WinUI crashes.
         foreach (var (key, zoomIn) in new[] { ((VirtualKey)187, true), ((VirtualKey)189, false) })
@@ -67,6 +68,7 @@ public sealed partial class DocumentPane : UserControl
         }
         HoistToolbarAccelerators();
         InitializeWorkspace();
+        SetViewMode(_viewMode);  // the menu's check marks
         ShowStartRecents();
     }
 
@@ -253,7 +255,8 @@ public sealed partial class DocumentPane : UserControl
     /// <summary>The pages the page tools act on: the selected thumbnails, else the current page.</summary>
     private List<int> TargetPages()
     {
-        var selected = Thumbnails.SelectedItems.OfType<Thumbnail>().Select(t => t.Index).Order().ToList();
+        var list = OrganizeGrid.Visibility == Visibility.Visible ? (ListViewBase)OrganizeGrid : Thumbnails;
+        var selected = list.SelectedItems.OfType<Thumbnail>().Select(t => t.Index).Order().ToList();
         return selected.Count > 0 ? selected : [_page];
     }
 
@@ -368,8 +371,10 @@ public sealed partial class DocumentPane : UserControl
     private void FitPage_Click(object sender, RoutedEventArgs e)
     {
         if (_document is null || _page >= _pageSizes.Length) return;
-        var (w, h) = _pageSizes[_page];
-        var width = Math.Max(200, PageScroller.ActualWidth - 2 * ViewMargin - 20) / (w * 96 / 72);
+        EnsureRows();
+        var row = _rows[_rowOf[_page]].Where(p => p >= 0).ToArray();
+        var (w, h) = (row.Max(p => _pageSizes[p].Width), row.Max(p => _pageSizes[p].Height));
+        var width = Math.Max(200, PageScroller.ActualWidth - 2 * ViewMargin - 20 - (Columns - 1) * PageSpacing) / (Columns * w * 96 / 72);
         var height = Math.Max(200, PageScroller.ActualHeight - 2 * ViewMargin) / (h * 96 / 72);
         SetZoom(Math.Min(width, height));
         ScrollTo(_page, PageTop(_page) - ViewMargin / 2);
@@ -408,24 +413,25 @@ public sealed partial class DocumentPane : UserControl
         RenderVisible();
     }
 
-    private void Previous_Click(object sender, RoutedEventArgs e) => GoTo(_page - 1);
-    private void Next_Click(object sender, RoutedEventArgs e) => GoTo(_page + 1);
+    private void Previous_Click(object sender, RoutedEventArgs e) => StepPage(-1);
+    private void Next_Click(object sender, RoutedEventArgs e) => StepPage(1);
 
     private void Thumbnails_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_syncingSelection && Thumbnails.SelectedItems.Count == 1 && Thumbnails.SelectedItem is Thumbnail thumb) GoTo(thumb.Index);
     }
 
-    private void GoTo(int page)
+    private void GoTo(int page, bool toBottom = false)
     {
         if (_document is null || page < 0 || page >= _document.PageCount) return;
         _page = page;
-        ScrollTo(page, PageTop(page));
+        ScrollTo(page, toBottom ? double.MaxValue : PageTop(page));
         UpdateStatus();
     }
 
     private void ScrollTo(int page, double offset)
     {
+        ShowRowOf(page);
         offset = Math.Clamp(offset, 0, Math.Max(0, PageScroller.ExtentHeight - PageScroller.ViewportHeight));
         _pendingAnchor = (page, offset, DateTime.UtcNow);
         PageScroller.ChangeView(null, offset, null, disableAnimation: true);
@@ -513,9 +519,11 @@ public sealed partial class DocumentPane : UserControl
         if (_fitWidth)
         {
             var widest = _pageSizes.Max(s => s.Width);
-            var available = Math.Max(200, PageScroller.ActualWidth - 2 * ViewMargin - 20);  // scrollbar
-            _zoom = Math.Clamp(available / (widest * 96 / 72), ZoomSteps[0], ZoomSteps[^1]);
+            var available = Math.Max(200, PageScroller.ActualWidth - 2 * ViewMargin - 20 - (Columns - 1) * PageSpacing);  // scrollbar
+            _zoom = Math.Clamp(available / (Columns * widest * 96 / 72), ZoomSteps[0], ZoomSteps[^1]);
         }
+        EnsureRows();
+        ApplyRows();
         _generation++;
         foreach (var slot in _slots)
         {
@@ -534,51 +542,6 @@ public sealed partial class DocumentPane : UserControl
         }
         UpdateStatus();
         RenderVisible();
-    }
-
-    private double PageTop(int page)
-    {
-        var top = ViewMargin;
-        for (var i = 0; i < page; i++) top += _slots[i].Height + PageSpacing;
-        return top;
-    }
-
-    private (int First, int Last) VisibleRange()
-    {
-        if (_slots.Count == 0) return (0, -1);
-        double top = PageScroller.VerticalOffset, bottom = top + PageScroller.ViewportHeight;
-        int first = -1, last = -1;
-        var y = ViewMargin;
-        for (var i = 0; i < _slots.Count; i++)
-        {
-            var end = y + _slots[i].Height;
-            if (end >= top && y <= bottom) { if (first < 0) first = i; last = i; }
-            y = end + PageSpacing;
-        }
-        return first < 0 ? (0, 0) : (first, last);
-    }
-
-    private void UpdateCurrentPage()
-    {
-        if (_slots.Count == 0) return;
-        // At the bottom of the document the last page is current (its top may never
-        // reach the reading line); otherwise the page under the reading line is.
-        if (PageScroller.VerticalOffset >= PageScroller.ScrollableHeight - 1 && PageScroller.ScrollableHeight > 0)
-        {
-            if (_page != _slots.Count - 1) { _page = _slots.Count - 1; UpdateStatus(); }
-            return;
-        }
-        var probe = ReadingLine;
-        var y = ViewMargin;
-        var page = _slots.Count - 1;
-        for (var i = 0; i < _slots.Count; i++)
-        {
-            y += _slots[i].Height + PageSpacing;
-            if (probe < y) { page = i; break; }
-        }
-        if (page == _page) return;
-        _page = page;
-        UpdateStatus();
     }
 
     /// <summary>Renders visible pages (off the UI thread) and releases far-away images.</summary>
@@ -657,6 +620,7 @@ public sealed partial class DocumentPane : UserControl
             SyncThumbnailSelection();
         }
         _reselect = null;
+        if (OrganizeGrid.Visibility == Visibility.Visible && _page < _thumbnails.Count) OrganizeGrid.SelectedItem = _thumbnails[_page];
         var scale = RasterScale;
         foreach (var thumb in _thumbnails.ToList())
         {
@@ -665,7 +629,7 @@ public sealed partial class DocumentPane : UserControl
             try
             {
                 var width = _pageSizes[thumb.Index].Width;
-                image = await Task.Run(() => document.Render(thumb.Index, ThumbnailWidth / width * scale), work.Token);
+                image = await Task.Run(() => document.Render(thumb.Index, 150 / width * scale), work.Token);  // Organize grid width
             }
             catch (Exception error) when (error is OperationCanceledException or ObjectDisposedException or InvalidDataException)
             {
