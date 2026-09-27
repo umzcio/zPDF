@@ -405,6 +405,24 @@ public sealed partial class DocumentPane
         };
         var panel = new StackPanel { Spacing = 6, MinWidth = 480 };
         panel.Children.Add(new TextBlock { Text = $"{files.Count} file{(files.Count == 1 ? "" : "s")} selected. Steps run in this order; originals are never changed.", TextWrapping = TextWrapping.Wrap });
+        var saved = AppSettings.Current.SavedActions;
+        var savedChoice = Choice("Saved action", new[] { "(none)" }.Concat(saved.Keys.Order()));
+        if (saved.Count > 0) panel.Children.Add(savedChoice);
+        savedChoice.SelectionChanged += (_, _) =>
+        {
+            if (savedChoice.SelectedItem is not string name || !saved.TryGetValue(name, out var action)) return;
+            foreach (var step in steps)
+            {
+                step.Box.IsChecked = action.ContainsKey(step.Title);
+                for (var i = 0; i < step.Options.Length; i++)
+                    if (action.TryGetValue($"{step.Title}#{i}", out var value))
+                        switch (step.Options[i])
+                        {
+                            case TextBox text: text.Text = value; break;
+                            case ComboBox combo when int.TryParse(value, out var index): combo.SelectedIndex = index; break;
+                        }
+            }
+        };
         foreach (var step in steps)
         {
             step.Box.Content = step.Title;
@@ -421,10 +439,24 @@ public sealed partial class DocumentPane
         }
         var suffix = Text("Add to file names", "_processed");
         panel.Children.Add(suffix);
+        var saveAs = Text("Save these steps as (optional)", "", "e.g. Prepare for web");
+        panel.Children.Add(saveAs);
         panel.Children.Add(Note("Tokens: <<filename>>, <<date>>, <<author>>; page numbers also take <<page>> and <<pages>>."));
         if (!await AskAsync("Batch Process", panel, "Choose Output Folder…")) return;
         var chosen = steps.Where(s => s.Box.IsChecked == true).ToList();
         if (chosen.Count == 0) { StatusText.Text = "No steps were chosen."; return; }
+        if (saveAs.Text.Trim() is { Length: > 0 } actionName)
+        {
+            var action = new Dictionary<string, string>();
+            foreach (var step in chosen)
+            {
+                action[step.Title] = "";
+                for (var i = 0; i < step.Options.Length; i++)
+                    action[$"{step.Title}#{i}"] = step.Options[i] switch { TextBox t => t.Text, ComboBox c => c.SelectedIndex.ToString(), _ => "" };
+            }
+            AppSettings.Current.SavedActions[actionName] = action;
+            AppSettings.Current.Save();
+        }
         var folderPicker = new FolderPicker(AppWindow.Id);
         if (await folderPicker.PickSingleFolderAsync() is not { } folder) return;
 

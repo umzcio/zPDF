@@ -99,6 +99,11 @@ public sealed partial class DocumentPane : IPageHost
 
     // ---------------------------------------------------------------- pointer: selection and links
 
+    public string PageLabelFor(PageSlot slot) =>
+        $"Page {slot.Index + 1} of {_slots.Count}{(_document?.PageLabel(slot.Index) is { Length: > 0 } label && label != $"{slot.Index + 1}" ? $" ({label})" : "")}";
+
+    public string? PageTextFor(PageSlot slot) => Info(slot.Index)?.Text;
+
     public InputSystemCursorShape CursorAt(PageSlot slot, Point point)
     {
         if (IsPreparingForm) return PreparableWidgetAt(slot.Index, point) is not null ? InputSystemCursorShape.SizeAll : InputSystemCursorShape.Cross;

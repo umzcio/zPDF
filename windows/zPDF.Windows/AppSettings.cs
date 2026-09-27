@@ -19,6 +19,8 @@ public sealed class AppSettings
     public bool OpenInNewWindow { get; set; } = true;  // older setting (tabs replaced it)
     public bool OpenInTabs { get; set; } = true;
     public DateTime LastUpdateCheck { get; set; }
+    /// <summary>Saved batch actions: name → step title (and "title#n" option values) → value.</summary>
+    public Dictionary<string, Dictionary<string, string>> SavedActions { get; set; } = [];
 
     public static AppSettings Current => _current ??= Load();
 

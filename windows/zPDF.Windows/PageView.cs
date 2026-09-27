@@ -27,12 +27,31 @@ public interface IPageHost
     void PagePointerMoved(PageSlot slot, Point point, PointerRoutedEventArgs e);
     void PagePointerReleased(PageSlot slot, Point point, PointerRoutedEventArgs e);
     InputSystemCursorShape CursorAt(PageSlot slot, Point point);
+    /// <summary>For screen readers: "Page N of M" and the page's text (null until loaded).</summary>
+    string PageLabelFor(PageSlot slot);
+    string? PageTextFor(PageSlot slot);
+}
+
+/// <summary>Exposes a page to UI Automation as a document region named "Page N of M",
+/// with the page's text as its description (Narrator reads it).</summary>
+internal sealed class PageViewPeer(PageView owner) : Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer(owner)
+{
+    protected override string GetNameCore() => owner.Slot is { Host: { } host } slot ? host.PageLabelFor(slot) : "Page";
+    protected override string GetFullDescriptionCore() => owner.Slot is { Host: { } host } slot ? host.PageTextFor(slot) ?? "" : "";
+    protected override string GetHelpTextCore() => GetFullDescriptionCore();
+    protected override Microsoft.UI.Xaml.Automation.Peers.AutomationControlType GetAutomationControlTypeCore() =>
+        Microsoft.UI.Xaml.Automation.Peers.AutomationControlType.Document;
+    protected override string GetClassNameCore() => "PdfPage";
+    protected override bool IsContentElementCore() => true;
+    protected override bool IsControlElementCore() => true;
 }
 
 /// <summary>One page in the continuous view: its image and an overlay for
 /// selection and search highlights.</summary>
 public sealed partial class PageView : Grid
 {
+    protected override Microsoft.UI.Xaml.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new PageViewPeer(this);
+
     public static readonly DependencyProperty SlotProperty =
         DependencyProperty.Register(nameof(Slot), typeof(PageSlot), typeof(PageView), new PropertyMetadata(null, OnSlotChanged));
 

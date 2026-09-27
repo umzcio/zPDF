@@ -60,7 +60,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Accessibility: check with fixes, autotag, alternate text, reading order (per page)
 - [x] Measure (distance, perimeter, area)
 - [x] Print production: preflight (4 profiles, fixes), output preview (inks, spot → process), printer marks
-- [~] Batch processing (13 steps, output folder, never overwrites) — no saved actions yet
+- [x] Batch processing (13 steps, output folder, never overwrites) and saved actions
 
 ## H. Edit content
 - [x] Edit text blocks in place; add text; find & replace in content
@@ -74,4 +74,4 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Report a Bug (feedback relay), About, licenses
 - [~] Installer and updates — Velopack Setup.exe and GitHub-Releases updates build; unsigned until there's a code-signing certificate [!]
 - [x] File association ("Open with zPDF"), default-app prompt
-- [ ] Accessibility of the UI itself (screen reader names, keyboard-only use, high contrast)
+- [~] Accessibility of the UI itself — named controls, pages exposed as documents with their text; keyboard shortcuts; needs a Narrator/high-contrast pass
