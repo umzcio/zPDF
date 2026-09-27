@@ -170,7 +170,8 @@ public sealed partial class DocumentPane
         {
             var combo = new ComboBox
             {
-                IsEditable = widget.Field.Editable, MinWidth = 0,
+                IsEditable = widget.Field.Editable, MinWidth = 0, MinHeight = 0, Padding = new Thickness(4, 0, 0, 0),
+                FontSize = Math.Clamp((widget.Field.FontSize > 0 ? widget.Field.FontSize : Math.Min(11, rect.Height * 0.7)) * slot.Width / slot.PointWidth, 8, 48),
                 ItemsSource = widget.Field.Options.Select(o => o.Label).ToList(),
             };
             var current = CurrentText(widget.Field);
@@ -398,9 +399,11 @@ public sealed partial class DocumentPane
         var top = PageTop(widget.Page) + rect.Top * scale;
         if (top < PageScroller.VerticalOffset + 20 || top + rect.Height * scale > PageScroller.VerticalOffset + PageScroller.ViewportHeight - 20)
         {
-            _page = widget.Page;
             ScrollTo(widget.Page, top - PageScroller.ViewportHeight / 3);
         }
+        // The field's page is the current one (the status bar and Narrator's page follow the keyboard).
+        _page = widget.Page;
+        UpdateStatus();
     }
 
     private void CommitEditor() => CloseEditor(commit: true);

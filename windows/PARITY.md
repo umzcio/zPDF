@@ -89,4 +89,4 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Report a Bug (feedback relay), About, licenses
 - [~] Installer and updates — Velopack Setup.exe and GitHub-Releases updates build; unsigned until there's a code-signing certificate [!]
 - [x] File association ("Open with zPDF"), default-app prompt
-- [~] Accessibility of the UI itself — named controls, pages exposed as documents with their text; keyboard shortcuts; needs a Narrator/high-contrast pass
+- [x] Accessibility of the UI itself — keyboard only (menu access keys, F10, Home, tools, forms with no Tab trap), UIA names and toggles for fields, live status bar, high contrast (Night sky, Desert); checked through UIA, Narrator audio not heard
