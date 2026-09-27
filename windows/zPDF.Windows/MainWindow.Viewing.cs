@@ -100,6 +100,7 @@ public sealed partial class MainWindow : IPageHost
 
     public InputSystemCursorShape CursorAt(PageSlot slot, Point point)
     {
+        if (IsPreparingForm) return PreparableWidgetAt(slot.Index, point) is not null ? InputSystemCursorShape.SizeAll : InputSystemCursorShape.Cross;
         if (IsEditingContent)
             return ContentAt(slot.Index, point) is { } item ? (item.Kind == "text" ? InputSystemCursorShape.IBeam : InputSystemCursorShape.SizeAll) : InputSystemCursorShape.Arrow;
         if (_tool is not (CommentTool.Select or CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut))
@@ -113,6 +114,7 @@ public sealed partial class MainWindow : IPageHost
     public void PagePointerPressed(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
         if (!e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
+        if (PreparePointerPressed(slot, point)) { e.Handled = true; return; }
         if (ContentPointerPressed(slot, point)) { e.Handled = true; return; }
         if (FieldPointerPressed(slot, point)) { e.Handled = true; return; }
         CommitEditor();  // a click outside the field being edited finishes it
@@ -135,6 +137,7 @@ public sealed partial class MainWindow : IPageHost
 
     public void PagePointerMoved(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        if (PreparePointerMoved(slot, point)) return;
         if (ContentPointerMoved(slot, point)) return;
         if (CommentPointerMoved(slot, point)) return;
         if (_pressSlot is null || !e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
@@ -157,6 +160,7 @@ public sealed partial class MainWindow : IPageHost
 
     public async void PagePointerReleased(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        if (PreparePointerReleased(slot, point)) return;
         if (ContentPointerReleased(slot, point)) return;
         var markup = _tool is CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut;
         if (!markup && CommentPointerReleased(slot, point)) { _pressSlot = null; return; }
@@ -390,6 +394,7 @@ public sealed partial class MainWindow : IPageHost
         foreach (var (page, rect) in FieldMarks()) Add(page, [rect], Mark.Field);
         foreach (var (page, rect) in RedactionMarks()) Add(page, [rect], Mark.Redaction);
         foreach (var (page, rect) in ChangeMarks()) Add(page, [rect], Mark.Change);
+        foreach (var (page, rect) in PrepareMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var (page, rect, mark) in ContentMarks()) Add(page, [rect], mark);
         foreach (var (page, rect) in CommentMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var slot in _slots) slot.SetMarks(marks.TryGetValue(slot.Index, out var list) ? list : []);

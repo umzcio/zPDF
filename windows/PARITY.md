@@ -26,12 +26,12 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [~] Stamps — standard stamps; custom image stamps via Fill & Sign images
 - [x] Comments panel: list, jump, edit text, delete, reply, status
 - [~] Select / move / recolor existing annotations — no resize handles yet
-- [ ] Import/export comments (FDF, XFDF); flatten
+- [x] Import/export comments (FDF, XFDF); flatten
 
 ## C. Forms
 - [x] Fill text, checkbox, radio, combo, list fields; calculated fields
-- [~] Reset, Tab order navigation — flatten form not in the menu yet
-- [ ] Prepare form: add/edit/delete fields, properties, auto-detect fields
+- [x] Reset, flatten; Tab order navigation
+- [x] Prepare form: add/move/edit/delete fields, properties, detect fields
 
 ## D. Pages and documents
 - [x] Rotate, delete, move, drag-to-reorder

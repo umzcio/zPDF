@@ -15,7 +15,7 @@ namespace zPDF;
 public enum CommentTool
 {
     Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox,
-    MeasureDistance, MeasurePerimeter, MeasureArea, EditContent, AddText, AddImage,
+    MeasureDistance, MeasurePerimeter, MeasureArea, EditContent, AddText, AddImage, PrepareForm,
 }
 
 /// <summary>A comment as the engine reports it (comment_threads).</summary>
@@ -134,6 +134,11 @@ public sealed partial class MainWindow
     private void SetTool(CommentTool tool)
     {
         if (tool == CommentTool.Select) { _placing = null; _placingDate = null; _signing = null; }
+        if (tool != CommentTool.PrepareForm && _tool == CommentTool.PrepareForm)
+        {
+            _preparedWidget = null;
+            FieldTypeStrip.Visibility = Visibility.Collapsed;
+        }
         if (tool != CommentTool.EditContent && _tool == CommentTool.EditContent)
         {
             CloseContentEditor(commit: true);
@@ -528,7 +533,7 @@ public sealed partial class MainWindow
     /// <summary>Delete with a comment selected on the page deletes it; Enter edits its text.</summary>
     private void PageDelete_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (_contentEditing is null && FindBox.FocusState == FocusState.Unfocused && DeleteSelectedObject()) { args.Handled = true; return; }
+        if (_contentEditing is null && FindBox.FocusState == FocusState.Unfocused && (DeleteSelectedObject() || DeletePreparedField())) { args.Handled = true; return; }
         if (_selectedComment is null || FindBox.FocusState != FocusState.Unfocused) return;
         args.Handled = true;
         _ = DeleteCommentAsync(_selectedComment);
@@ -536,6 +541,12 @@ public sealed partial class MainWindow
 
     private void PageEnter_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (IsPreparingForm && _preparedWidget is not null && FindBox.FocusState == FocusState.Unfocused)
+        {
+            args.Handled = true;
+            _ = EditFieldPropertiesAsync();
+            return;
+        }
         if (_tool is CommentTool.MeasurePerimeter or CommentTool.MeasureArea && _measurePoints.Count > 0)
         {
             args.Handled = true;

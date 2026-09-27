@@ -106,7 +106,7 @@ public sealed partial class MainWindow
     /// <summary>The light-blue field highlights (added to the page marks).</summary>
     private IEnumerable<(int Page, Rect Rect)> FieldMarks()
     {
-        if (!_highlightFields) yield break;
+        if (!_highlightFields && !IsPreparingForm) yield break;
         foreach (var field in _fields)
         {
             if (field.ReadOnly || field.Kind is "button" or "barcode") continue;

@@ -8,6 +8,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -151,6 +152,12 @@
                 <AppBarButton.Flyout>
                     <MenuFlyout>
                         <MenuFlyoutItem Text="Find &amp; Replace in Content…" Click="FindReplace_Click" />
+                        <MenuFlyoutSubItem Text="Comments">
+                            <MenuFlyoutItem Text="Import Comments…" Click="ImportComments_Click" />
+                            <MenuFlyoutItem Text="Export Comments…" Click="ExportComments_Click" />
+                            <MenuFlyoutItem Text="Flatten Comments…" Click="FlattenComments_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="Flatten Form Fields…" Click="FlattenForm_Click" />
                         <MenuFlyoutItem Text="Compare with Another PDF…" Click="Compare_Click" />
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Accessibility Check…" Click="AccessibilityCheck_Click" />
@@ -284,6 +291,10 @@
                       ToolTipService.ToolTip="Stamp to place" />
             <AppBarSeparator />
             <AppBarSeparator />
+            <ToggleButton Tag="PrepareForm" Click="PrepareForm_Click" ToolTipService.ToolTip="Add and edit form fields"
+                          AutomationProperties.Name="Prepare form">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8F4;" FontSize="16" /><TextBlock Text="Form" /></StackPanel>
+            </ToggleButton>
             <ToggleButton Tag="EditContent" Click="EditContent_Click" ToolTipService.ToolTip="Edit the page's text, images and drawings"
                           AutomationProperties.Name="Edit content">
                 <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE70F;" FontSize="16" /><TextBlock Text="Edit" /></StackPanel>
@@ -328,7 +339,22 @@
                 </DropDownButton.Flyout>
             </DropDownButton>
         </StackPanel>
-        <Grid x:Name="FindBar" Grid.Row="2" Visibility="Collapsed" Padding="12,6" ColumnSpacing="8"
+        <StackPanel x:Name="FieldTypeStrip" Grid.Row="2" Orientation="Horizontal" Spacing="2" Padding="8,0,8,6" Visibility="Collapsed">
+            <TextBlock Text="New field:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ToggleButton Tag="text" IsChecked="True" Click="FieldType_Click" Content="Text" />
+            <ToggleButton Tag="checkbox" Click="FieldType_Click" Content="Check box" />
+            <ToggleButton Tag="radio" Click="FieldType_Click" Content="Radio button" />
+            <ToggleButton Tag="combo" Click="FieldType_Click" Content="Drop-down" />
+            <ToggleButton Tag="list" Click="FieldType_Click" Content="List" />
+            <ToggleButton Tag="date" Click="FieldType_Click" Content="Date" />
+            <ToggleButton Tag="signature" Click="FieldType_Click" Content="Signature" />
+            <ToggleButton Tag="button" Click="FieldType_Click" Content="Button" />
+            <AppBarSeparator />
+            <Button Content="Properties…" Click="FieldProperties_Click" ToolTipService.ToolTip="Properties of the selected field (Enter)" />
+            <Button Content="Delete" Click="DeleteField_Click" ToolTipService.ToolTip="Delete the selected field (Delete)" />
+            <Button Content="Detect Fields" Click="DetectFields_Click" ToolTipService.ToolTip="Find form boxes on this page and add fields" />
+        </StackPanel>
+        <Grid x:Name="FindBar" Grid.Row="3" Visibility="Collapsed" Padding="12,6" ColumnSpacing="8"
               Background="{ThemeResource LayerFillColorDefaultBrush}"
               BorderThickness="0,0,0,1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
             <Grid.ColumnDefinitions>
@@ -357,7 +383,7 @@
                 <FontIcon Glyph="&#xE711;" FontSize="12" />
             </Button>
         </Grid>
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -506,7 +532,7 @@
                 </Grid>
             </ScrollViewer>
         </Grid>
-        <Grid x:Name="StatusBar" Grid.Row="4" Padding="12,6" ColumnSpacing="16">
+        <Grid x:Name="StatusBar" Grid.Row="5" Padding="12,6" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
