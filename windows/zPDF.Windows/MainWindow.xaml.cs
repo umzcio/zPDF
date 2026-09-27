@@ -74,13 +74,16 @@ public sealed partial class MainWindow : Window
 
     private async void Open_Click(object sender, RoutedEventArgs e)
     {
-        if (!await ConfirmDiscardAsync()) return;
+        var newWindow = _document is not null && AppSettings.Current.OpenInNewWindow;
+        if (!newWindow && !await ConfirmDiscardAsync()) return;
         // Windows App SDK pickers also work when zPDF runs as administrator
         // (the classic WinRT pickers silently show nothing there).
         var picker = new FileOpenPicker(AppWindow.Id);
         picker.FileTypeFilter.Add(".pdf");  // shows only PDFs (the 1.8 picker labels it "All Files")
         var file = await picker.PickSingleFileAsync();
-        if (file is not null) await OpenAsync(file.Path);
+        if (file is null) return;
+        if (newWindow) App.OpenWindow(file.Path);
+        else await OpenAsync(file.Path);
     }
 
     /// <summary>Opens a PDF (from the picker, the command line or a drop).</summary>
@@ -93,7 +96,10 @@ public sealed partial class MainWindow : Window
         AppSettings.Current.AddRecent(path);
         _security = null;
         _page = 0;
-        _fitWidth = true;
+        _fitWidth = AppSettings.Current.FitWidthOnOpen;
+        if (!_fitWidth) _zoom = 1;
+        _highlightFields = AppSettings.Current.HighlightFields;
+        HighlightFieldsButton.IsChecked = _highlightFields;
         Show(opened.Document, keepPosition: false);
         NoteOpenedSecurity();
     });
@@ -113,7 +119,7 @@ public sealed partial class MainWindow : Window
         var items = await e.DataView.GetStorageItemsAsync();
         var pdf = items.OfType<StorageFile>().FirstOrDefault(f => f.FileType.Equals(".pdf", StringComparison.OrdinalIgnoreCase));
         if (pdf is null) { StatusText.Text = "Drop a PDF file to open it."; return; }
-        if (await ConfirmDiscardAsync()) await OpenAsync(pdf.Path);
+        await OpenHereOrNewAsync(pdf.Path);
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e) => await SaveAsync();
@@ -203,7 +209,7 @@ public sealed partial class MainWindow : Window
         await Run("Adding watermark…", async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "watermark", ["text"] = "DRAFT" }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
 
@@ -218,8 +224,8 @@ public sealed partial class MainWindow : Window
         await Run("Undoing…", () =>
         {
             if (!_revisions.TryPop(out var undone)) return Task.CompletedTask;
+            _redo.Push(undone);
             Show(PdfDocument.Open(CurrentPath!, _password), keepPosition: true);
-            if (undone != _savedPath) TryDelete(undone);
             return Task.CompletedTask;
         });
     }
@@ -317,7 +323,7 @@ public sealed partial class MainWindow : Window
         Run(status, async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [op], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: focus is null, select: select, focus: focus);
         });
 
@@ -670,6 +676,7 @@ public sealed partial class MainWindow : Window
         ZoomOutButton.IsEnabled = open && _zoom > ZoomSteps[0] + 0.001;
         FitWidthButton.IsEnabled = ActualSizeButton.IsEnabled = open;
         UndoButton.IsEnabled = _revisions.Count > 0 || HasPendingFields;
+        RedoButton.IsEnabled = _redo.Count > 0 && !HasPendingFields;
         PreviousButton.IsEnabled = open && _page > 0;
         NextButton.IsEnabled = open && _page < _document!.PageCount - 1;
     }
@@ -688,6 +695,7 @@ public sealed partial class MainWindow : Window
         catch (Exception error) when (error is EngineException or IOException or InvalidDataException or UnauthorizedAccessException)
         {
             StatusText.Text = error.Message;
+            NoteError(error is EngineException engine ? $"{engine.Code}: {engine.Message}" : error.Message);
         }
         finally
         {
@@ -700,6 +708,7 @@ public sealed partial class MainWindow : Window
     private void DeleteRevisions()
     {
         while (_revisions.TryPop(out var path)) TryDelete(path);
+        while (_redo.TryPop(out var path)) TryDelete(path);
     }
 
     private static void TryDelete(string path)

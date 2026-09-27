@@ -77,8 +77,8 @@ public sealed partial class MainWindow
     private async void Protect_Click(object sender, RoutedEventArgs e)
     {
         var requireOpen = new CheckBox { Content = "Require a password to open the document" };
-        var open = new PasswordBox { Header = "Open password", IsEnabled = false };
-        var openAgain = new PasswordBox { Header = "Confirm", IsEnabled = false };
+        var open = new PasswordBox { Header = "Open password", IsEnabled = false, Width = 200 };
+        var openAgain = new PasswordBox { Header = "Confirm", IsEnabled = false, Width = 200 };
         requireOpen.Checked += (_, _) => open.IsEnabled = openAgain.IsEnabled = true;
         requireOpen.Unchecked += (_, _) => open.IsEnabled = openAgain.IsEnabled = false;
         var restrict = new CheckBox { Content = "Restrict printing and editing" };
@@ -265,6 +265,8 @@ public sealed partial class MainWindow
         if (!await AskAsync("Remove Hidden Information", Stack([.. boxes]), "Remove")) return;
         var op = new JsonObject { ["op"] = "sanitize" };
         foreach (var box in boxes) op[(string)box.Tag] = box.IsChecked == true;
+        var removed = boxes.Where(b => b.IsChecked == true).Select(b => ((string)b.Content).Split(" (")[0].ToLowerInvariant()).ToList();
         await EditDocumentAsync("Removing hidden information…", op);
+        if (removed.Count > 0) StatusText.Text = $"Removed: {string.Join(", ", removed)}. Save to keep the change.";
     }
 }

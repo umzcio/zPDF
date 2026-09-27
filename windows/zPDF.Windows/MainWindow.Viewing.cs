@@ -585,7 +585,7 @@ public sealed partial class MainWindow : IPageHost
             StatusText.Text = $"{Path.GetFileName(path)} was moved or deleted; it's been removed from Recent.";
             return;
         }
-        if (await ConfirmDiscardAsync()) await OpenAsync(path);
+        await OpenHereOrNewAsync(path);
     }
 
     /// <summary>The recent-files list on the start screen.</summary>

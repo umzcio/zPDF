@@ -68,7 +68,7 @@ public sealed partial class MainWindow
     /// <summary>Type / Draw / Image dialog. Returns the PNG (and saves it for next time if asked).</summary>
     private async Task<byte[]?> CreateSignatureAsync(string kind)
     {
-        var name = new TextBox { Header = kind == "initials" ? "Your initials" : "Your name", Text = kind == "initials" ? Initials(Environment.UserName) : "" };
+        var name = new TextBox { Header = kind == "initials" ? "Your initials" : "Your name", Text = kind == "initials" ? Initials(AuthorName) : "" };
         var fonts = SignatureArt.InstalledFonts().ToList();
         var font = Choice("Style", fonts.Count > 0 ? fonts : ["Segoe Script"]);
         var preview = new TextBlock { FontSize = 36, Text = name.Text, MinHeight = 56 };
@@ -183,10 +183,10 @@ public sealed partial class MainWindow
             var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject
             {
                 ["op"] = "place_image_stamp", ["page"] = page, ["rect"] = ToJson(PdfRect(info, rect)),
-                ["image"] = Convert.ToBase64String(placing.Png), ["kind"] = placing.Kind, ["author"] = Environment.UserName,
+                ["image"] = Convert.ToBase64String(placing.Png), ["kind"] = placing.Kind, ["author"] = AuthorName,
                 ["name"] = placing.Kind == "image" ? "Mark" : placing.Kind == "initials" ? "Initials" : "Signature",
             }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
     }
@@ -234,7 +234,7 @@ public sealed partial class MainWindow
 
     private async Task CreateIdAsync()
     {
-        var name = Text("Name", Environment.UserName);
+        var name = Text("Name", AuthorName);
         var email = Text("Email");
         var org = Text("Organization");
         var password = new PasswordBox { Header = "Password (at least 6 characters)" };

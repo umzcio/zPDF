@@ -267,13 +267,15 @@ public sealed partial class MainWindow
         var files = new List<string>();
         if (CurrentPath is not null) files.Add(CurrentPath);
         files.AddRange(picked.Select(f => f.Path));
-        if (files.Count < 2) { StatusText.Text = "Choose at least two PDFs to combine."; return; }
         var order = new ListView { SelectionMode = ListViewSelectionMode.Single, CanReorderItems = true, AllowDrop = true, MaxHeight = 320 };
         var names = files.Select((f, i) => i == 0 && CurrentPath is not null ? $"{Path.GetFileName(_sourcePath)} (open document)" : Path.GetFileName(f)).ToList();
         var items = new System.Collections.ObjectModel.ObservableCollection<string>(names);
         order.ItemsSource = items;
-        if (!await AskAsync("Combine Files", Stack(new TextBlock { Text = "Drag to change the order.", Opacity = 0.75 }, order), "Combine…")) return;
-        var ordered = items.Select(n => files[names.IndexOf(n)]).ToList();
+        var includeOpen = new CheckBox { Content = "Include the open document", IsChecked = CurrentPath is not null, IsEnabled = CurrentPath is not null };
+        if (!await AskAsync("Combine Files", Stack(new TextBlock { Text = "Drag to change the order.", Opacity = 0.75 }, order, includeOpen), "Combine…")) return;
+        var ordered = items.Select(n => files[names.IndexOf(n)])
+                           .Where(f => includeOpen.IsChecked == true || f != CurrentPath).ToList();
+        if (ordered.Count < 2) { StatusText.Text = "Choose at least two PDFs to combine."; return; }
         if (await AskSavePathAsync("Combined") is not { } destination) return;
         await Run("Combining…", async () =>
         {

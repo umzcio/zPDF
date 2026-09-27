@@ -222,7 +222,7 @@ public sealed partial class MainWindow
         return Run(status, async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [op], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
             if (IsEditingContent) _ = LoadContentAsync(page);
         });
@@ -295,7 +295,7 @@ public sealed partial class MainWindow
                     ["font"] = new JsonObject { ["family"] = new[] { "sans", "serif", "mono" }[Math.Max(0, family.SelectedIndex)], ["bold"] = bold.IsChecked == true },
                 }),
             }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
     }
@@ -327,7 +327,7 @@ public sealed partial class MainWindow
             {
                 ["op"] = "image_add", ["page"] = page, ["image"] = path, ["rect"] = ToJson(PdfRect(info, box)),
             }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
     }
@@ -347,7 +347,7 @@ public sealed partial class MainWindow
                 ["op"] = "replace_text", ["find"] = find.Text, ["replace"] = replace.Text,
                 ["match_case"] = matchCase.IsChecked == true, ["whole_word"] = whole.IsChecked == true,
             }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
             StatusText.Text = "Replaced. Undo reverts every replacement at once.";
         }, keepStatus: true);

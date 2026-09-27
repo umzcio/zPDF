@@ -4,17 +4,25 @@ namespace zPDF;
 
 public partial class App : Application
 {
-    private MainWindow? _window;
+    private static readonly List<MainWindow> Windows = [];
 
     public App() => InitializeComponent();
 
-    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = new MainWindow();
-        _window.Activate();
         // `zPDF.exe file.pdf` (Open With, or a double-click once zPDF is the default).
         var file = Environment.GetCommandLineArgs().Skip(1)
             .FirstOrDefault(a => a.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && File.Exists(a));
-        if (file is not null) await _window.OpenAsync(Path.GetFullPath(file));
+        OpenWindow(file is null ? null : Path.GetFullPath(file));
+    }
+
+    /// <summary>A new document window, optionally opening `path`.</summary>
+    public static void OpenWindow(string? path)
+    {
+        var window = new MainWindow();
+        Windows.Add(window);
+        window.Closed += (_, _) => Windows.Remove(window);
+        window.Activate();
+        if (path is not null) _ = window.OpenAsync(path);
     }
 }

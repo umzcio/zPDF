@@ -126,11 +126,13 @@ public sealed partial class MainWindow
             case "checkbox":
                 CommitEditor();
                 SetPending(widget.Field, JsonValue.Create(!IsChecked(widget.Field)));
+                FocusToggle(widget);
                 break;
             case "radio":
                 CommitEditor();
                 var export = widget.Export ?? "";
                 if (CurrentText(widget.Field) != export) SetPending(widget.Field, JsonValue.Create(export));
+                FocusToggle(widget);
                 break;
             default:
                 OpenEditor(widget);
@@ -235,11 +237,29 @@ public sealed partial class MainWindow
         if (order.Count == 0) return;
         var next = order[(Math.Max(0, index) + step + order.Count) % order.Count];
         EnsureVisible(next);
-        if (next.Field.Kind is "checkbox" or "radio") { StatusText.Text = $"{next.Field.Name} — press Space to toggle"; _focusedToggle = next; }
+        if (next.Field.Kind is "checkbox" or "radio") FocusToggle(next);
         else OpenEditor(next);
     }
 
     private FormWidget? _focusedToggle;
+
+    /// <summary>A checkbox or radio button is the keyboard target: Space toggles it,
+    /// Tab / Shift+Tab move on. Focus goes to the page so no toolbar button takes the key.</summary>
+    private void FocusToggle(FormWidget widget)
+    {
+        _focusedToggle = widget;
+        PageScroller.Focus(FocusState.Programmatic);
+        StatusText.Text = $"{(widget.Field.Tooltip.Length > 0 ? widget.Field.Tooltip.Trim() : widget.Field.Name)} — Space to toggle, Tab for the next field";
+    }
+
+    private void Tab_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (_focusedToggle is not { } widget || _editing is not null) return;
+        args.Handled = true;
+        var shift = sender.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Shift);
+        _focusedToggle = null;
+        MoveToField(widget, shift ? -1 : 1);
+    }
 
     private void EnsureVisible(FormWidget widget)
     {
@@ -324,7 +344,7 @@ public sealed partial class MainWindow
         await Run("Saving form entries…", flushFields: false, action: async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "fill_fields", ["values"] = values }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             _pendingValues.Clear();
             written = true;
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
@@ -364,7 +384,7 @@ public sealed partial class MainWindow
         await Run("Resetting form…", async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "reset_form" }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
     }

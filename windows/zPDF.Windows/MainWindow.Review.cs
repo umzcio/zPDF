@@ -195,7 +195,7 @@ public sealed partial class MainWindow
         await Run("Fixing accessibility issues…", async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, ops, _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
             StatusText.Text = $"Fixed {ops.Count} issue{(ops.Count == 1 ? "" : "s")}. Run the check again to review what needs a person.";
         }, keepStatus: true);
@@ -295,7 +295,7 @@ public sealed partial class MainWindow
             ["items"] = new JsonArray(new JsonObject
             {
                 ["page"] = page, ["kind"] = kind, ["points"] = points, ["factor"] = factor, ["unit"] = unit, ["ratio"] = ratio,
-                ["author"] = Environment.UserName,
+                ["author"] = AuthorName,
             }),
         });
     }

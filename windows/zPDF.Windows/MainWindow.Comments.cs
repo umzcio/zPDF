@@ -332,7 +332,7 @@ public sealed partial class MainWindow
 
     private Task AddAsync(int page, JsonObject annot)
     {
-        annot["author"] = Environment.UserName;
+        annot["author"] = AuthorName;
         var index = _document?.AnnotationCount(page) ?? 0;  // appended after every existing annotation
         return ApplyCommentsAsync($"Adding {CommentItem.Kind(annot["subtype"]!.GetValue<string>()).ToLowerInvariant()}…",
                                   [new JsonObject { ["action"] = "add", ["page"] = page, ["annot"] = annot }], (page, index));
@@ -355,7 +355,7 @@ public sealed partial class MainWindow
         Run(status, async () =>
         {
             var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "comment_edits", ["items"] = new JsonArray(changes) }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
             _pendingCommentSelection = select;
         });
@@ -496,7 +496,7 @@ public sealed partial class MainWindow
     {
         if (TargetComment(sender) is not { } target) return;
         if (await AskTextAsync("Reply", "", "Reply") is not { Length: > 0 } text) return;
-        await ApplyCommentsAsync("Replying…", [Change("reply", target, new JsonObject { ["contents"] = text, ["author"] = Environment.UserName })], target);
+        await ApplyCommentsAsync("Replying…", [Change("reply", target, new JsonObject { ["contents"] = text, ["author"] = AuthorName })], target);
     }
 
     private async void EditComment_Click(object sender, RoutedEventArgs e) => await EditSelectedCommentAsync(TargetComment(sender));
@@ -513,7 +513,7 @@ public sealed partial class MainWindow
         if (sender is not MenuFlyoutItem { Tag: string state } || TargetComment(sender) is not { } target) return;
         await ApplyCommentsAsync("Setting status…", [new JsonObject
         {
-            ["action"] = "status", ["page"] = target.Page, ["index"] = target.Index, ["state"] = state, ["author"] = Environment.UserName,
+            ["action"] = "status", ["page"] = target.Page, ["index"] = target.Index, ["state"] = state, ["author"] = AuthorName,
         }], target);
     }
 

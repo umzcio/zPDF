@@ -12,6 +12,11 @@ public sealed class AppSettings
     private static AppSettings? _current;
 
     public List<string> RecentFiles { get; set; } = [];
+    /// <summary>Name on new comments, signatures' "signed by" and replies (empty: the Windows user name).</summary>
+    public string AuthorName { get; set; } = "";
+    public bool FitWidthOnOpen { get; set; } = true;
+    public bool HighlightFields { get; set; } = true;
+    public bool OpenInNewWindow { get; set; } = true;
 
     public static AppSettings Current => _current ??= Load();
 

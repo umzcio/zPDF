@@ -168,7 +168,7 @@ public sealed partial class MainWindow
             }
             if (results.Count == 0) { StatusText.Text = "No text was found to recognize (the pages already have text, or are blank)."; return; }
             var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "ocr_text_layer", ["pages"] = results }], _password);
-            _revisions.Push(edited);
+            PushRevision(edited);
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
             StatusText.Text = $"Recognized text on {results.Count} page{(results.Count == 1 ? "" : "s")}. It's searchable and selectable now.";
         }, keepStatus: true);

@@ -28,6 +28,8 @@
             <KeyboardAccelerator Key="Delete" Invoked="PageDelete_Invoked" />
             <KeyboardAccelerator Key="Enter" Invoked="PageEnter_Invoked" />
             <KeyboardAccelerator Key="Space" Invoked="Space_Invoked" />
+            <KeyboardAccelerator Key="Tab" Invoked="Tab_Invoked" />
+            <KeyboardAccelerator Modifiers="Shift" Key="Tab" Invoked="Tab_Invoked" />
         </Grid.KeyboardAccelerators>
         <CommandBar x:Name="Toolbar" DefaultLabelPosition="Right" HorizontalAlignment="Left">
             <AppBarButton x:Name="OpenButton" Icon="OpenFile" Label="Open…" Click="Open_Click">
@@ -178,6 +180,13 @@
                     <KeyboardAccelerator Modifiers="Control" Key="Z" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
+            <AppBarButton x:Name="RedoButton" Icon="Redo" Label="Redo" LabelPosition="Collapsed" ToolTipService.ToolTip="Redo (Ctrl+Y)"
+                          Click="Redo_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="Y" />
+                    <KeyboardAccelerator Modifiers="Control,Shift" Key="Z" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
             <AppBarSeparator />
             <AppBarButton x:Name="RotateLeftButton" Label="Rotate Left" LabelPosition="Collapsed" ToolTipService.ToolTip="Rotate Left" Click="RotateLeft_Click" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE7AD;" /></AppBarButton.Icon>
@@ -215,6 +224,11 @@
             <AppBarButton x:Name="PreviousButton" Icon="Back" Label="Previous Page" Click="Previous_Click" IsEnabled="False" />
             <AppBarButton x:Name="NextButton" Icon="Forward" Label="Next Page" Click="Next_Click" IsEnabled="False" />
             <CommandBar.SecondaryCommands>
+                <AppBarButton Label="New Window" Click="NewWindow_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE78B;" /></AppBarButton.Icon>
+                    <AppBarButton.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="N" /></AppBarButton.KeyboardAccelerators>
+                </AppBarButton>
+                <AppBarSeparator />
                 <AppBarButton x:Name="FindButton" Icon="Find" Label="Find…" Click="Find_Click" IsEnabled="False" />
                 <AppBarButton x:Name="GoToPageButton" Label="Go to Page…" Click="GoToPage_Click" IsEnabled="False">
                     <AppBarButton.Icon><FontIcon Glyph="&#xE8A5;" /></AppBarButton.Icon>
@@ -223,6 +237,17 @@
                     <AppBarButton.Icon><FontIcon Glyph="&#xE740;" /></AppBarButton.Icon>
                 </AppBarButton>
                 <AppBarButton x:Name="PropertiesButton" Label="Document Properties…" Click="Properties_Click" IsEnabled="False">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE946;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator />
+                <AppBarButton Label="Preferences…" Click="Preferences_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE713;" /></AppBarButton.Icon>
+                    <AppBarButton.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="K" /></AppBarButton.KeyboardAccelerators>
+                </AppBarButton>
+                <AppBarButton Label="Report a Bug…" Click="ReportBug_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xEBE8;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="About zPDF" Click="About_Click">
                     <AppBarButton.Icon><FontIcon Glyph="&#xE946;" /></AppBarButton.Icon>
                 </AppBarButton>
             </CommandBar.SecondaryCommands>
