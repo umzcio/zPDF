@@ -318,7 +318,7 @@
             <ToggleButton Tag="Stamp" Click="Tool_Click" ToolTipService.ToolTip="Stamp" AutomationProperties.Name="Stamp">
                 <FontIcon Glyph="&#xE8F1;" FontSize="16" /></ToggleButton>
             <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="150" AutomationProperties.Name="Stamp type"
-                      ToolTipService.ToolTip="Stamp to place" />
+                      ToolTipService.ToolTip="Stamp to place" SelectionChanged="StampChoice_SelectionChanged" />
             <AppBarSeparator />
             <AppBarSeparator />
             <ToggleButton Tag="PrepareForm" Click="PrepareForm_Click" ToolTipService.ToolTip="Add and edit form fields"

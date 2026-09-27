@@ -85,7 +85,36 @@ public sealed partial class DocumentPane
         ("Expired", "Expired"), ("AsIs", "As Is"), ("ForPublicRelease", "For Public Release"),
         ("NotForPublicRelease", "Not for Public Release"), ("Departmental", "Departmental"), ("Sold", "Sold"),
         ("TopSecret", "Top Secret"),
+        // Dynamic stamps (name and date filled in when placed), custom text and images.
+        ("ApprovedBy", "Approved (name & date)"), ("ReviewedBy", "Reviewed (name & date)"), ("ReceivedOn", "Received (date)"),
+        ("Custom", "Custom text…"), ("Image", "Image…"),
     ];
+
+    /// <summary>"Image…" in the stamp list: pick a picture, then click to place it.</summary>
+    private async void StampChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (StampChoice.SelectedIndex < 0 || Stamps[StampChoice.SelectedIndex].Icon != "Image") return;
+        StampChoice.SelectedIndex = 0;
+        var picker = new Microsoft.Windows.Storage.Pickers.FileOpenPicker(AppWindow.Id);
+        foreach (var type in new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff" }) picker.FileTypeFilter.Add(type);
+        if (await picker.PickSingleFileAsync() is not { } file) return;
+        byte[] png;
+        try
+        {
+            using var image = System.Drawing.Image.FromFile(file.Path);
+            using var stream = new MemoryStream();
+            image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+            png = stream.ToArray();
+        }
+        catch (Exception error) when (error is OutOfMemoryException or IOException or ArgumentException)
+        {
+            StatusText.Text = $"{Path.GetFileName(file.Path)} isn't an image zPDF can read.";
+            return;
+        }
+        _placing = (png, "image", 150);
+        SetTool(CommentTool.Place);
+        ShowTransient("Click where the image stamp should go (Esc to cancel).");
+    }
 
     private void InitializeComments()
     {
@@ -329,12 +358,26 @@ public sealed partial class DocumentPane
                 annot = new JsonObject { ["subtype"] = "FreeText", ["rect"] = ToJson(PdfRect(info, box)), ["contents"] = text, ["color"] = color, ["font_size"] = 12 };
                 break;
             case CommentTool.Stamp:
+            {
+                var icon = Stamps[Math.Max(0, StampChoice.SelectedIndex)].Icon;
+                var date = DateTime.Now.ToShortDateString();
+                var label = icon switch
+                {
+                    "ApprovedBy" => $"APPROVED {AuthorName} {date}",
+                    "ReviewedBy" => $"REVIEWED {AuthorName} {date}",
+                    "ReceivedOn" => $"RECEIVED {date}",
+                    "Custom" => await AskTextAsync("Custom Stamp", "", "Stamp text"),
+                    _ => null,
+                };
+                if (icon == "Custom" && string.IsNullOrWhiteSpace(label)) return;
+                var width = label is null ? 150 : Math.Clamp(label.Length * 9 + 24, 120, 380);
                 annot = new JsonObject
                 {
-                    ["subtype"] = "Stamp", ["rect"] = ToJson(PdfRect(info, new Rect(a.X - 75, a.Y - 22, 150, 45))),
-                    ["icon"] = Stamps[Math.Max(0, StampChoice.SelectedIndex)].Icon,
+                    ["subtype"] = "Stamp", ["rect"] = ToJson(PdfRect(info, new Rect(a.X - width / 2, a.Y - 22, width, 45))), ["icon"] = icon,
                 };
+                if (label is not null) annot["contents"] = label.Trim()[..Math.Min(40, label.Trim().Length)];
                 break;
+            }
             case CommentTool.Ink:
                 if (points.Count < 2) return;
                 var ink = new JsonArray();

@@ -23,7 +23,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 ## B. Comments
 - [x] Highlight / underline / strikethrough on selected text
 - [x] Sticky notes; text boxes; freehand ink; rectangle, ellipse, line, arrow
-- [~] Stamps — standard stamps; custom image stamps via Fill & Sign images
+- [x] Stamps — 14 standard, dynamic (name & date), custom text, image stamps
 - [x] Comments panel: list, jump, edit text, delete, reply, status
 - [x] Select / move / resize (corner handles) / recolor existing annotations
 - [x] Import/export comments (FDF, XFDF); flatten
