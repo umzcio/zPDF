@@ -215,12 +215,24 @@ public sealed partial class MainWindow : Window
         foreach (var pane in Panes.Where(p => p.HasUnsavedChanges).ToList())
         {
             if (TabOf(pane) is { } tab) Tabs.SelectedItem = tab;
-            Activate();
+            BringToFront();
             await Task.Yield();  // let the tab's content load so its dialog has a XamlRoot
             if (!await pane.ConfirmCloseAsync()) return false;
         }
         return true;
     }
+
+    /// <summary>Raises this window above zPDF's others, so a question it asks is seen.</summary>
+    private void BringToFront()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter) presenter.Restore();
+        AppWindow.MoveInZOrderAtTop();
+        Activate();
+        SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(nint window);
 
     /// <summary>The files open in this window's tabs, in order (for reopening after an update).</summary>
     public List<string> OpenFiles() => [.. Panes.Select(p => p.FilePath).OfType<string>().Where(File.Exists)];

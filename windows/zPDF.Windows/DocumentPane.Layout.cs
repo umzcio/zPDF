@@ -197,6 +197,7 @@ public sealed partial class DocumentPane
         var shown = on && _document is not null;
         OrganizeGrid.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
         PageScroller.Visibility = shown ? Visibility.Collapsed : Visibility.Visible;
+        QuickTools.Visibility = shown || _document is null || IsFullScreen ? Visibility.Collapsed : Visibility.Visible;  // it would cover the grid
         if (!shown) return;
         OrganizeGrid.SelectedItems.Clear();
         if (_page < _thumbnails.Count)

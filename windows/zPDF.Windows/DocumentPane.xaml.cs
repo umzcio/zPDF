@@ -498,7 +498,7 @@ public sealed partial class DocumentPane : UserControl
             _rebuilding = false;
         }
         UpdateStatus();
-        QuickTools.Visibility = IsFullScreen ? Visibility.Collapsed : Visibility.Visible;
+        QuickTools.Visibility = IsFullScreen || OrganizeGrid.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         _ = RenderThumbnailsAsync(document);
         _ = RefreshCommentsAsync();
         _ = RefreshFieldsAsync();
