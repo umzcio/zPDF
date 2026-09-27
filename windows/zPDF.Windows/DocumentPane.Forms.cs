@@ -181,7 +181,8 @@ public sealed partial class DocumentPane
             {
                 if (combo.SelectedIndex >= 0) SetPending(widget.Field, JsonValue.Create(widget.Field.Options[combo.SelectedIndex].Export));
             };
-            combo.DropDownClosed += (_, _) => CommitEditor();
+            // Opened by a click, closing the list finishes; from the keyboard, focus stays on the field.
+            combo.DropDownClosed += (_, _) => { if (!fromKeyboard) CommitEditor(); };
             editor = combo;
             // Tab / Shift+Tab move to the next field here too (the combo would take the key otherwise).
             combo.PreviewKeyDown += (_, e) =>
@@ -249,7 +250,11 @@ public sealed partial class DocumentPane
     private void MoveToField(FormWidget from, int step)
     {
         var order = TabOrder();
-        var index = order.FindIndex(w => w.Field == from.Field);
+        // This widget, not just its field: a field can have widgets on several pages (the I-9's
+        // preparer blocks), and matching the field sent Tab back to its first widget.
+        var index = order.FindIndex(w => w.Page == from.Page && w.Rect.SequenceEqual(from.Rect) && w.Field.Name == from.Field.Name);
+        if (index < 0) index = order.FindIndex(w => w.Field.Name == from.Field.Name && w.Page == from.Page);  // another radio of a group
+        if (index < 0) index = order.FindIndex(w => w.Field == from.Field);
         CommitEditor();
         if (order.Count == 0) return;
         var target = Math.Max(0, index) + step;
@@ -284,8 +289,54 @@ public sealed partial class DocumentPane
     private void FocusToggle(FormWidget widget)
     {
         _focusedToggle = widget;
-        PageScroller.Focus(FocusState.Programmatic);
-        StatusText.Text = $"{(widget.Field.Tooltip.Length > 0 ? widget.Field.Tooltip.Trim() : widget.Field.Name)} — Space to toggle, Tab for the next field";
+        var label = widget.Field.Tooltip.Length > 0 ? widget.Field.Tooltip.Trim() : widget.Field.Name;
+        StatusText.Text = $"{label} — Space to toggle, Tab for the next field";
+        // A transparent toggle over the box takes the focus, so Narrator reads the field and its
+        // state and the focus outline is on the box. Keys still go through Root_PreviewKeyDown.
+        if (Info(widget.Page) is not { } info || _slots[widget.Page].Editor.Element is { } busy && busy != _toggleProxy)
+        {
+            _toggleProxy = null;  // an old one's focus loss mustn't end this
+            PageScroller.Focus(FocusState.Programmatic);
+            return;
+        }
+        var slot = _slots[widget.Page];
+        var proxy = new Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
+        {
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0), Padding = new Thickness(0), MinWidth = 0, MinHeight = 0,
+            IsChecked = ProxyChecked(widget), UseSystemFocusVisuals = true,
+        };
+        proxy.Resources["ToggleButtonBackgroundChecked"] = proxy.Background;
+        proxy.Resources["ToggleButtonBackgroundCheckedPointerOver"] = proxy.Background;
+        proxy.Resources["ToggleButtonBackgroundPointerOver"] = proxy.Background;
+        proxy.Resources["ToggleButtonBackgroundPressed"] = proxy.Background;
+        proxy.Resources["ToggleButtonBackgroundCheckedPressed"] = proxy.Background;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(proxy,
+            widget.Field.Kind == "radio" && widget.Export is { Length: > 0 } choice ? $"{label}: {choice}" : label);
+        proxy.Click += (_, _) => { ToggleFocusedField(); SyncToggleProxy(); };
+        proxy.LostFocus += (_, _) =>
+        {
+            if (!ReferenceEquals(proxy, _toggleProxy)) return;  // replaced (Tab, or the view reloaded)
+            _toggleProxy = null;
+            _focusedToggle = null;  // focus went elsewhere (a click, another control)
+            if (ReferenceEquals(slot.Editor.Element, proxy)) slot.SetEditor(null, null);
+        };
+        if (_toggleProxy is { } old && _toggleProxySlot is { } oldSlot && ReferenceEquals(oldSlot.Editor.Element, old)) oldSlot.SetEditor(null, null);
+        _toggleProxy = proxy;
+        _toggleProxySlot = slot;
+        slot.SetEditor(proxy, WidgetRect(info, widget));
+        DispatcherQueue.TryEnqueue(() => { if (ReferenceEquals(_toggleProxy, proxy)) proxy.Focus(FocusState.Keyboard); });
+    }
+
+    private Microsoft.UI.Xaml.Controls.Primitives.ToggleButton? _toggleProxy;
+    private PageSlot? _toggleProxySlot;
+
+    private bool ProxyChecked(FormWidget widget) =>
+        widget.Field.Kind == "checkbox" ? IsChecked(widget.Field) : widget.Export is { } export && CurrentText(widget.Field) == export;
+
+    private void SyncToggleProxy()
+    {
+        if (_toggleProxy is { } proxy && _focusedToggle is { } widget) proxy.IsChecked = ProxyChecked(LiveWidget(widget));
     }
 
     /// <summary>Tab/Shift+Tab and Space for a checkbox or radio that has the keyboard. Handled
@@ -429,11 +480,7 @@ public sealed partial class DocumentPane
             // Reloading the view drops per-page state; keep the checkbox or radio that has the keyboard.
             var toggle = _focusedToggle;
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
-            if (toggle is not null && _editing is null)
-            {
-                _focusedToggle = toggle;
-                PageScroller.Focus(FocusState.Programmatic);
-            }
+            if (toggle is not null && _editing is null) FocusToggle(LiveWidget(toggle));
         });
         if (!written)
         {
@@ -490,6 +537,7 @@ public sealed partial class DocumentPane
         var widget = _focusedToggle = LiveWidget(_focusedToggle);
         if (widget.Field.Kind == "checkbox") SetPending(widget.Field, JsonValue.Create(!IsChecked(widget.Field)));
         else if (widget.Export is { } export) SetPending(widget.Field, JsonValue.Create(export));
+        SyncToggleProxy();
         return true;
     }
 }

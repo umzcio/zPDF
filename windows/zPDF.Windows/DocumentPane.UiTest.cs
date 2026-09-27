@@ -80,6 +80,27 @@ public sealed partial class DocumentPane
             }
             if (order.Count > 0)
             {
+                // Walk every field with Tab: each once, in order, then out of the form.
+                var visited = new List<string>();
+                FormWidget? at2 = null;
+                for (var i = 0; i < order.Count; i++)
+                {
+                    var target = i == 0 ? order[0] : null;
+                    if (target is null && at2 is not null)
+                    {
+                        MoveToField(at2, 1);
+                        await Task.Delay(30);
+                        target = _editing ?? _focusedToggle;
+                    }
+                    if (target is null) break;
+                    if (i == 0) { if (target.Field.Kind is "checkbox" or "radio") FocusToggle(target); else OpenEditor(target, fromKeyboard: true); await Task.Delay(30); }
+                    visited.Add($"{target.Page}:{target.Field.Name}:{string.Join(",", target.Rect.Select(v => Math.Round(v)))}");
+                    at2 = target;
+                }
+                CloseEditor(commit: false);
+                _focusedToggle = null;
+                var expected = order.Select(w => $"{w.Page}:{w.Field.Name}:{string.Join(",", w.Rect.Select(v => Math.Round(v)))}").ToList();
+                Check("tab walks every field once", visited.SequenceEqual(expected), $"{visited.Count} of {expected.Count}; first mismatch at {visited.Zip(expected).TakeWhile(p => p.First == p.Second).Count()}");
                 MoveToField(order[^1], 1);
                 await Task.Delay(300);
                 Check("tab leaves form", _leftForm && _editing is null, $"leftForm={_leftForm} editing={_editing?.Field.Name}");
