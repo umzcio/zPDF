@@ -6,7 +6,7 @@ namespace zPDF;
 /// <summary>`zPDF.exe --uitest input.pdf log.txt`: drives a real window through edits,
 /// undo/redo, a measurement and a checkbox, logging PASS/FAIL lines, then exits
 /// (exit code = failures). Run it in a desktop session.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     public async Task<int> RunUiTestAsync(string input, string logPath)
     {
@@ -62,6 +62,13 @@ public sealed partial class MainWindow
                 await RefreshFieldsAsync();
                 Check("checkbox toggles back", _focusedToggle is { } again && IsChecked(LiveWidget(again).Field) == was);
             }
+
+            // Tabs: a second tab opens and closes; the same file isn't opened twice.
+            var second = Host.AddTab(null);
+            Check("new tab", Host.Panes.Count() == 2 && Host.ActivePane == second);
+            await Host.CloseTabAsync(second);
+            Check("close tab", Host.Panes.Count() == 1 && Host.ActivePane == this);
+            Check("find open tab", Host.FindTab(input) == this);
 
             // Preflight and reading order queries parse.
             var preflight = await Engine.QueryAsync(CurrentPath!, "preflight", new JsonObject { ["profile"] = "commercial" }, _password);

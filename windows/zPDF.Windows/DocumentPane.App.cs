@@ -12,7 +12,7 @@ using Windows.Storage.Streams;
 namespace zPDF;
 
 /// <summary>App-level features: redo, windows, preferences, Report a Bug, About.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private const string FeedbackEndpoint = "https://zpdf-feedback.umontana.workers.dev/v1/reports";
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
@@ -50,11 +50,19 @@ public sealed partial class MainWindow
     // ---------------------------------------------------------------- windows
 
     private void NewWindow_Click(object sender, RoutedEventArgs e) => App.OpenWindow(null);
+    private void NewTab_Click(object sender, RoutedEventArgs e) => Host.AddTab(null);
+    private void CloseTab_Click(object sender, RoutedEventArgs e) => _ = Host.CloseTabAsync(this);
 
     /// <summary>Opens a file here, or in a new window when this one already has a document.</summary>
     private async Task OpenHereOrNewAsync(string path)
     {
-        if (_document is not null && AppSettings.Current.OpenInNewWindow) { App.OpenWindow(path); return; }
+        if (Host.FindTab(path) is { } open) { Host.Select(open); return; }  // already open: show it
+        if (_document is not null)
+        {
+            if (AppSettings.Current.OpenInTabs) Host.AddTab(path);
+            else App.OpenWindow(path);
+            return;
+        }
         if (await ConfirmDiscardAsync()) await OpenAsync(path);
     }
 
@@ -66,7 +74,7 @@ public sealed partial class MainWindow
         var author = Text("Your name (on comments, replies and marks)", settings.AuthorName, Environment.UserName);
         var zoom = Choice("Open documents at", ["Fit width", "Actual size (100%)"], settings.FitWidthOnOpen ? 0 : 1);
         var fields = new CheckBox { Content = "Highlight form fields", IsChecked = settings.HighlightFields };
-        var windows = new CheckBox { Content = "Open files in a new window when one is already open", IsChecked = settings.OpenInNewWindow };
+        var windows = new CheckBox { Content = "Open files in tabs (clear to open each in its own window)", IsChecked = settings.OpenInTabs };
         var clear = new Button { Content = "Clear Recent Files" };
         clear.Click += (_, _) => { settings.ClearRecent(); ShowStartRecents(); clear.IsEnabled = false; };
         var defaults = new Button { Content = FileAssociation.IsRegistered() ? "Choose zPDF as the Default PDF App…" : "Make zPDF Available for PDFs…" };
@@ -92,7 +100,7 @@ public sealed partial class MainWindow
         settings.AuthorName = author.Text.Trim();
         settings.FitWidthOnOpen = zoom.SelectedIndex == 0;
         settings.HighlightFields = fields.IsChecked == true;
-        settings.OpenInNewWindow = windows.IsChecked == true;
+        settings.OpenInTabs = windows.IsChecked == true;
         settings.Save();
         _highlightFields = settings.HighlightFields;
         HighlightFieldsButton.IsChecked = _highlightFields;

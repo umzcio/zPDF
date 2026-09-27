@@ -21,7 +21,7 @@ public sealed class LayerItem(string id, string name, bool visible, int depth)
 }
 
 /// <summary>Links (add, edit, remove), attachments, layers, page labels, page size, PDF/X and PDF/E.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private readonly ObservableCollection<AttachmentItem> _attachments = [];
     private readonly ObservableCollection<LayerItem> _layers = [];

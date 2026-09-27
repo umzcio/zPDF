@@ -10,7 +10,7 @@ using Windows.Media.Ocr;
 namespace zPDF;
 
 /// <summary>Convert and tools: export, OCR, reduce file size, PDF/A.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private static readonly (string Format, string Label, string Extension)[] ExportFormats =
     [

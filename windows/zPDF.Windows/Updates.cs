@@ -14,7 +14,7 @@ internal static class Updates
 
     private static UpdateManager Manager() => new(new GithubSource(Repository, null, false));
 
-    public static async Task CheckInBackgroundAsync(MainWindow window)
+    public static async Task CheckInBackgroundAsync(DocumentPane window)
     {
         var settings = AppSettings.Current;
         if (_offered || DateTime.UtcNow - settings.LastUpdateCheck < TimeSpan.FromDays(1)) return;
@@ -22,7 +22,7 @@ internal static class Updates
         await CheckAsync(window, quiet: true);
     }
 
-    public static async Task CheckAsync(MainWindow window, bool quiet)
+    public static async Task CheckAsync(DocumentPane window, bool quiet)
     {
         var manager = Manager();
         if (!manager.IsInstalled)
@@ -41,7 +41,7 @@ internal static class Updates
         AppSettings.Current.Save();
         if (update is null)
         {
-            if (!quiet) await window.InfoAsync("Updates", $"zPDF {MainWindow.Version} is the latest version.");
+            if (!quiet) await window.InfoAsync("Updates", $"zPDF {DocumentPane.Version} is the latest version.");
             return;
         }
         _offered = true;

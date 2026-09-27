@@ -13,7 +13,7 @@ public sealed record ContentItem(int Page, string Kind, string Id, int? Block, d
 
 /// <summary>Editing page content: text blocks in place, moving/arranging/deleting
 /// objects, adding text and images, and find &amp; replace in the content.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private readonly Dictionary<int, (string Digest, List<ContentItem> Items)> _content = [];
     private int _contentGeneration;

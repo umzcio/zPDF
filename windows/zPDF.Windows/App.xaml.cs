@@ -14,7 +14,7 @@ public partial class App : Application
         {
             var test = new MainWindow();
             test.Activate();
-            var failures = await test.RunUiTestAsync(Path.GetFullPath(input), Path.GetFullPath(log));
+            var failures = await test.ActivePane!.RunUiTestAsync(Path.GetFullPath(input), Path.GetFullPath(log));
             Environment.Exit(failures);
             return;
         }
@@ -27,10 +27,9 @@ public partial class App : Application
     /// <summary>A new document window, optionally opening `path`.</summary>
     public static void OpenWindow(string? path)
     {
-        var window = new MainWindow();
+        var window = new MainWindow(path);
         Windows.Add(window);
         window.Closed += (_, _) => Windows.Remove(window);
         window.Activate();
-        if (path is not null) _ = window.OpenAsync(path);
     }
 }

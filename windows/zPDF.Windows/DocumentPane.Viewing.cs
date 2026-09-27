@@ -22,7 +22,7 @@ public sealed class OutlineNode(OutlineItem item, bool expanded)
 
 /// <summary>Reading and navigation: find, text selection and copy, links, bookmarks,
 /// go to page, document properties, keyboard paging.</summary>
-public sealed partial class MainWindow : IPageHost
+public sealed partial class DocumentPane : IPageHost
 {
     private readonly Dictionary<int, PageInfo> _infos = [];
     private readonly Dictionary<int, Task<PageInfo?>> _infoLoads = [];
@@ -659,6 +659,7 @@ public sealed partial class MainWindow : IPageHost
     private void SetFullScreen(bool on)
     {
         ToolStrip.Visibility = on || _document is null ? Visibility.Collapsed : Visibility.Visible;
+        Host.SetTabStripVisible(!on);
         AppWindow.SetPresenter(on ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
                                   : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
         var chrome = on ? Visibility.Collapsed : Visibility.Visible;
@@ -674,7 +675,7 @@ public sealed partial class MainWindow : IPageHost
     {
         await FlushFieldsAsync();  // print what's on screen, including just-typed form entries
         if (_document is null || CurrentPath is not { } path) return;
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(Host);
         if (Printing.Ask(hwnd, _document.PageCount, _page) is not { } job) return;
         var title = Path.GetFileName(_sourcePath) ?? "zPDF";
         var password = _password;

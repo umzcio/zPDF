@@ -48,7 +48,7 @@ public sealed class CommentItem(CommentRecord record, IReadOnlyList<CommentRecor
 }
 
 /// <summary>Comment tools, the Comments panel and editing existing comments.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private static readonly (string Name, Color Color)[] Palette =
     [

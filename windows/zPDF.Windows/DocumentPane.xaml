@@ -1,0 +1,623 @@
+<UserControl x:Class="zPDF.DocumentPane"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:zPDF"
+        >
+    <Grid x:Name="RootGrid" AllowDrop="True" DragOver="Root_DragOver" Drop="Root_Drop" PreviewKeyDown="Root_PreviewKeyDown">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="Find_Invoked" />
+            <KeyboardAccelerator Key="F3" Invoked="FindNext_Invoked" />
+            <KeyboardAccelerator Modifiers="Shift" Key="F3" Invoked="FindPrevious_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="C" Invoked="Copy_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="A" Invoked="SelectAll_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="G" Invoked="GoToPage_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="D" Invoked="Properties_Invoked" />
+            <KeyboardAccelerator Key="PageDown" Invoked="PageDown_Invoked" />
+            <KeyboardAccelerator Key="PageUp" Invoked="PageUp_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="Home" Invoked="Home_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="End" Invoked="End_Invoked" />
+            <KeyboardAccelerator Key="Escape" Invoked="Escape_Invoked" />
+            <KeyboardAccelerator Key="F11" Invoked="FullScreen_Invoked" />
+            <KeyboardAccelerator Key="Delete" Invoked="PageDelete_Invoked" />
+            <KeyboardAccelerator Key="Enter" Invoked="PageEnter_Invoked" />
+            <KeyboardAccelerator Key="Space" Invoked="Space_Invoked" />
+        </Grid.KeyboardAccelerators>
+        <CommandBar x:Name="Toolbar" DefaultLabelPosition="Right" HorizontalAlignment="Left">
+            <AppBarButton x:Name="OpenButton" Icon="OpenFile" Label="Open…" Click="Open_Click">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="O" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="RecentButton" Label="Recent" LabelPosition="Collapsed" ToolTipService.ToolTip="Open Recent">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE81C;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout x:Name="RecentMenu" Opening="RecentMenu_Opening" />
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="SaveButton" Icon="Save" Label="Save" Click="Save_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="S" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="SaveAsButton" Icon="SaveLocal" Label="Save As…" Click="SaveAs_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control,Shift" Key="S" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="PrintButton" Icon="Print" Label="Print…" LabelPosition="Collapsed" ToolTipService.ToolTip="Print (Ctrl+P)"
+                          Click="Print_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="P" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarButton x:Name="PagesMenuButton" Label="Pages" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8A1;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Insert Blank Page" Click="InsertBlank_Click" />
+                        <MenuFlyoutItem Text="Insert Pages from File…" Click="InsertFromFile_Click" />
+                        <MenuFlyoutItem Text="Insert Images…" Click="InsertImages_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Replace Pages…" Click="ReplacePages_Click" />
+                        <MenuFlyoutItem Text="Duplicate Pages" Click="DuplicatePages_Click" />
+                        <MenuFlyoutItem Text="Crop Pages…" Click="CropPages_Click" />
+                        <MenuFlyoutItem Text="Resize Pages…" Click="ResizePages_Click" />
+                        <MenuFlyoutItem Text="Page Labels…" Click="PageLabels_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="WatermarkButton" Label="Page Design" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8D2;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Header &amp; Footer…" Click="HeaderFooter_Click" />
+                        <MenuFlyoutItem Text="Bates Numbering…" Click="Bates_Click" />
+                        <MenuFlyoutItem Text="Watermark…" Click="WatermarkOptions_Click" />
+                        <MenuFlyoutItem Text="Remove Watermarks" Click="RemoveWatermarks_Click" />
+                        <MenuFlyoutItem Text="Background…" Click="Background_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="SignMenuButton" Label="Sign" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEE56;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Add Signature" Click="AddSignature_Click" />
+                        <MenuFlyoutItem Text="Add Initials" Click="AddInitials_Click" />
+                        <MenuFlyoutItem Text="New Signature…" Tag="signature" Click="NewSignature_Click" />
+                        <MenuFlyoutItem Text="New Initials…" Tag="initials" Click="NewSignature_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Add Text" Click="AddFillText_Click" />
+                        <MenuFlyoutItem Text="Add Date" Click="AddDate_Click" />
+                        <MenuFlyoutItem Text="Add Checkmark ✓" Tag="✓" Click="AddMark_Click" />
+                        <MenuFlyoutItem Text="Add Cross ✗" Tag="✗" Click="AddMark_Click" />
+                        <MenuFlyoutItem Text="Add Dot ●" Tag="●" Click="AddMark_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Sign with Digital ID…" Click="SignDigital_Click" />
+                        <MenuFlyoutItem Text="Certify Document…" Click="Certify_Click" />
+                        <MenuFlyoutItem Text="Validate Signatures…" Click="ValidateSignatures_Click" />
+                        <MenuFlyoutItem Text="Digital IDs…" Click="ManageIds_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Clear Saved Signatures" Click="ClearSavedSignatures_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="ProtectMenuButton" Label="Protect" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE72E;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Password Protection…" Click="Protect_Click" />
+                        <MenuFlyoutItem Text="Remove Security" Click="RemoveSecurity_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Search &amp; Redact…" Click="SearchRedact_Click" />
+                        <MenuFlyoutItem Text="Remove Hidden Information…" Click="RemoveHidden_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="ConvertMenuButton" Label="Convert" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8AB;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Export to Word…" Tag="docx" Click="Export_Click" />
+                        <MenuFlyoutItem Text="Export to Excel…" Tag="xlsx" Click="Export_Click" />
+                        <MenuFlyoutItem Text="Export to PowerPoint…" Tag="pptx" Click="Export_Click" />
+                        <MenuFlyoutSubItem Text="Export to Other Format">
+                            <MenuFlyoutItem Text="Web Page (HTML)…" Tag="html" Click="Export_Click" />
+                            <MenuFlyoutItem Text="Markdown…" Tag="md" Click="Export_Click" />
+                            <MenuFlyoutItem Text="Rich Text (RTF)…" Tag="rtf" Click="Export_Click" />
+                            <MenuFlyoutItem Text="XML…" Tag="xml" Click="Export_Click" />
+                            <MenuFlyoutItem Text="EPUB Book…" Tag="epub" Click="Export_Click" />
+                            <MenuFlyoutItem Text="Plain Text…" Tag="txt" Click="Export_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSubItem Text="Export Pages as Images">
+                            <MenuFlyoutItem Text="PNG…" Tag="png" Click="Export_Click" />
+                            <MenuFlyoutItem Text="JPEG…" Tag="jpg" Click="Export_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Recognize Text (OCR)…" Click="RecognizeText_Click" />
+                        <MenuFlyoutItem Text="Reduce File Size…" Click="ReduceSize_Click" />
+                        <MenuFlyoutItem Text="Save as PDF/A…" Click="ConvertPdfA_Click" />
+                        <MenuFlyoutItem Text="Save as PDF/X-4…" Click="ConvertPdfX_Click" />
+                        <MenuFlyoutItem Text="Save as PDF/E…" Click="ConvertPdfE_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="ToolsMenuButton" Label="Tools" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE90F;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Find &amp; Replace in Content…" Click="FindReplace_Click" />
+                        <MenuFlyoutSubItem Text="Comments">
+                            <MenuFlyoutItem Text="Import Comments…" Click="ImportComments_Click" />
+                            <MenuFlyoutItem Text="Export Comments…" Click="ExportComments_Click" />
+                            <MenuFlyoutItem Text="Flatten Comments…" Click="FlattenComments_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="Flatten Form Fields…" Click="FlattenForm_Click" />
+                        <MenuFlyoutItem Text="Compare with Another PDF…" Click="Compare_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Accessibility Check…" Click="AccessibilityCheck_Click" />
+                        <MenuFlyoutItem Text="Autotag Document" Click="Autotag_Click" />
+                        <MenuFlyoutItem Text="Alternate Text…" Click="AltText_Click" />
+                        <MenuFlyoutItem Text="Reading Order (Current Page)…" Click="ReadingOrder_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutSubItem Text="Print Production">
+                            <MenuFlyoutItem Text="Preflight…" Click="Preflight_Click" />
+                            <MenuFlyoutItem Text="Output Preview…" Click="OutputPreview_Click" />
+                            <MenuFlyoutItem Text="Printer Marks…" Click="PrinterMarks_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="Batch Process Files…" Click="Batch_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Measure Distance" Tag="MeasureDistance" Click="MeasureTool_Click" />
+                        <MenuFlyoutItem Text="Measure Perimeter" Tag="MeasurePerimeter" Click="MeasureTool_Click" />
+                        <MenuFlyoutItem Text="Measure Area" Tag="MeasureArea" Click="MeasureTool_Click" />
+                        <MenuFlyoutItem Text="Set Measurement Scale…" Click="SetScale_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="DocumentMenuButton" Label="Document" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8F4;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Extract Pages…" Click="ExtractPages_Click" />
+                        <MenuFlyoutItem Text="Split Document…" Click="SplitDocument_Click" />
+                        <MenuFlyoutItem Text="Combine Files…" Click="CombineFiles_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton x:Name="UndoButton" Icon="Undo" Label="Undo" Click="Undo_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="Z" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="RedoButton" Icon="Redo" Label="Redo" LabelPosition="Collapsed" ToolTipService.ToolTip="Redo (Ctrl+Y)"
+                          Click="Redo_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="Y" />
+                    <KeyboardAccelerator Modifiers="Control,Shift" Key="Z" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarButton x:Name="RotateLeftButton" Label="Rotate Left" LabelPosition="Collapsed" ToolTipService.ToolTip="Rotate Left" Click="RotateLeft_Click" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE7AD;" /></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton x:Name="RotateRightButton" Label="Rotate Right" LabelPosition="Collapsed" ToolTipService.ToolTip="Rotate Right" Click="RotateRight_Click" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE7AD;" RenderTransformOrigin="0.5,0.5">
+                    <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
+                </FontIcon></AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton x:Name="DeletePagesButton" Icon="Delete" Label="Delete Pages" LabelPosition="Collapsed" ToolTipService.ToolTip="Delete Pages" Click="DeletePages_Click" IsEnabled="False" />
+            <AppBarSeparator />
+            <AppBarButton x:Name="ZoomOutButton" Icon="ZoomOut" Label="Zoom Out" LabelPosition="Collapsed" ToolTipService.ToolTip="Zoom Out (Ctrl+−)" Click="ZoomOut_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="Subtract" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="ZoomInButton" Icon="ZoomIn" Label="Zoom In" LabelPosition="Collapsed" ToolTipService.ToolTip="Zoom In (Ctrl+=)" Click="ZoomIn_Click" IsEnabled="False">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="Add" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="FitWidthButton" Label="Fit Width" Click="FitWidth_Click" IsEnabled="False" ToolTipService.ToolTip="Fit Width (Ctrl+0)">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE9A6;" /></AppBarButton.Icon>
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="Number0" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="ActualSizeButton" Label="Actual Size" Click="ActualSize_Click" IsEnabled="False" ToolTipService.ToolTip="Actual Size (Ctrl+1)">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE71F;" /></AppBarButton.Icon>
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Control" Key="Number1" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarButton x:Name="PreviousButton" Icon="Back" Label="Previous Page" Click="Previous_Click" IsEnabled="False" />
+            <AppBarButton x:Name="NextButton" Icon="Forward" Label="Next Page" Click="Next_Click" IsEnabled="False" />
+            <CommandBar.SecondaryCommands>
+                <AppBarButton Label="New Tab" Click="NewTab_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE710;" /></AppBarButton.Icon>
+                    <AppBarButton.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="T" /></AppBarButton.KeyboardAccelerators>
+                </AppBarButton>
+                <AppBarButton Label="Close Tab" Click="CloseTab_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE711;" /></AppBarButton.Icon>
+                    <AppBarButton.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="W" /></AppBarButton.KeyboardAccelerators>
+                </AppBarButton>
+                <AppBarButton Label="New Window" Click="NewWindow_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE78B;" /></AppBarButton.Icon>
+                    <AppBarButton.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="N" /></AppBarButton.KeyboardAccelerators>
+                </AppBarButton>
+                <AppBarButton Label="Create PDF from Images…" Click="CreateFromImages_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xEB9F;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Create Blank PDF…" Click="CreateBlank_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A5;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Combine Files into a PDF…" Click="CombineFiles_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8F1;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator />
+                <AppBarButton x:Name="FindButton" Icon="Find" Label="Find…" Click="Find_Click" IsEnabled="False" />
+                <AppBarButton x:Name="GoToPageButton" Label="Go to Page…" Click="GoToPage_Click" IsEnabled="False">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A5;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton x:Name="FullScreenButton" Label="Full Screen (F11)" Click="FullScreen_Click" IsEnabled="False">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE740;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton x:Name="PropertiesButton" Label="Document Properties…" Click="Properties_Click" IsEnabled="False">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE946;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator />
+                <AppBarButton Label="Preferences…" Click="Preferences_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE713;" /></AppBarButton.Icon>
+                    <AppBarButton.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="K" /></AppBarButton.KeyboardAccelerators>
+                </AppBarButton>
+                <AppBarButton Label="Report a Bug…" Click="ReportBug_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xEBE8;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="Check for Updates…" Click="CheckUpdates_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE895;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="About zPDF" Click="About_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE946;" /></AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar.SecondaryCommands>
+        </CommandBar>
+        <!-- Comment tools. Select = text selection, links and picking existing comments. -->
+        <StackPanel x:Name="ToolStrip" Grid.Row="1" Orientation="Horizontal" Spacing="2" Padding="8,2,8,6" Visibility="Collapsed">
+            <ToggleButton x:Name="SelectTool" Tag="Select" IsChecked="True" Click="Tool_Click" ToolTipService.ToolTip="Select"
+                          AutomationProperties.Name="Select"><FontIcon Glyph="&#xE8B0;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Highlight" Click="Tool_Click" ToolTipService.ToolTip="Highlight text" AutomationProperties.Name="Highlight">
+                <FontIcon Glyph="&#xE7E6;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Underline" Click="Tool_Click" ToolTipService.ToolTip="Underline text" AutomationProperties.Name="Underline">
+                <FontIcon Glyph="&#xE8DC;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="StrikeOut" Click="Tool_Click" ToolTipService.ToolTip="Strikethrough text" AutomationProperties.Name="Strikethrough">
+                <FontIcon Glyph="&#xEDE0;" FontSize="16" /></ToggleButton>
+            <AppBarSeparator />
+            <ToggleButton Tag="Text" Click="Tool_Click" ToolTipService.ToolTip="Sticky note" AutomationProperties.Name="Sticky note">
+                <FontIcon Glyph="&#xE70B;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="FreeText" Click="Tool_Click" ToolTipService.ToolTip="Text box" AutomationProperties.Name="Text box">
+                <FontIcon Glyph="&#xE8D2;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Ink" Click="Tool_Click" ToolTipService.ToolTip="Draw (pen)" AutomationProperties.Name="Draw">
+                <FontIcon Glyph="&#xEDC6;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Square" Click="Tool_Click" ToolTipService.ToolTip="Rectangle" AutomationProperties.Name="Rectangle">
+                <FontIcon Glyph="&#xE739;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Circle" Click="Tool_Click" ToolTipService.ToolTip="Ellipse" AutomationProperties.Name="Ellipse">
+                <FontIcon Glyph="&#xEA3A;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Line" Click="Tool_Click" ToolTipService.ToolTip="Line" AutomationProperties.Name="Line">
+                <FontIcon Glyph="&#xE738;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Arrow" Click="Tool_Click" ToolTipService.ToolTip="Arrow" AutomationProperties.Name="Arrow">
+                <FontIcon Glyph="&#xE72A;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Stamp" Click="Tool_Click" ToolTipService.ToolTip="Stamp" AutomationProperties.Name="Stamp">
+                <FontIcon Glyph="&#xE8F1;" FontSize="16" /></ToggleButton>
+            <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="150" AutomationProperties.Name="Stamp type"
+                      ToolTipService.ToolTip="Stamp to place" />
+            <AppBarSeparator />
+            <AppBarSeparator />
+            <ToggleButton Tag="PrepareForm" Click="PrepareForm_Click" ToolTipService.ToolTip="Add and edit form fields"
+                          AutomationProperties.Name="Prepare form">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8F4;" FontSize="16" /><TextBlock Text="Form" /></StackPanel>
+            </ToggleButton>
+            <ToggleButton Tag="EditContent" Click="EditContent_Click" ToolTipService.ToolTip="Edit the page's text, images and drawings"
+                          AutomationProperties.Name="Edit content">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE70F;" FontSize="16" /><TextBlock Text="Edit" /></StackPanel>
+            </ToggleButton>
+            <ToggleButton Tag="Link" Click="LinkTool_Click" ToolTipService.ToolTip="Add or edit links" AutomationProperties.Name="Links">
+                <FontIcon Glyph="&#xE71B;" FontSize="16" /></ToggleButton>
+            <Button Click="AddText_Click" ToolTipService.ToolTip="Add text to the page" AutomationProperties.Name="Add text">
+                <FontIcon Glyph="&#xE8D3;" FontSize="16" /></Button>
+            <Button Click="AddImage_Click" ToolTipService.ToolTip="Add an image to the page" AutomationProperties.Name="Add image">
+                <FontIcon Glyph="&#xEB9F;" FontSize="16" /></Button>
+            <StackPanel x:Name="ObjectCommands" Orientation="Horizontal" Spacing="2" Visibility="Collapsed">
+                <Button Tag="front" Click="ObjectArrange_Click" ToolTipService.ToolTip="Bring to front" AutomationProperties.Name="Bring to front"><FontIcon Glyph="&#xE746;" FontSize="16" /></Button>
+                <Button Tag="forward" Click="ObjectArrange_Click" ToolTipService.ToolTip="Bring forward" AutomationProperties.Name="Bring forward"><FontIcon Glyph="&#xE74A;" FontSize="16" /></Button>
+                <Button Tag="backward" Click="ObjectArrange_Click" ToolTipService.ToolTip="Send backward" AutomationProperties.Name="Send backward"><FontIcon Glyph="&#xE74B;" FontSize="16" /></Button>
+                <Button Tag="back" Click="ObjectArrange_Click" ToolTipService.ToolTip="Send to back" AutomationProperties.Name="Send to back"><FontIcon Glyph="&#xE747;" FontSize="16" /></Button>
+                <Button x:Name="ReplaceImageButton" Click="ReplaceImage_Click" ToolTipService.ToolTip="Replace image" AutomationProperties.Name="Replace image"><FontIcon Glyph="&#xE8B9;" FontSize="16" /></Button>
+                <Button Click="ObjectDelete_Click" ToolTipService.ToolTip="Delete" AutomationProperties.Name="Delete object"><FontIcon Glyph="&#xE74D;" FontSize="16" /></Button>
+            </StackPanel>
+            <AppBarSeparator />
+            <ToggleButton Tag="Redact" Click="Tool_Click" ToolTipService.ToolTip="Mark for redaction (drag an area, or select text first)"
+                          AutomationProperties.Name="Mark for redaction">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE7E6;" FontSize="16" Foreground="Red" /><TextBlock Text="Redact" /></StackPanel>
+            </ToggleButton>
+            <Button x:Name="ApplyRedactionsButton" Content="Apply" IsEnabled="False" Click="ApplyRedactions_Click"
+                    ToolTipService.ToolTip="Apply the marked redactions" AutomationProperties.Name="Apply redactions" />
+            <Button x:Name="ClearRedactionsButton" Content="Clear" IsEnabled="False" Click="ClearRedactions_Click"
+                    ToolTipService.ToolTip="Clear redaction marks" AutomationProperties.Name="Clear redaction marks" />
+            <AppBarSeparator />
+            <ToggleButton x:Name="HighlightFieldsButton" IsChecked="True" Click="HighlightFields_Click" Visibility="Collapsed"
+                          ToolTipService.ToolTip="Highlight form fields" AutomationProperties.Name="Highlight form fields">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE7C3;" FontSize="16" /><TextBlock Text="Fields" /></StackPanel>
+            </ToggleButton>
+            <Button x:Name="ResetFormButton" Click="ResetForm_Click" Visibility="Collapsed" ToolTipService.ToolTip="Reset form"
+                    AutomationProperties.Name="Reset form">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE72C;" FontSize="16" /><TextBlock Text="Reset" /></StackPanel>
+            </Button>
+            <DropDownButton x:Name="ColorButton" AutomationProperties.Name="Comment color" ToolTipService.ToolTip="Color">
+                <Border x:Name="ColorSwatch" Width="18" Height="18" CornerRadius="9" Background="Gold"
+                        BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                <DropDownButton.Flyout>
+                    <Flyout x:Name="ColorFlyout">
+                        <StackPanel x:Name="ColorPalette" Orientation="Horizontal" Spacing="6" />
+                    </Flyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
+        </StackPanel>
+        <StackPanel x:Name="FieldTypeStrip" Grid.Row="2" Orientation="Horizontal" Spacing="2" Padding="8,0,8,6" Visibility="Collapsed">
+            <TextBlock Text="New field:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ToggleButton Tag="text" IsChecked="True" Click="FieldType_Click" Content="Text" />
+            <ToggleButton Tag="checkbox" Click="FieldType_Click" Content="Check box" />
+            <ToggleButton Tag="radio" Click="FieldType_Click" Content="Radio button" />
+            <ToggleButton Tag="combo" Click="FieldType_Click" Content="Drop-down" />
+            <ToggleButton Tag="list" Click="FieldType_Click" Content="List" />
+            <ToggleButton Tag="date" Click="FieldType_Click" Content="Date" />
+            <ToggleButton Tag="signature" Click="FieldType_Click" Content="Signature" />
+            <ToggleButton Tag="button" Click="FieldType_Click" Content="Button" />
+            <AppBarSeparator />
+            <Button Content="Properties…" Click="FieldProperties_Click" ToolTipService.ToolTip="Properties of the selected field (Enter)" />
+            <Button Content="Delete" Click="DeleteField_Click" ToolTipService.ToolTip="Delete the selected field (Delete)" />
+            <Button Content="Detect Fields" Click="DetectFields_Click" ToolTipService.ToolTip="Find form boxes on this page and add fields" />
+        </StackPanel>
+        <Grid x:Name="FindBar" Grid.Row="3" Visibility="Collapsed" Padding="12,6" ColumnSpacing="8"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
+              BorderThickness="0,0,0,1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="FindBox" PlaceholderText="Find in document" TextChanged="FindBox_TextChanged"
+                     KeyDown="FindBox_KeyDown" AutomationProperties.Name="Find in document" />
+            <Button Grid.Column="1" Click="FindPrevious_Click" ToolTipService.ToolTip="Previous match (Shift+F3)"
+                    AutomationProperties.Name="Previous match">
+                <FontIcon Glyph="&#xE70E;" FontSize="14" />
+            </Button>
+            <Button Grid.Column="2" Click="FindNext_Click" ToolTipService.ToolTip="Next match (F3)"
+                    AutomationProperties.Name="Next match">
+                <FontIcon Glyph="&#xE70D;" FontSize="14" />
+            </Button>
+            <CheckBox x:Name="MatchCaseBox" Grid.Column="3" Content="Match case" Click="MatchCase_Click" MinWidth="0" />
+            <TextBlock x:Name="FindCountText" Grid.Column="4" VerticalAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Button Grid.Column="6" Click="CloseFind_Click" ToolTipService.ToolTip="Close (Esc)" AutomationProperties.Name="Close find">
+                <FontIcon Glyph="&#xE711;" FontSize="12" />
+            </Button>
+        </Grid>
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="Sidebar" Width="264" Visibility="Collapsed"
+                  BorderThickness="0,0,1,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <SelectorBar x:Name="SidebarTabs" SelectionChanged="SidebarTabs_SelectionChanged">
+                    <SelectorBarItem x:Name="PagesTab" ToolTipService.ToolTip="Pages" AutomationProperties.Name="Pages" IsSelected="True">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE8A9;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="BookmarksTab" ToolTipService.ToolTip="Bookmarks" AutomationProperties.Name="Bookmarks">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE8A4;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="CommentsTab" ToolTipService.ToolTip="Comments" AutomationProperties.Name="Comments">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE90A;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="ChangesTab" ToolTipService.ToolTip="Changes" AutomationProperties.Name="Changes" Visibility="Collapsed">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE81C;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="AttachmentsTab" ToolTipService.ToolTip="Attachments" AutomationProperties.Name="Attachments">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE723;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="LayersTab" ToolTipService.ToolTip="Layers" AutomationProperties.Name="Layers" Visibility="Collapsed">
+                        <SelectorBarItem.Icon><FontIcon Glyph="&#xE81E;" /></SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                </SelectorBar>
+                <TreeView x:Name="OutlineTree" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
+                          ItemInvoked="OutlineTree_ItemInvoked" AutomationProperties.Name="Bookmarks">
+                    <TreeView.ItemTemplate>
+                        <DataTemplate x:DataType="local:OutlineNode">
+                            <TreeViewItem ItemsSource="{x:Bind Children}" IsExpanded="{x:Bind Expanded}"
+                                          AutomationProperties.Name="{x:Bind Title}">
+                                <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Title}" />
+                            </TreeViewItem>
+                        </DataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+                <ListView x:Name="CommentList" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single" RightTapped="CommentList_RightTapped"
+                          IsItemClickEnabled="True" ItemClick="CommentList_ItemClick" AutomationProperties.Name="Comments">
+                    <ListView.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Delete" Invoked="DeleteCommentAccelerator_Invoked" />
+                    </ListView.KeyboardAccelerators>
+                    <ListView.ContextFlyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="Reply…" Click="ReplyComment_Click" />
+                            <MenuFlyoutItem Text="Edit Text…" Click="EditComment_Click" />
+                            <MenuFlyoutSubItem Text="Set Status">
+                                <MenuFlyoutItem Text="Accepted" Tag="Accepted" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="Rejected" Tag="Rejected" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="Cancelled" Tag="Cancelled" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="Completed" Tag="Completed" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="None" Tag="None" Click="SetStatus_Click" />
+                            </MenuFlyoutSubItem>
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Delete" Click="DeleteComment_Click" />
+                        </MenuFlyout>
+                    </ListView.ContextFlyout>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:CommentItem">
+                            <StackPanel Padding="0,6" Spacing="2" AutomationProperties.Name="{x:Bind Summary}">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="{x:Bind Heading}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind Contents}" TextWrapping="Wrap" MaxLines="4" TextTrimming="CharacterEllipsis"
+                                           Visibility="{x:Bind HasContents}" />
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Footer}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind HasFooter}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <ListView x:Name="ChangeList" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
+                          IsItemClickEnabled="True" ItemClick="ChangeList_ItemClick" AutomationProperties.Name="Changes">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:ChangeItem">
+                            <StackPanel Padding="0,6" Spacing="2" AutomationProperties.Name="{x:Bind Summary}">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="{x:Bind Heading}" />
+                                <TextBlock Text="{x:Bind Detail}" TextWrapping="Wrap" MaxLines="4" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <Grid x:Name="AttachmentsPanel" Grid.Row="1" Visibility="Collapsed" RowSpacing="6" Padding="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Button Content="Add…" Click="AddAttachment_Click" />
+                        <Button Content="Open" Click="OpenAttachment_Click" />
+                        <Button Content="Save…" Click="SaveAttachment_Click" />
+                        <Button Content="Remove" Click="RemoveAttachment_Click" />
+                    </StackPanel>
+                    <ListView x:Name="AttachmentList" Grid.Row="1" SelectionMode="Single" AutomationProperties.Name="Attached files">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:AttachmentItem">
+                                <StackPanel Padding="0,4">
+                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{x:Bind Detail}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+                <Grid x:Name="LayersPanel" Grid.Row="1" Visibility="Collapsed" RowSpacing="6" Padding="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Button Content="Flatten Layers…" Click="FlattenLayers_Click" />
+                    <ListView x:Name="LayerList" Grid.Row="1" SelectionMode="None" AutomationProperties.Name="Layers">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:LayerItem">
+                                <ToggleSwitch Header="{x:Bind Name}" IsOn="{x:Bind Visible}" Margin="{x:Bind Indent}" Toggled="LayerToggle_Toggled"
+                                              AutomationProperties.Name="{x:Bind Name}" OnContent="Shown" OffContent="Hidden" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+                <TextBlock x:Name="NoCommentsText" Grid.Row="1" Visibility="Collapsed" Margin="16" TextWrapping="Wrap"
+                           Text="No comments yet. Use the tools above the page to add some." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock x:Name="NoBookmarksText" Grid.Row="1" Visibility="Collapsed" Margin="16" TextWrapping="Wrap"
+                           Text="This document has no bookmarks." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <ListView x:Name="Thumbnails" Grid.Row="1" SelectionMode="Extended"
+                      CanDragItems="True" CanReorderItems="True" AllowDrop="True"
+                      DragItemsCompleted="Thumbnails_DragItemsCompleted"
+                      SelectionChanged="Thumbnails_SelectionChanged" AutomationProperties.Name="Pages">
+                <ListView.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Delete" Invoked="DeleteAccelerator_Invoked" />
+                </ListView.KeyboardAccelerators>
+                <ListView.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Rotate Left" Click="RotateLeft_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7AD;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Rotate Right" Click="RotateRight_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7AD;" RenderTransformOrigin="0.5,0.5">
+                                <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
+                            </FontIcon></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Move Earlier" Click="MoveEarlier_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74A;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Move Later" Click="MoveLater_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74B;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Delete" Click="DeletePages_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </ListView.ContextFlyout>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:Thumbnail">
+                        <StackPanel Padding="0,8" Spacing="4" HorizontalAlignment="Center"
+                                    AutomationProperties.Name="{x:Bind Label}">
+                            <Border Width="{x:Bind Width}" Height="{x:Bind Height}" Background="White"
+                                    BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}">
+                                <Image Source="{x:Bind Image, Mode=OneWay}" Stretch="Uniform" />
+                            </Border>
+                            <TextBlock Text="{x:Bind Number}" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            </Grid>
+            <ScrollViewer x:Name="PageScroller" Grid.Column="1" ZoomMode="Disabled" IsTabStop="True" HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                          SizeChanged="PageScroller_SizeChanged" ViewChanged="PageScroller_ViewChanged">
+                <Grid>
+                    <!-- A plain (non-virtualizing) stack: page placeholders are cheap and their
+                         positions are exact, so zoom anchoring and visibility math match the
+                         real layout. Only page images are loaded and released while scrolling. -->
+                    <ItemsControl x:Name="Pages" Margin="24" HorizontalAlignment="Center" IsTabStop="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical" Spacing="16" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:PageSlot">
+                                <local:PageView Slot="{x:Bind}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel x:Name="EmptyText" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="560">
+                        <TextBlock Text="Open or drop a PDF to begin." HorizontalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="StartRecentHeader" Text="Recent" Style="{StaticResource SubtitleTextBlockStyle}" Visibility="Collapsed" />
+                        <StackPanel x:Name="StartRecentList" Spacing="2" />
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+        <Grid x:Name="StatusBar" Grid.Row="5" Padding="12,6" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="ZoomText" Grid.Column="1" />
+            <TextBlock x:Name="PageText" Grid.Column="2" />
+        </Grid>
+    </Grid>
+</UserControl>

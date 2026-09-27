@@ -12,7 +12,7 @@ using Windows.Foundation;
 namespace zPDF;
 
 /// <summary>Fill &amp; Sign (signature, initials, text, date, ✓ ✗ ●) and digital signatures.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private static readonly string SignFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zPDF");
     private (byte[] Png, string Kind, double Width)? _placing;       // an image waiting to be placed with a click

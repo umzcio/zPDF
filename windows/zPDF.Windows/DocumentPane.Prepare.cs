@@ -8,7 +8,7 @@ namespace zPDF;
 
 /// <summary>Prepare Form (add, move, edit and delete fields; detect fields) and comment
 /// interchange (import/export FDF and XFDF, flatten).</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private string _newFieldType = "text";
     private FormWidget? _preparedWidget;

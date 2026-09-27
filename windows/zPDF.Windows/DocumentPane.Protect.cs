@@ -15,7 +15,7 @@ public abstract record SecurityChange
 
 /// <summary>Protection: password security (applied when saving, like the Mac app),
 /// redaction and removing hidden information.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private SecurityChange? _security;     // null: keep the document's security as it is
     private bool _encryptedOriginal;       // the file on disk is encrypted (preserve it on save)

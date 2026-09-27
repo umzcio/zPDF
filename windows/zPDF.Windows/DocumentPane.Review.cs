@@ -27,7 +27,7 @@ public sealed class ChangeItem(string kind, string oldText, string newText, int?
 }
 
 /// <summary>Review tools: compare with another PDF, accessibility check and fixes, measuring.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private readonly ObservableCollection<ChangeItem> _changes = [];
     private ChangeItem? _shownChange;

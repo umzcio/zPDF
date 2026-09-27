@@ -7,7 +7,7 @@ namespace zPDF;
 
 /// <summary>Page and document tools: insert, replace, duplicate, crop, header &amp;
 /// footer, Bates numbering, watermark, background, extract, split and combine.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     // ---------------------------------------------------------------- small dialog helpers
 

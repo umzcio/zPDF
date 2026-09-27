@@ -68,7 +68,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Links: add/edit/remove; attachments; layers
 
 ## I. App
-- [~] Several documents in separate windows (no tabs yet)
+- [x] Several documents: tabs (Ctrl+T, Ctrl+W, Ctrl+Tab; reorder) and separate windows (Ctrl+N; preference)
 - [x] Undo/redo history (Redo), unsaved-change handling on exit
 - [x] Preferences
 - [x] Report a Bug (feedback relay), About, licenses

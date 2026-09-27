@@ -32,7 +32,7 @@ public sealed class FormField
 /// <summary>Filling in forms. Typed values collect in memory (drawn over their widgets
 /// at once) and are written into the PDF in one engine call — one undo step — after a
 /// pause, or before any other action.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     private List<FormField> _fields = [];
     private readonly Dictionary<string, JsonNode> _pendingValues = [];
@@ -263,6 +263,13 @@ public sealed partial class MainWindow
     /// before focus navigation and the scroll view (which would otherwise take these keys).</summary>
     private void Root_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Enter finishes a perimeter or area wherever focus is (a toolbar button would take it).
+        if (_measureSlot is not null && e.Key == VirtualKey.Enter)
+        {
+            FinishMeasurement();
+            e.Handled = true;
+            return;
+        }
         if (_focusedToggle is null || _editing is not null || FindBox.FocusState != FocusState.Unfocused) return;
         var widget = _focusedToggle = LiveWidget(_focusedToggle);
         if (e.Key == VirtualKey.Tab)

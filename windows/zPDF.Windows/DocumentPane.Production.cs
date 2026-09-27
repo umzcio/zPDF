@@ -9,7 +9,7 @@ namespace zPDF;
 
 /// <summary>Print production (preflight, output preview, printer marks), accessibility
 /// editing (alternate text, reading order) and batch processing.</summary>
-public sealed partial class MainWindow
+public sealed partial class DocumentPane
 {
     /// <summary>Several engine edits as one undo step.</summary>
     private Task<bool> ApplyOpsAsync(string status, JsonArray ops, string? done = null) =>
@@ -34,12 +34,16 @@ public sealed partial class MainWindow
     private static (string Label, JsonArray Ops)? PreflightFix(string fix) => fix switch
     {
         "embed_fonts" => ("Embed fonts", [new JsonObject { ["op"] = "embed_fonts" }]),
-        "downsample" => ("Downsample images", [new JsonObject { ["op"] = "optimize", ["preset"] = "medium", ["compress"] = false }]),
+        "downsample" => ("Downsample images to 150 dpi", [new JsonObject
+        {
+            ["op"] = "optimize", ["compress"] = false,
+            ["images"] = new JsonObject { ["color_dpi"] = 150, ["gray_dpi"] = 150, ["jpeg_quality"] = 75, ["threshold"] = 1.0 },
+        }]),
         "map_spots" => ("Convert spot colours to process", [new JsonObject { ["op"] = "map_spots_to_process" }]),
         "flatten" => ("Flatten transparency", [new JsonObject { ["op"] = "flatten_transparency", ["dpi"] = 300 }]),
         "hairlines" => ("Thicken hairlines to 0.25 pt", [new JsonObject { ["op"] = "fix_hairlines", ["min_width"] = 0.25 }]),
         "set_trim" => ("Set TrimBox", [new JsonObject { ["op"] = "set_trim_to_crop" }]),
-        "flatten_annotations" => ("Flatten comments", [new JsonObject { ["op"] = "flatten_annotations" }]),
+        "flatten_annotations" => ("Flatten comments and form fields", [new JsonObject { ["op"] = "print_prepare", ["comments"] = true, ["fields"] = true }]),
         "remove_javascript" => ("Remove JavaScript", [new JsonObject { ["op"] = "remove_javascript" }]),
         "convert_pdfx" => ("Convert to PDF/X-4", [new JsonObject { ["op"] = "convert_pdfx", ["version"] = "PDF/X-4" }]),
         "convert_pdfa" => ("Convert to PDF/A-2b", [new JsonObject { ["op"] = "convert_pdfa", ["level"] = "2b" }]),
@@ -93,11 +97,40 @@ public sealed partial class MainWindow
             PrimaryButtonText = fixes.Count > 0 ? "Apply Fixes" : "", DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        var ops = new JsonArray();
-        foreach (var (box, fixOps) in fixes.Where(f => f.Box.IsChecked == true))
-            foreach (var op in fixOps) ops.Add(op!.DeepClone());
-        if (ops.Count == 0) return;
-        await ApplyOpsAsync("Applying preflight fixes…", ops, "Fixes applied. Run Preflight again to confirm, then save.");
+        var chosen = fixes.Where(f => f.Box.IsChecked == true).ToList();
+        if (chosen.Count == 0) return;
+        // All fixes in one step; if one fails, the others still apply (one at a time).
+        await Run("Applying preflight fixes…", async () =>
+        {
+            var failed = new List<string>();
+            var current = CurrentPath!;
+            try
+            {
+                var all = new JsonArray();
+                foreach (var (_, fixOps) in chosen) foreach (var op in fixOps) all.Add(op!.DeepClone());
+                current = await Engine.TransformAsync(current, all, _password);
+            }
+            catch (EngineException)
+            {
+                foreach (var (box, fixOps) in chosen)
+                {
+                    try
+                    {
+                        var next = await Engine.TransformAsync(current, (JsonArray)fixOps.DeepClone(), _password);
+                        if (current != CurrentPath) TryDelete(current);
+                        current = next;
+                    }
+                    catch (EngineException error) { failed.Add($"{box.Content}: {error.Message}"); }
+                }
+            }
+            if (current != CurrentPath)
+            {
+                PushRevision(current);
+                Show(PdfDocument.Open(current, _password), keepPosition: true);
+            }
+            StatusText.Text = failed.Count == 0 ? "Fixes applied. Run Preflight again to confirm, then save."
+                : $"{chosen.Count - failed.Count} of {chosen.Count} fixes applied. Not applied — {string.Join("; ", failed)}";
+        }, keepStatus: true);
     }
 
     // ---------------------------------------------------------------- output preview
@@ -175,16 +208,17 @@ public sealed partial class MainWindow
         var pages = ScopePages(scope);
         if (remove.IsChecked == true)
         {
-            await EditDocumentAsync("Removing printer marks…", new JsonObject { ["op"] = "remove_printer_marks", ["pages"] = pages });
+            if (await EditDocumentAsync("Removing printer marks…", new JsonObject { ["op"] = "remove_printer_marks", ["pages"] = pages }))
+                StatusText.Text = "Printer marks removed. Save to keep the change.";
             return;
         }
-        await EditDocumentAsync("Adding printer marks…", new JsonObject
+        if (await EditDocumentAsync("Adding printer marks…", new JsonObject
         {
             ["op"] = "printer_marks", ["pages"] = pages, ["crop"] = crop.IsChecked == true, ["bleed_marks"] = bleedMarks.IsChecked == true,
             ["registration"] = registration.IsChecked == true, ["color_bars"] = bars.IsChecked == true, ["page_info"] = info.IsChecked == true,
             ["bleed"] = Finite(bleed.Value, 9), ["offset"] = Finite(offset.Value, 6), ["weight"] = Finite(weight.Value, 0.25),
             ["title"] = Path.GetFileName(_sourcePath),
-        });
+        })) StatusText.Text = "Printer marks added; the page grew to hold them outside the trim. Save to keep them.";
     }
 
     private static double Finite(double value, double fallback) => double.IsFinite(value) ? value : fallback;
