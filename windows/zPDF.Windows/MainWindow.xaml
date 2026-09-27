@@ -150,6 +150,7 @@
                 <AppBarButton.Icon><FontIcon Glyph="&#xE90F;" /></AppBarButton.Icon>
                 <AppBarButton.Flyout>
                     <MenuFlyout>
+                        <MenuFlyoutItem Text="Find &amp; Replace in Content…" Click="FindReplace_Click" />
                         <MenuFlyoutItem Text="Compare with Another PDF…" Click="Compare_Click" />
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Accessibility Check…" Click="AccessibilityCheck_Click" />
@@ -256,6 +257,23 @@
             <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="150" AutomationProperties.Name="Stamp type"
                       ToolTipService.ToolTip="Stamp to place" />
             <AppBarSeparator />
+            <AppBarSeparator />
+            <ToggleButton Tag="EditContent" Click="EditContent_Click" ToolTipService.ToolTip="Edit the page's text, images and drawings"
+                          AutomationProperties.Name="Edit content">
+                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE70F;" FontSize="16" /><TextBlock Text="Edit" /></StackPanel>
+            </ToggleButton>
+            <Button Click="AddText_Click" ToolTipService.ToolTip="Add text to the page" AutomationProperties.Name="Add text">
+                <FontIcon Glyph="&#xE8D3;" FontSize="16" /></Button>
+            <Button Click="AddImage_Click" ToolTipService.ToolTip="Add an image to the page" AutomationProperties.Name="Add image">
+                <FontIcon Glyph="&#xEB9F;" FontSize="16" /></Button>
+            <StackPanel x:Name="ObjectCommands" Orientation="Horizontal" Spacing="2" Visibility="Collapsed">
+                <Button Tag="front" Click="ObjectArrange_Click" ToolTipService.ToolTip="Bring to front" AutomationProperties.Name="Bring to front"><FontIcon Glyph="&#xE746;" FontSize="16" /></Button>
+                <Button Tag="forward" Click="ObjectArrange_Click" ToolTipService.ToolTip="Bring forward" AutomationProperties.Name="Bring forward"><FontIcon Glyph="&#xE74A;" FontSize="16" /></Button>
+                <Button Tag="backward" Click="ObjectArrange_Click" ToolTipService.ToolTip="Send backward" AutomationProperties.Name="Send backward"><FontIcon Glyph="&#xE74B;" FontSize="16" /></Button>
+                <Button Tag="back" Click="ObjectArrange_Click" ToolTipService.ToolTip="Send to back" AutomationProperties.Name="Send to back"><FontIcon Glyph="&#xE747;" FontSize="16" /></Button>
+                <Button x:Name="ReplaceImageButton" Click="ReplaceImage_Click" ToolTipService.ToolTip="Replace image" AutomationProperties.Name="Replace image"><FontIcon Glyph="&#xE8B9;" FontSize="16" /></Button>
+                <Button Click="ObjectDelete_Click" ToolTipService.ToolTip="Delete" AutomationProperties.Name="Delete object"><FontIcon Glyph="&#xE74D;" FontSize="16" /></Button>
+            </StackPanel>
             <AppBarSeparator />
             <ToggleButton Tag="Redact" Click="Tool_Click" ToolTipService.ToolTip="Mark for redaction (drag an area, or select text first)"
                           AutomationProperties.Name="Mark for redaction">

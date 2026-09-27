@@ -11,7 +11,7 @@ using Windows.Foundation;
 namespace zPDF;
 
 /// <summary>What a page overlay rectangle shows.</summary>
-public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection, Field, Redaction, Change }
+public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection, Field, Redaction, Change, ContentOutline }
 
 /// <summary>A form value typed but not yet written into the PDF, drawn over its widget.</summary>
 public sealed record FieldOverlay(Rect Rect, string Text, bool IsCheck, bool Checked, double FontSize);
@@ -177,6 +177,12 @@ public sealed partial class PageView : Grid
             if (mark == Mark.Field)
             {
                 shape.Fill = FieldBrush;
+            }
+            else if (mark == Mark.ContentOutline)
+            {
+                shape.Stroke = new SolidColorBrush(ColorHelper.FromArgb(0x99, 0x60, 0x60, 0x60));
+                shape.StrokeThickness = 1;
+                shape.StrokeDashArray = [2, 2];
             }
             else if (mark == Mark.Change)
             {

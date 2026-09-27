@@ -82,6 +82,7 @@ public sealed partial class MainWindow : IPageHost
     /// <summary>Called when the shown document changes: drop per-page state.</summary>
     private void ResetViewingState()
     {
+        ResetContent();
         _editing = null;
         _editorSlot = null;
         _focusedToggle = null;
@@ -99,6 +100,8 @@ public sealed partial class MainWindow : IPageHost
 
     public InputSystemCursorShape CursorAt(PageSlot slot, Point point)
     {
+        if (IsEditingContent)
+            return ContentAt(slot.Index, point) is { } item ? (item.Kind == "text" ? InputSystemCursorShape.IBeam : InputSystemCursorShape.SizeAll) : InputSystemCursorShape.Arrow;
         if (_tool is not (CommentTool.Select or CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut))
             return InputSystemCursorShape.Cross;
         if (Info(slot.Index) is not { } info) return InputSystemCursorShape.Arrow;
@@ -110,6 +113,7 @@ public sealed partial class MainWindow : IPageHost
     public void PagePointerPressed(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
         if (!e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
+        if (ContentPointerPressed(slot, point)) { e.Handled = true; return; }
         if (FieldPointerPressed(slot, point)) { e.Handled = true; return; }
         CommitEditor();  // a click outside the field being edited finishes it
         _focusedToggle = null;
@@ -131,6 +135,7 @@ public sealed partial class MainWindow : IPageHost
 
     public void PagePointerMoved(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        if (ContentPointerMoved(slot, point)) return;
         if (CommentPointerMoved(slot, point)) return;
         if (_pressSlot is null || !e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
         if (Info(_pressSlot.Index) is not { } info) return;
@@ -152,6 +157,7 @@ public sealed partial class MainWindow : IPageHost
 
     public async void PagePointerReleased(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        if (ContentPointerReleased(slot, point)) return;
         var markup = _tool is CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut;
         if (!markup && CommentPointerReleased(slot, point)) { _pressSlot = null; return; }
         var pressed = _pressSlot;
@@ -248,6 +254,7 @@ public sealed partial class MainWindow : IPageHost
     {
         if (IsFullScreen) SetFullScreen(false);
         else if (FindBar.Visibility == Visibility.Visible) CloseFind();
+        else if (IsEditingContent && _contentSelection is not null) { _contentSelection = null; UpdateContentCommands(); RefreshMarks(); }
         else if (_tool != CommentTool.Select) SetTool(CommentTool.Select);
         else if (_selectedComment is not null) SelectComment(null);
         else ClearSelection();
@@ -383,6 +390,7 @@ public sealed partial class MainWindow : IPageHost
         foreach (var (page, rect) in FieldMarks()) Add(page, [rect], Mark.Field);
         foreach (var (page, rect) in RedactionMarks()) Add(page, [rect], Mark.Redaction);
         foreach (var (page, rect) in ChangeMarks()) Add(page, [rect], Mark.Change);
+        foreach (var (page, rect, mark) in ContentMarks()) Add(page, [rect], mark);
         foreach (var (page, rect) in CommentMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var slot in _slots) slot.SetMarks(marks.TryGetValue(slot.Index, out var list) ? list : []);
     }

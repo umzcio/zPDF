@@ -15,7 +15,7 @@ namespace zPDF;
 public enum CommentTool
 {
     Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox,
-    MeasureDistance, MeasurePerimeter, MeasureArea,
+    MeasureDistance, MeasurePerimeter, MeasureArea, EditContent, AddText, AddImage,
 }
 
 /// <summary>A comment as the engine reports it (comment_threads).</summary>
@@ -134,6 +134,11 @@ public sealed partial class MainWindow
     private void SetTool(CommentTool tool)
     {
         if (tool == CommentTool.Select) { _placing = null; _placingDate = null; _signing = null; }
+        if (tool != CommentTool.EditContent && _tool == CommentTool.EditContent)
+        {
+            CloseContentEditor(commit: true);
+            _contentSelection = null;
+        }
         if (tool is not (CommentTool.MeasurePerimeter or CommentTool.MeasureArea) && _measureSlot is { } measuring)
         {
             measuring.SetDraft(null);
@@ -145,6 +150,8 @@ public sealed partial class MainWindow
             if (child is ToggleButton { Tag: string name } button) button.IsChecked = name == tool.ToString();
         if (tool != CommentTool.Select) SelectComment(null);
         UpdateColorSwatch();
+        UpdateContentCommands();
+        RefreshMarks();
     }
 
     private void Swatch_Click(object sender, RoutedEventArgs e)
@@ -210,7 +217,7 @@ public sealed partial class MainWindow
             CommentTool.Line or CommentTool.Arrow or CommentTool.MeasureDistance => DraftShape.Line,
             _ => DraftShape.Rectangle,
         };
-        if (_tool is not (CommentTool.Text or CommentTool.Stamp or CommentTool.Place)) _drawSlot.SetDraft(new Draft(shape, _drawPoints.ToList(), CurrentColor));
+        if (_tool is not (CommentTool.Text or CommentTool.Stamp or CommentTool.Place or CommentTool.AddText)) _drawSlot.SetDraft(new Draft(shape, _drawPoints.ToList(), CurrentColor));
         return true;
     }
 
@@ -235,6 +242,8 @@ public sealed partial class MainWindow
         if (points.Count == 1) points.Add(point);
         if (_tool == CommentTool.Redact) { RedactPointerReleased(target, new Rect(points[0], points[^1])); return true; }
         if (_tool == CommentTool.Place) { _ = PlaceAtAsync(target.Index, points[^1]); return true; }
+        if (_tool == CommentTool.AddText) { _ = AddTextAtAsync(target.Index, points[0]); return true; }
+        if (_tool == CommentTool.AddImage) { _ = AddImageAtAsync(target.Index, new Rect(points[0], points[^1])); return true; }
         if (_tool is CommentTool.MeasureDistance or CommentTool.MeasurePerimeter or CommentTool.MeasureArea)
             return MeasurePointerReleased(target, points[0], points[^1]);
         if (_tool == CommentTool.SignBox) { _ = FinishSignBoxAsync(target.Index, new Rect(points[0], points[^1])); return true; }
@@ -519,6 +528,7 @@ public sealed partial class MainWindow
     /// <summary>Delete with a comment selected on the page deletes it; Enter edits its text.</summary>
     private void PageDelete_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (_contentEditing is null && FindBox.FocusState == FocusState.Unfocused && DeleteSelectedObject()) { args.Handled = true; return; }
         if (_selectedComment is null || FindBox.FocusState != FocusState.Unfocused) return;
         args.Handled = true;
         _ = DeleteCommentAsync(_selectedComment);

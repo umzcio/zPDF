@@ -552,6 +552,7 @@ public sealed partial class MainWindow : Window
         for (var i = Math.Max(0, first - 1); i <= Math.Min(_slots.Count - 1, last + 1); i++)
         {
             _ = Info(i);
+            if (IsEditingContent) _ = LoadContentAsync(i);
             var slot = _slots[i];
             if (slot.RenderedFor == generation) continue;
             slot.RenderedFor = generation;
