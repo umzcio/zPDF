@@ -203,6 +203,14 @@ class ReplaceTests(Base):
         self.assertEqual(after.count("Zebra™"), result["results"][0]["replaced"])
         self.assertIn("Identification Number", after)
 
+    def test_replace_with_glyph_missing_from_subset(self):
+        # The I-9's Arial-Bold subset has no "W", but its ToUnicode lists code 87:
+        # the replacement must fall back to a font that has the glyph.
+        out, result = self.run_ops(self.fixture("uscis-i9.pdf"), [{"op": "replace_text", "find": "Employee", "replace": "Worker",
+                                                                    "match_case": True, "pages": [0]}])
+        self.assertIn("Arial-BoldMT", result["results"][0]["substituted"])
+        self.assertIn("Section 1. Worker Information", text_of(out))
+
     def test_replace_regex(self):
         src = text_pdf(self.tmp / "p.pdf", b"BT /F1 12 Tf 72 700 Td (Call 555-123-4567 now) Tj ET")
         out, _ = self.run_ops(src, [{"op": "replace_text", "find": r"(\d{3})-(\d{3})-(\d{4})",

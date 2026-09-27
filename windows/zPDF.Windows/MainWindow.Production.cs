@@ -62,10 +62,10 @@ public sealed partial class MainWindow
         var warnings = results.Count(r => r!["severity"]?.GetValue<string>() == "warning");
         panel.Children.Add(new TextBlock
         {
-            Text = results.Count == 0 ? "No problems found." : $"{errors} error{(errors == 1 ? "" : "s")} · {warnings} warning{(warnings == 1 ? "" : "s")}",
+            Text = errors + warnings == 0 ? "No problems found." : $"{errors} error{(errors == 1 ? "" : "s")} · {warnings} warning{(warnings == 1 ? "" : "s")}",
             Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
         });
-        foreach (var result in results)
+        foreach (var result in results.Where(r => r!["severity"]?.GetValue<string>() != "pass"))
         {
             var severity = result!["severity"]?.GetValue<string>();
             var pages = result["pages"]!.AsArray().Select(p => p!.GetValue<int>() + 1).ToList();

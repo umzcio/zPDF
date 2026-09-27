@@ -217,7 +217,9 @@ public sealed partial class MainWindow : Window
             Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
 
-    private async void Undo_Click(object sender, RoutedEventArgs e)
+    private async void Undo_Click(object sender, RoutedEventArgs e) => await UndoAsync();
+
+    private async Task UndoAsync()
     {
         if (HasPendingFields || _editing is not null)
         {

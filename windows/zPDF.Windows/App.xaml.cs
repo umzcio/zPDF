@@ -8,8 +8,16 @@ public partial class App : Application
 
     public App() => InitializeComponent();
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        if (Environment.GetCommandLineArgs().Skip(1).ToArray() is ["--uitest", var input, var log])
+        {
+            var test = new MainWindow();
+            test.Activate();
+            var failures = await test.RunUiTestAsync(Path.GetFullPath(input), Path.GetFullPath(log));
+            Environment.Exit(failures);
+            return;
+        }
         // `zPDF.exe file.pdf` (Open With, or a double-click once zPDF is the default).
         var file = Environment.GetCommandLineArgs().Skip(1)
             .FirstOrDefault(a => a.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && File.Exists(a));

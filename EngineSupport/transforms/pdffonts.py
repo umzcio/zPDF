@@ -560,6 +560,9 @@ class FontInfo:
             program = self._program()
             if program is not None:
                 kind, font = program
+                # A subset's ToUnicode often lists codes whose glyphs were left out
+                # (Acrobat maps FirstChar..LastChar): only the program says what exists.
+                mapped, codes = codes, set()
                 try:
                     if kind == "cff":
                         names = set(font.charset)
@@ -588,7 +591,7 @@ class FontInfo:
                                 if name in order:
                                     codes.add(code)
                 except Exception:
-                    pass
+                    codes = mapped
             elif self._differences:
                 codes |= set(self._names)
             return codes

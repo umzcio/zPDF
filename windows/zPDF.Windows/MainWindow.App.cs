@@ -33,7 +33,9 @@ public sealed partial class MainWindow
         while (_redo.TryPop(out var dropped)) if (dropped != _savedPath) TryDelete(dropped);
     }
 
-    private async void Redo_Click(object sender, RoutedEventArgs e)
+    private async void Redo_Click(object sender, RoutedEventArgs e) => await RedoAsync();
+
+    private async Task RedoAsync()
     {
         if (!_redo.TryPeek(out _)) return;
         await Run("Redoing…", () =>

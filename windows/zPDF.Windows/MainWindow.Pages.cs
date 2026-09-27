@@ -190,7 +190,7 @@ public sealed partial class MainWindow
         await EditDocumentAsync("Adding watermark…", new JsonObject
         {
             ["op"] = "watermark", ["text"] = text.Text, ["size"] = size.Value, ["angle"] = angle.Value,
-            ["opacity"] = opacity.Value / 100, ["color"] = new JsonArray(c.R, c.G, c.B), ["under"] = behind.IsChecked == true,
+            ["opacity"] = opacity.Value / 100, ["color"] = new JsonArray(c.R / 255.0, c.G / 255.0, c.B / 255.0), ["under"] = behind.IsChecked == true,
             ["pages"] = ScopePages(scope),
         });
     }

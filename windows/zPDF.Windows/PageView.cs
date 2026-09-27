@@ -11,7 +11,7 @@ using Windows.Foundation;
 namespace zPDF;
 
 /// <summary>What a page overlay rectangle shows.</summary>
-public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection, Field, Redaction, Change, ContentOutline }
+public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection, Field, Redaction, Change, ContentOutline, Handle }
 
 /// <summary>A form value typed but not yet written into the PDF, drawn over its widget.</summary>
 public sealed record FieldOverlay(Rect Rect, string Text, bool IsCheck, bool Checked, double FontSize);
@@ -39,6 +39,7 @@ public sealed partial class PageView : Grid
     private static readonly SolidColorBrush SelectionBrush = new(ColorHelper.FromArgb(0x55, 0x33, 0x88, 0xFF));
     private static readonly SolidColorBrush FindBrush = new(ColorHelper.FromArgb(0x66, 0xFF, 0xD4, 0x00));
     private static readonly SolidColorBrush CurrentFindBrush = new(ColorHelper.FromArgb(0x88, 0xFF, 0x8C, 0x00));
+    private static readonly SolidColorBrush HandleFill = new(Microsoft.UI.Colors.White);
     private static readonly SolidColorBrush CommentSelectionBrush = new(ColorHelper.FromArgb(0xFF, 0x00, 0x67, 0xC0));
     private static readonly SolidColorBrush FieldBrush = new(ColorHelper.FromArgb(0x33, 0x33, 0x88, 0xFF));
     private static readonly SolidColorBrush RedactFill = new(ColorHelper.FromArgb(0x44, 0xFF, 0x30, 0x30));
@@ -169,6 +170,15 @@ public sealed partial class PageView : Grid
         var scale = PointScale;
         foreach (var (rect, mark) in slot.Marks)
         {
+            if (mark == Mark.Handle)
+            {
+                // A resize handle: a fixed-size square centred on the point, at any zoom.
+                var handle = new Rectangle { Width = 8, Height = 8, Fill = HandleFill, Stroke = CommentSelectionBrush, StrokeThickness = 1.5 };
+                Canvas.SetLeft(handle, (rect.X + rect.Width / 2) * scale - 4);
+                Canvas.SetTop(handle, (rect.Y + rect.Height / 2) * scale - 4);
+                _overlay.Children.Add(handle);
+                continue;
+            }
             var shape = new Rectangle
             {
                 Width = Math.Max(1, rect.Width * scale),

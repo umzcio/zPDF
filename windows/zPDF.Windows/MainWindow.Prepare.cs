@@ -138,7 +138,7 @@ public sealed partial class MainWindow
         var field = widget.Field;
         var name = Text("Name", field.Name);
         var tooltip = Text("Tooltip (read by screen readers)", field.Tooltip);
-        var required = new CheckBox { Content = "Required" };
+        var required = new CheckBox { Content = "Required", IsChecked = field.Required };
         var readOnly = new CheckBox { Content = "Read-only", IsChecked = field.ReadOnly };
         var controls = new List<UIElement> { name, tooltip, required, readOnly };
         CheckBox? multiline = null;
@@ -178,7 +178,13 @@ public sealed partial class MainWindow
         if (CurrentPath is null || _document is null) return;
         await Run("Looking for fields…", async () =>
         {
-            var opened = await Engine.CallAsync("open", new JsonObject { ["path"] = CurrentPath });
+            // Detection reads an unencrypted snapshot (the engine won't open encrypted files for it).
+            var source = CurrentPath!;
+            if (_password is not null)
+                source = await Engine.TransformAsync(source, [new JsonObject { ["op"] = "set_security", ["mode"] = "None" }, new JsonObject { ["op"] = "apply_security" }], _password);
+            JsonNode opened;
+            try { opened = await Engine.CallAsync("open", new JsonObject { ["path"] = source }); }
+            finally { if (source != CurrentPath) TryDelete(source); }
             var pageId = opened["pages"]![_page]!["id"]!.DeepClone();
             var found = await Engine.CallAsync("detect_fields", new JsonObject { ["ref"] = opened["ref"]!.DeepClone(), ["page_id"] = pageId });
             var fields = found["fields"]!.AsArray();

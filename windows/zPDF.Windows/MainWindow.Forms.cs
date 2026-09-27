@@ -20,6 +20,7 @@ public sealed class FormField
     public bool Multiline { get; init; }
     public bool Password { get; init; }
     public bool Editable { get; init; }          // combo with free text
+    public bool Required { get; init; }
     public int? MaxLength { get; init; }
     public double FontSize { get; init; }
     public JsonNode? Value { get; init; }
@@ -61,7 +62,7 @@ public sealed partial class MainWindow
                 Name = node!["name"]!.GetValue<string>(), Kind = node["kind"]!.GetValue<string>(),
                 Tooltip = node["tooltip"]?.GetValue<string>() ?? "", ReadOnly = node["readonly"]?.GetValue<bool>() ?? false,
                 Multiline = node["multiline"]?.GetValue<bool>() ?? false, Password = node["password"]?.GetValue<bool>() ?? false,
-                Editable = node["editable"]?.GetValue<bool>() ?? false,
+                Editable = node["editable"]?.GetValue<bool>() ?? false, Required = node["required"]?.GetValue<bool>() ?? false,
                 MaxLength = node["max_length"] is JsonValue m && m.TryGetValue<int>(out var max) ? max : null,
                 FontSize = node["font_size"]?.GetValue<double>() ?? 0, Value = node["value"]?.DeepClone(),
                 Options = node["options"]?.AsArray().Select(o => (o!["label"]!.GetValue<string>(), o["export"]!.GetValue<string>())).ToList() ?? [],

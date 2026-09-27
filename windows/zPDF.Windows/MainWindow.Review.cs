@@ -183,7 +183,8 @@ public sealed partial class MainWindow
             JsonObject? op = fix switch
             {
                 "autotag" => new JsonObject { ["op"] = "autotag", ["replace"] = tagged },
-                "set_language" => new JsonObject { ["op"] = "set_language", ["lang"] = System.Globalization.CultureInfo.CurrentUICulture.Name },
+                "set_language" => new JsonObject { ["op"] = "set_language", ["lang"] = System.Globalization.CultureInfo.CurrentUICulture.Name is { Length: > 0 } lang ? lang : "en-US" },
+                "bookmarks" => new JsonObject { ["op"] = "outline_from_headings", ["replace"] = false },
                 "set_title" => new JsonObject { ["op"] = "set_title", ["title"] = Path.GetFileNameWithoutExtension(_sourcePath) },
                 "tag_annotations" => new JsonObject { ["op"] = "tag_annotations" },
                 "set_page_tab_order" => new JsonObject { ["op"] = "set_page_tab_order", ["order"] = "S" },

@@ -182,6 +182,15 @@ public sealed partial class MainWindow
     {
         if (_tool == CommentTool.Select)
         {
+            if (_selectedComment is { } current && current.Page == slot.Index && CornerAt(slot, point) is var corner and >= 0)
+            {
+                _resizeCorner = corner;
+                _moveStart = point;
+                _moving = false;
+                _drawSlot = slot;
+                return true;
+            }
+            _resizeCorner = -1;
             var hit = CommentAt(slot.Index, point);
             SelectComment(hit);
             if (hit is null) return false;
@@ -206,6 +215,12 @@ public sealed partial class MainWindow
             if (!_moving && Distance(point, _moveStart) < 3) return true;
             _moving = true;
             var rect = ViewRect(info, record);
+            if (_resizeCorner >= 0)
+            {
+                var resized = ResizedRect(rect, point);
+                _drawSlot.SetDraft(new Draft(DraftShape.Rectangle, [new Point(resized.Left, resized.Top), new Point(resized.Right, resized.Bottom)], ColorHelper.FromArgb(255, 0, 103, 192)));
+                return true;
+            }
             var (dx, dy) = (point.X - _moveStart.X, point.Y - _moveStart.Y);
             _drawSlot.SetDraft(new Draft(DraftShape.Rectangle, [new Point(rect.Left + dx, rect.Top + dy), new Point(rect.Right + dx, rect.Bottom + dy)],
                                          ColorHelper.FromArgb(255, 0, 103, 192)));
@@ -237,6 +252,14 @@ public sealed partial class MainWindow
             {
                 _moving = false;
                 var rect = ViewRect(info, record);
+                if (_resizeCorner >= 0)
+                {
+                    var resized = ResizedRect(rect, point);
+                    _resizeCorner = -1;
+                    if (resized.Width >= 4 && resized.Height >= 4)
+                        _ = ApplyCommentsAsync("Resizing comment…", [Change("update", sel, new JsonObject { ["rect"] = ToJson(PdfRect(info, resized)) })], sel);
+                    return true;
+                }
                 var (dx, dy) = (point.X - _moveStart.X, point.Y - _moveStart.Y);
                 var moved = new Rect(rect.Left + dx, rect.Top + dy, rect.Width, rect.Height);
                 _ = ApplyCommentsAsync("Moving comment…", [Change("update", sel, new JsonObject { ["rect"] = ToJson(PdfRect(info, moved)) })], sel);
@@ -460,6 +483,45 @@ public sealed partial class MainWindow
     }
 
     /// <summary>The dashed outline around the selected comment (added to the page marks).</summary>
+    /// <summary>Corners of the selected comment (view points) that drag to resize it.
+    /// Sticky notes and replies keep their icon size.</summary>
+    private List<Point> ResizeCorners()
+    {
+        if (_tool != CommentTool.Select || _selectedComment is not { } sel || RecordAt(sel) is not { } record
+            || record.Subtype is "Text" or "Popup" || _infos.GetValueOrDefault(sel.Page) is not { } info) return [];
+        var r = ViewRect(info, record);
+        return [new(r.Left, r.Top), new(r.Right, r.Top), new(r.Right, r.Bottom), new(r.Left, r.Bottom)];
+    }
+
+    private IEnumerable<(int Page, Point Corner)> CommentHandles()
+    {
+        if (_selectedComment is not { } sel) yield break;
+        foreach (var corner in ResizeCorners()) yield return (sel.Page, corner);
+    }
+
+    /// <summary>The corner under `point` (within a few screen pixels), or -1.</summary>
+    private int CornerAt(PageSlot slot, Point point)
+    {
+        var tolerance = 6 / Math.Max(0.1, slot.Width / slot.PointWidth);
+        var corners = ResizeCorners();
+        for (var i = 0; i < corners.Count; i++)
+            if (Math.Abs(corners[i].X - point.X) <= tolerance && Math.Abs(corners[i].Y - point.Y) <= tolerance) return i;
+        return -1;
+    }
+
+    private int _resizeCorner = -1;
+
+    /// <summary>The selected comment's box with corner `_resizeCorner` dragged to `point`.</summary>
+    private Rect ResizedRect(Rect rect, Point point)
+    {
+        var opposite = _resizeCorner switch
+        {
+            0 => new Point(rect.Right, rect.Bottom), 1 => new Point(rect.Left, rect.Bottom),
+            2 => new Point(rect.Left, rect.Top), _ => new Point(rect.Right, rect.Top),
+        };
+        return new Rect(opposite, point);
+    }
+
     private IEnumerable<(int Page, Rect Rect)> CommentMarks()
     {
         if (_selectedComment is { } sel && RecordAt(sel) is { } record && _infos.GetValueOrDefault(sel.Page) is { } info)

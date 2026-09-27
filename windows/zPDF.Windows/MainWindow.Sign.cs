@@ -384,7 +384,7 @@ public sealed partial class MainWindow
                 : s["mdp_violation"]?.GetValue<bool>() == true ? "✗ Changes after certifying break its permissions."
                 : covers ? "✓ Signed and unchanged since signing."
                 : $"✓ Signed; {changes} later change{(changes == 1 ? " was" : "s were")} appended after it.";
-            var trust = errors.Count > 0 ? $"Identity: {string.Join(" ", errors)}" : "Identity: trusted";
+            var trust = errors.Count > 0 ? $"Identity: {string.Join(" ", errors)}" : $"Identity: {SignerTrust(s)}";
             var lines = new List<string>
             {
                 $"{s["name"]} — {(s["certification"] is JsonValue c && c.TryGetValue<int>(out var level) ? $"certified (level {level})" : "approval signature")}",
@@ -400,5 +400,41 @@ public sealed partial class MainWindow
             Content = new ScrollViewer { Content = panel, MaxHeight = 480 }, CloseButtonText = "Close",
         };
         await dialog.ShowAsync();
+    }
+
+    /// <summary>Whether the signer's certificate chains to a root the Windows certificate
+    /// store trusts (using the certificates embedded with the signature; offline).</summary>
+    private static string SignerTrust(JsonNode signature)
+    {
+        var signer = signature["signer"];
+        try
+        {
+            var certificates = (signature["certificates"]?.AsArray() ?? [])
+                .Select(c => System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadCertificate(Convert.FromBase64String(c!.GetValue<string>())))
+                .ToList();
+            if (certificates.Count == 0) return "not verified (no certificate in the signature)";
+            var fingerprint = signer?["sha256"]?.GetValue<string>();
+            var leaf = certificates.FirstOrDefault(c => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(c.RawData))
+                                                        .Equals(fingerprint, StringComparison.OrdinalIgnoreCase)) ?? certificates[0];
+            using var chain = new System.Security.Cryptography.X509Certificates.X509Chain();
+            chain.ChainPolicy.RevocationMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck;
+            chain.ChainPolicy.ExtraStore.AddRange(certificates.Where(c => c != leaf).ToArray());
+            if (DateTimeOffset.TryParse(signature["time"]?.ToString(), out var signed)) chain.ChainPolicy.VerificationTime = signed.LocalDateTime;
+            if (chain.Build(leaf))
+                return $"trusted — issued through {chain.ChainElements[^1].Certificate.GetNameInfo(System.Security.Cryptography.X509Certificates.X509NameType.SimpleName, false)}, a certificate authority Windows trusts";
+            if (leaf.Subject == leaf.Issuer)
+            {
+                var name = leaf.GetNameInfo(System.Security.Cryptography.X509Certificates.X509NameType.SimpleName, false);
+                return DigitalIds.All().Any(id => id.Name == name)
+                    ? "not verified — signed with your own self-signed digital ID; others see it as unverified"
+                    : "not verified — self-signed certificate (not from a certificate authority)";
+            }
+            var problem = chain.ChainStatus.FirstOrDefault().StatusInformation?.Trim();
+            return $"not verified{(string.IsNullOrEmpty(problem) ? "" : $" — {problem}")}";
+        }
+        catch (Exception error) when (error is FormatException or System.Security.Cryptography.CryptographicException or InvalidOperationException)
+        {
+            return "not verified (the certificate couldn't be read)";
+        }
     }
 }

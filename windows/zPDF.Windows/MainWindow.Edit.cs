@@ -318,8 +318,11 @@ public sealed partial class MainWindow
         if (box.Width < 8 || box.Height < 8)
         {
             var (w, h) = SignatureArt.Size(await File.ReadAllBytesAsync(path));
-            var width = Math.Min(220, info.Width * 0.6);
-            box = new Rect(box.X, box.Y, width, width * h / Math.Max(1, w));
+            // A plain click: a modest size that fits on the page, kept inside its edges.
+            var aspect = h / (double)Math.Max(1, w);
+            var width = Math.Min(Math.Min(220, info.Width * 0.6), info.Height * 0.6 / Math.Max(0.01, aspect));
+            var height = width * aspect;
+            box = new Rect(Math.Clamp(box.X, 0, Math.Max(0, info.Width - width)), Math.Clamp(box.Y, 0, Math.Max(0, info.Height - height)), width, height);
         }
         await Run("Adding image…", async () =>
         {
