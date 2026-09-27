@@ -34,6 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="zPDF.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="licenses\*.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <!-- The bundled engine runtime (windows/scripts/prepare_runtime.py), when prepared.
        Copied after the build rather than as Content, so resource indexing skips it. -->

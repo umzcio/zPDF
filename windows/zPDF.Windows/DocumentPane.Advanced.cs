@@ -339,18 +339,21 @@ public sealed partial class DocumentPane
             var name = AdvText(field!["name"]);
             var spec = field["barcode"];
             var data = string.Join("\t", (spec?["fields"] as JsonArray ?? []).Select(n => ValueOf(AdvText(n))));
-            // PDF417 isn't encoded on Windows yet; Data Matrix fields get a QR code, as on the Mac.
-            if (AdvText(spec?["symbology"]) == "pdf417" || AdvQr.Matrix(data) is not { } matrix) { skipped.Add(name); continue; }
+            // Data Matrix fields get a QR code, as on the Mac.
+            var matrix = AdvText(spec?["symbology"]) == "pdf417"
+                ? (Pdf417.Encode(data) is { } rows ? new JsonArray(rows.Select(r => (JsonNode)new JsonArray(r.Select(b => (JsonNode)b).ToArray())).ToArray()) : null)
+                : AdvQr.Matrix(data);
+            if (matrix is null) { skipped.Add(name); continue; }
             items.Add(new JsonObject { ["name"] = name, ["value"] = data, ["matrix"] = matrix });
         }
         if (items.Count == 0)
         {
             StatusText.Text = skipped.Count == 0 ? "This form has no barcode fields."
-                : $"Couldn't encode {string.Join(", ", skipped)} (PDF417 barcodes and very long data aren't supported yet).";
+                : $"Couldn't encode {string.Join(", ", skipped)}: the data is too long for the barcode.";
             return;
         }
         await ApplyOpsAsync("Updating barcodes…", [new JsonObject { ["op"] = "update_barcodes", ["items"] = items }],
-                            $"Updated {items.Count} barcode{(items.Count == 1 ? "" : "s")}{(skipped.Count > 0 ? $"; skipped {string.Join(", ", skipped)} (PDF417 isn't supported yet)" : "")}.");
+                            $"Updated {items.Count} barcode{(items.Count == 1 ? "" : "s")}{(skipped.Count > 0 ? $"; skipped {string.Join(", ", skipped)} (data too long)" : "")}.");
     }
 
     /// <summary>QR Code encoder (byte mode, error correction M), the matrix the engine draws
