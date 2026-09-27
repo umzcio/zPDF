@@ -1,21 +1,14 @@
 <!-- zPDF's design tokens, matching the Mac app (zPDF/Utilities/DesignTokens.swift):
      accent, muted text, hairlines, bars, surfaces and the page canvas, in light, dark and
-     high contrast. Windows' own accent is set to zPDF blue so native controls match. -->
+     high contrast. The accent is the system accent (the Mac's default "system" accent),
+     through Windows' contrast-adjusted accent text brush. -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
-            <Color x:Key="ZAccentColor">#0059BA</Color>
-            <Color x:Key="SystemAccentColor">#0059BA</Color>
-            <Color x:Key="SystemAccentColorLight1">#1A6FC9</Color>
-            <Color x:Key="SystemAccentColorLight2">#3D86D6</Color>
-            <Color x:Key="SystemAccentColorLight3">#6BA3E2</Color>
-            <Color x:Key="SystemAccentColorDark1">#004C9E</Color>
-            <Color x:Key="SystemAccentColorDark2">#003F87</Color>
-            <Color x:Key="SystemAccentColorDark3">#00316A</Color>
-            <SolidColorBrush x:Key="ZAccent" Color="#0059BA" />
-            <SolidColorBrush x:Key="ZAccentTint" Color="#1F0059BA" />
+            <SolidColorBrush x:Key="ZAccent" Color="{ThemeResource SystemAccentColorDark2}" />
+            <SolidColorBrush x:Key="ZAccentTint" Color="{ThemeResource SystemAccentColor}" Opacity="0.14" />
             <SolidColorBrush x:Key="ZMuted" Color="#595959" />
             <SolidColorBrush x:Key="ZText" Color="#1D1D1F" />
             <SolidColorBrush x:Key="ZHairline" Color="#1A000000" />
@@ -29,30 +22,21 @@
             <SolidColorBrush x:Key="ZOnAccent" Color="#FFFFFF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-            <Color x:Key="ZAccentColor">#64ACFF</Color>
-            <Color x:Key="SystemAccentColor">#0059BA</Color>
-            <Color x:Key="SystemAccentColorLight1">#3D86D6</Color>
-            <Color x:Key="SystemAccentColorLight2">#64ACFF</Color>
-            <Color x:Key="SystemAccentColorLight3">#A8D1FF</Color>
-            <Color x:Key="SystemAccentColorDark1">#004C9E</Color>
-            <Color x:Key="SystemAccentColorDark2">#003F87</Color>
-            <Color x:Key="SystemAccentColorDark3">#00316A</Color>
-            <SolidColorBrush x:Key="ZAccent" Color="#64ACFF" />
-            <SolidColorBrush x:Key="ZAccentTint" Color="#2664ACFF" />
+            <SolidColorBrush x:Key="ZAccent" Color="{ThemeResource SystemAccentColorLight2}" />
+            <SolidColorBrush x:Key="ZAccentTint" Color="{ThemeResource SystemAccentColor}" Opacity="0.18" />
             <SolidColorBrush x:Key="ZMuted" Color="#B8B8B8" />
             <SolidColorBrush x:Key="ZText" Color="#F2F2F2" />
             <SolidColorBrush x:Key="ZHairline" Color="#1FFFFFFF" />
-            <SolidColorBrush x:Key="ZBar" Color="#2A2A2C" />
-            <SolidColorBrush x:Key="ZSidebar" Color="#262628" />
-            <SolidColorBrush x:Key="ZSurface" Color="#1E1E1F" />
+            <SolidColorBrush x:Key="ZBar" Color="#2A2A2A" />
+            <SolidColorBrush x:Key="ZSidebar" Color="#1F1F1F" />
+            <SolidColorBrush x:Key="ZSurface" Color="#2A2A2A" />
             <SolidColorBrush x:Key="ZInset" Color="#12FFFFFF" />
-            <SolidColorBrush x:Key="ZWindow" Color="#1F1F21" />
-            <SolidColorBrush x:Key="ZCanvas" Color="#181819" />
+            <SolidColorBrush x:Key="ZWindow" Color="#1F1F1F" />
+            <SolidColorBrush x:Key="ZCanvas" Color="#1F1F1F" />
             <SolidColorBrush x:Key="ZStar" Color="#FFC15E" />
             <SolidColorBrush x:Key="ZOnAccent" Color="#FFFFFF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
-            <Color x:Key="ZAccentColor">#003F87</Color>
             <SolidColorBrush x:Key="ZAccent" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="ZAccentTint" Color="{ThemeResource SystemColorHighlightColor}" Opacity="0.25" />
             <SolidColorBrush x:Key="ZMuted" Color="{ThemeResource SystemColorWindowTextColor}" />

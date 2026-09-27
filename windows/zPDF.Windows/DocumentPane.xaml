@@ -240,10 +240,14 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <ToggleButton x:Name="AllToolsButton" Style="{StaticResource ZBarToggle}" Click="AllToolsButton_Click" Padding="10,0" MinWidth="80"
-                          AutomationProperties.Name="All tools" ToolTipService.ToolTip="All tools">
-                <TextBlock Text="All tools" FontSize="13" FontWeight="Medium" />
-            </ToggleButton>
+            <!-- "All tools" (Mac: a text button with a 2 px accent underline while the drawer is open). -->
+            <Grid VerticalAlignment="Stretch">
+                <Button x:Name="AllToolsButton" Style="{StaticResource ZBarButton}" Click="AllToolsButton_Click" Padding="10,0" MinWidth="80"
+                        AutomationProperties.Name="All tools" ToolTipService.ToolTip="All tools">
+                    <TextBlock Text="All tools" FontSize="13" FontWeight="Medium" />
+                </Button>
+                <Rectangle x:Name="AllToolsUnderline" Height="2" VerticalAlignment="Bottom" Margin="10,0" Fill="{ThemeResource ZAccent}" Visibility="Collapsed" />
+            </Grid>
             <StackPanel x:Name="ViewControls" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="2">
                 <Button x:Name="PreviousButton" Style="{StaticResource ZBarButton}" Click="Previous_Click" IsEnabled="False"
                         ToolTipService.ToolTip="Previous page" AutomationProperties.Name="Previous page">

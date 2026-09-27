@@ -39,7 +39,7 @@
                     <TextBlock Text="Pick up where you left off, or start something new." FontSize="12.5" Foreground="{ThemeResource ZMuted}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Style="{StaticResource AccentButtonStyle}" Click="Open_Click" AutomationProperties.Name="Open File">
+                    <Button Click="Open_Click" AutomationProperties.Name="Open File">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE8A5;" FontSize="14" />
                             <TextBlock Text="Open File" FontSize="12.5" FontWeight="SemiBold" />

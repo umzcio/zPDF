@@ -33,6 +33,7 @@ public sealed partial class DocumentPane
         new("export", "Export PDF", "", "Create & Edit", "Convert to Word, Excel, HTML, Markdown or images", () => ShowGenerated("Export PDF", ExportSections())),
         new("create", "Create PDF", "", "Create & Edit", "Convert files or scans to PDF", () => ShowGenerated("Create PDF", CreateSections())),
         new("edit", "Edit PDF", "", "Create & Edit", "Change text, images, and pages", () => ShowPanel("Edit PDF", EditBox)),
+        new("share", "Share", "\uE72D", "Share & Review", "Send a link or a copy of the file", () => Share_Click(this, new RoutedEventArgs())),
         new("protect", "Protect", "", "Protect & Optimize", "Encrypt and restrict editing", () => ShowGenerated("Protect", ProtectSections())),
         new("redact", "Redact", "", "Protect & Optimize", "Permanently remove sensitive content", () => ShowPanel("Redact", RedactBox)),
         new("optimize", "Optimize PDF", "", "Protect & Optimize", "Tune size, fonts, and images", () => ShowGenerated("Optimize PDF", OptimizeSections())),
@@ -48,6 +49,15 @@ public sealed partial class DocumentPane
         new("archive", "Archive (PDF/A)", "", "Advanced", "Convert for long-term preservation", () => ShowGenerated("Archive (PDF/A)", ArchiveSections())),
         new("bates", "Bates Numbering", "", "Advanced", "Add legal index numbers to pages", () => Bates_Click(this, new RoutedEventArgs())),
     ];
+
+    /// <summary>The drawer's open state is remembered (Mac preference sidebarVisible, default on).</summary>
+    private void SetDrawerShown(bool shown)
+    {
+        AllToolsUnderline.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+        if (AppSettings.Current.ToolsDrawerVisible == shown) return;
+        AppSettings.Current.ToolsDrawerVisible = shown;
+        AppSettings.Current.Save();
+    }
 
     private void InitializeWorkspace()
     {
@@ -122,7 +132,7 @@ public sealed partial class DocumentPane
         _openTool = null;
         ToolPanelHost.Visibility = Visibility.Collapsed;
         ToolList.Visibility = ToolsDrawer.Visibility = Visibility.Visible;
-        AllToolsButton.IsChecked = true;
+        SetDrawerShown(true);
     }
 
     private void BackToTools_Click(object sender, RoutedEventArgs e) => ShowToolList();
@@ -133,7 +143,7 @@ public sealed partial class DocumentPane
         LeaveToolModes();
         _openTool = null;
         ToolsDrawer.Visibility = Visibility.Collapsed;
-        AllToolsButton.IsChecked = false;
+        SetDrawerShown(false);
     }
 
     /// <summary>Leaving a panel ends the mode it started (Prepare Form, Edit, Redact, Measure…).</summary>
@@ -151,7 +161,7 @@ public sealed partial class DocumentPane
         ToolPanelTitle.Text = title;
         ToolList.Visibility = Visibility.Collapsed;
         ToolPanelHost.Visibility = ToolsDrawer.Visibility = Visibility.Visible;
-        AllToolsButton.IsChecked = true;
+        SetDrawerShown(true);
         if (alsoPanel is not null) ShowDocPanel(alsoPanel, toggle: false);
     }
 

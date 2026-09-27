@@ -65,7 +65,7 @@ public sealed partial class HomeView : UserControl
         var opened = AppSettings.Current.LastOpened.TryGetValue(path, out var when) ? when : info.LastWriteTime;
         var size = info.Length >= 1 << 20 ? $"{info.Length / 1048576.0:0.0} MB" : $"{Math.Max(1, info.Length / 1024)} KB";
         var name = new TextBlock { Text = Path.GetFileName(path), FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
-        var detail = new TextBlock { Text = $"{Relative(opened)} · {size}", FontSize = 11, Foreground = (Brush)res["ZMuted"] };
+        var detail = new TextBlock { Text = $"Last opened {Relative(opened)} · {size}", FontSize = 11, Foreground = (Brush)res["ZMuted"], TextTrimming = TextTrimming.CharacterEllipsis };
         var star = new Button
         {
             Width = 28, Height = 28, Padding = new Thickness(0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
@@ -99,7 +99,7 @@ public sealed partial class HomeView : UserControl
             Background = (Brush)res["ZSurface"], BorderBrush = (Brush)res["ZHairline"], BorderThickness = new Thickness(1), Content = body,
         };
         ToolTipService.SetToolTip(card, path);
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"Open {Path.GetFileName(path)}, {Relative(opened)}, {size}");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"Open {Path.GetFileName(path)}, last opened {Relative(opened)}, {size}");
         card.Click += (_, _) => OpenRequested?.Invoke(path);
         return card;
     }
@@ -125,14 +125,18 @@ public sealed partial class HomeView : UserControl
         catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException) { }
     }
 
+    /// <summary>As on the Mac cards: "just now", "5 minutes ago", "2 days ago", "last week", "2 weeks ago".</summary>
     private static string Relative(DateTime when)
     {
         var age = DateTime.Now - when;
-        return age.TotalMinutes < 1 ? "Just now"
-            : age.TotalHours < 1 ? $"{(int)age.TotalMinutes} min ago"
-            : age.TotalDays < 1 ? $"{(int)age.TotalHours} h ago"
-            : age.TotalDays < 2 ? "Yesterday"
-            : age.TotalDays < 7 ? when.ToString("dddd")
-            : when.ToString("d");
+        static string Ago(int n, string unit) => $"{n} {unit}{(n == 1 ? "" : "s")} ago";
+        return age.TotalMinutes < 1 ? "just now"
+            : age.TotalHours < 1 ? Ago((int)age.TotalMinutes, "minute")
+            : age.TotalDays < 1 ? Ago((int)age.TotalHours, "hour")
+            : age.TotalDays < 2 ? "yesterday"
+            : age.TotalDays < 7 ? Ago((int)age.TotalDays, "day")
+            : age.TotalDays < 14 ? "last week"
+            : age.TotalDays < 60 ? Ago((int)(age.TotalDays / 7), "week")
+            : $"on {when:d}";
     }
 }

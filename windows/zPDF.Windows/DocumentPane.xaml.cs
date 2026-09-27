@@ -448,8 +448,13 @@ public sealed partial class DocumentPane : UserControl
             for (var i = 0; i < document.PageCount; i++) _slots.Add(new PageSlot(i) { Host = this, PointWidth = _pageSizes[i].Width });
             ResetViewingState();
             EmptyText.Visibility = Visibility.Collapsed;
-            if (!_docPanelChosen) ShowDocPanel(_docPanel, toggle: false);  // Pages, the first time
-            else RefreshDocPanel();
+            if (!_docPanelChosen)
+            {
+                // As on the Mac: All tools open (remembered), no document panel until one is chosen.
+                _docPanelChosen = true;
+                if (AppSettings.Current.ToolsDrawerVisible) ShowToolList();
+            }
+            RefreshDocPanel();
             Relayout(keepPage: false);
             if (focus is { } page && page < document.PageCount)
             {
