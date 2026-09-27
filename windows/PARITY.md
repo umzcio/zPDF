@@ -67,6 +67,19 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] Images: add, replace, crop; objects: move, resize (corner handles), align on the page, arrange, delete
 - [x] Links: add/edit/remove; attachments; layers
 
+## J. Found by comparing engine use with the Mac app
+- [x] Bookmarks editing (add/rename/delete/move/nest), bookmarks from headings, named destinations
+- [x] Document properties editor (description, custom fields, XMP, initial view, fonts, security)
+- [x] Page boxes (crop/trim/bleed/art/media), scale page content, page transitions
+- [x] Print layouts: booklet, n-up, poster tiling (saved as a new PDF, then opened or printed)
+- [x] Split by file size, portfolios, extract images and attachments, space usage
+- [x] OCR: straighten and clean scans; text-layer status; remove recognized text
+- [x] Measurement snapping to vector art; measurement list and CSV export; compare comments
+- [ ] Signatures: add LTV, clear signature field, view signed version, finalize (in progress)
+- [ ] Forms: calculation order, tab order, duplicate field across pages, recalculate, XFA → AcroForm, barcodes (in progress)
+- [ ] Document JavaScript list/remove; tags editor; mark PDF/UA (in progress)
+- [ ] Articles and 3D content lists; print a selected area (low priority)
+
 ## I. App
 - [x] Several documents: tabs (Ctrl+T, Ctrl+W, Ctrl+Tab; reorder) and separate windows (Ctrl+N; preference)
 - [x] Undo/redo history (Redo), unsaved-change handling on exit
