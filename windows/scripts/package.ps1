@@ -24,6 +24,7 @@ if (Test-Path $publish) { Remove-Item -Recurse -Force $publish }
 dotnet publish $project -c Release -r win-x64 -p:Platform=x64 "-p:Version=$version" --self-contained -o $publish
 if ($LASTEXITCODE) { throw "dotnet publish failed" }
 if (-not (Test-Path "$publish\EngineRuntime\python\python.exe")) { throw "The engine runtime is missing from the publish folder." }
+if (-not (Test-Path "$publish\zPDF.pri")) { throw "zPDF.pri (the compiled XAML) is missing from the publish folder; the app couldn't open its window." }
 
 if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) { dotnet tool install -g vpk --version 1.2.158 }
 $pack = @('pack', '--packId', 'zPDF', '--packVersion', $version, '--packDir', $publish, '--mainExe', 'zPDF.exe',
