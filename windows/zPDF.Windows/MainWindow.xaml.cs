@@ -47,6 +47,8 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 900));
+        if (File.Exists(Path.Combine(AppContext.BaseDirectory, "zPDF.ico"))) AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "zPDF.ico"));
+        _ = Updates.CheckInBackgroundAsync(this);
         Thumbnails.ItemsSource = _thumbnails;
         InitializeComments();
         Pages.ItemsSource = _slots;

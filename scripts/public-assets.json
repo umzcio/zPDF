@@ -1,4 +1,20 @@
 {
+  "EngineSupport/engine/native/libjpeg.8.dylib": {
+    "sha256": "e5ef9dd7bd672d09e0241e20b4f5c12286d2dfab3c9e36e874097569c746fd7c",
+    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
+  },
+  "EngineSupport/engine/native/libqpdf.30.dylib": {
+    "sha256": "52e13419c79f301e082377948c0773b0ce7b40affe8366da156f46a3d7596829",
+    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
+  },
+  "EngineSupport/engine/native/qpdf": {
+    "sha256": "b38c1125a05dfe5a9aa83933f9fc9b7e883d91d435ddee3f62cd2ee9c4c0aabe",
+    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
+  },
+  "windows/zPDF.Windows/zPDF.ico": {
+    "sha256": "64cf750f37b5d6766924a85c4473524428b9cd87929fb17ece0a13048d11f761",
+    "provenance": "zPDF's own app icon (zPDF/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png) converted to Windows ICO sizes"
+  },
   "zPDF/Assets.xcassets/AppIcon.appiconset/icon_128x128.png": {
     "sha256": "ac7ced6af4618f909a006d394360286f95309620e75649f6579f372925d40391",
     "provenance": "Reviewed shipping zPDF app icon; no document content."
@@ -51,24 +67,12 @@
     "sha256": "2d420cbb4123dcf1fb82595b2359cfbb5d81f00b9df9d359fcc7af361d093f53",
     "provenance": "Blank public IRS form, https://www.irs.gov/pub/irs-pdf/fw9.pdf; matches recorded source hash."
   },
-  "zPDFTests/Fixtures/uscis-i9.pdf": {
-    "sha256": "780f348c34df694bb0b4dbbfaf9f22b99b9757b80d16a37ba89aadf069597281",
-    "provenance": "Blank public USCIS form, https://www.uscis.gov/sites/default/files/document/forms/i-9.pdf; matches recorded source hash."
-  },
   "zPDFTests/Fixtures/ordinary-edge.pdf": {
     "sha256": "b55154d393ae0e69e77eeee8160b3bd31755ab6a6b253c7a1b3a104ee910f219",
     "provenance": "Owned synthetic AcroForm fixture from engine spike make_edge_fixtures.py; matches source manifest hash."
   },
-  "EngineSupport/engine/native/qpdf": {
-    "sha256": "b38c1125a05dfe5a9aa83933f9fc9b7e883d91d435ddee3f62cd2ee9c4c0aabe",
-    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
-  },
-  "EngineSupport/engine/native/libqpdf.30.dylib": {
-    "sha256": "52e13419c79f301e082377948c0773b0ce7b40affe8366da156f46a3d7596829",
-    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
-  },
-  "EngineSupport/engine/native/libjpeg.8.dylib": {
-    "sha256": "e5ef9dd7bd672d09e0241e20b4f5c12286d2dfab3c9e36e874097569c746fd7c",
-    "provenance": "Bundled arm64 QPDF engine dependency; redistribution notices in native/licenses/. No document data."
+  "zPDFTests/Fixtures/uscis-i9.pdf": {
+    "sha256": "780f348c34df694bb0b4dbbfaf9f22b99b9757b80d16a37ba89aadf069597281",
+    "provenance": "Blank public USCIS form, https://www.uscis.gov/sites/default/files/document/forms/i-9.pdf; matches recorded source hash."
   }
 }

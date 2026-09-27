@@ -6,6 +6,7 @@
     <RootNamespace>zPDF</RootNamespace>
     <Version>0.1.3</Version>
     <Product>zPDF</Product>
+    <ApplicationIcon>zPDF.ico</ApplicationIcon>
     <AssemblyName>zPDF</AssemblyName>
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
@@ -27,7 +28,12 @@
     <PackageReference Include="bblanchon.PDFium.Win32" Version="153.0.7999" />
     <!-- Signature images (typed, drawn, marks) and per-user protection of stored digital IDs. -->
     <PackageReference Include="System.Drawing.Common" Version="10.0.*" />
+    <!-- Installer and updates (GitHub Releases, "win" channel), like Sparkle on the Mac. -->
+    <PackageReference Include="Velopack" Version="1.2.158" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="zPDF.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <!-- The bundled engine runtime (windows/scripts/prepare_runtime.py), when prepared.
        Copied after the build rather than as Content, so resource indexing skips it. -->

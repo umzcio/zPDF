@@ -17,6 +17,7 @@ public sealed class AppSettings
     public bool FitWidthOnOpen { get; set; } = true;
     public bool HighlightFields { get; set; } = true;
     public bool OpenInNewWindow { get; set; } = true;
+    public DateTime LastUpdateCheck { get; set; }
 
     public static AppSettings Current => _current ??= Load();
 

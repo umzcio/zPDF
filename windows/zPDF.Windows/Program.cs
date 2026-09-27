@@ -8,6 +8,8 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Installer and update hooks (install, update, uninstall); returns at once otherwise.
+        Velopack.VelopackApp.Build().Run();
         if (args is ["--printtest", var source, var printed])
         {
             // Prints every page to a file through "Microsoft Print to PDF" (no dialog).

@@ -247,6 +247,9 @@
                 <AppBarButton Label="Report a Bug…" Click="ReportBug_Click">
                     <AppBarButton.Icon><FontIcon Glyph="&#xEBE8;" /></AppBarButton.Icon>
                 </AppBarButton>
+                <AppBarButton Label="Check for Updates…" Click="CheckUpdates_Click">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE895;" /></AppBarButton.Icon>
+                </AppBarButton>
                 <AppBarButton Label="About zPDF" Click="About_Click">
                     <AppBarButton.Icon><FontIcon Glyph="&#xE946;" /></AppBarButton.Icon>
                 </AppBarButton>

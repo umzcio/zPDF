@@ -197,6 +197,23 @@ public sealed partial class MainWindow
         }
     }
 
+    // ---------------------------------------------------------------- updates
+
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e) => await Updates.CheckAsync(this, quiet: false);
+
+    public async Task InfoAsync(string title, string message) =>
+        await new ContentDialog { XamlRoot = Content.XamlRoot, Title = title, Content = message, CloseButtonText = "OK" }.ShowAsync();
+
+    public async Task<bool> ConfirmAsync(string title, string message, string action) =>
+        await new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot, Title = title, Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+            PrimaryButtonText = action, CloseButtonText = "Not Now", DefaultButton = ContentDialogButton.Primary,
+        }.ShowAsync() == ContentDialogResult.Primary;
+
+    /// <summary>Before an update restarts zPDF: offer to save unsaved changes.</summary>
+    public Task<bool> PrepareToQuitAsync() => ConfirmDiscardAsync();
+
     // ---------------------------------------------------------------- About
 
     private async void About_Click(object sender, RoutedEventArgs e)
