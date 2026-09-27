@@ -187,23 +187,8 @@
                 <FontIcon Glyph="&#xE72A;" FontSize="16" /></ToggleButton>
             <ToggleButton Tag="Stamp" Click="Tool_Click" ToolTipService.ToolTip="Stamp" AutomationProperties.Name="Stamp">
                 <FontIcon Glyph="&#xE8F1;" FontSize="16" /></ToggleButton>
-            <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="130" AutomationProperties.Name="Stamp type"
-                      ToolTipService.ToolTip="Stamp to place">
-                <x:String>Approved</x:String>
-                <x:String>Draft</x:String>
-                <x:String>Confidential</x:String>
-                <x:String>Final</x:String>
-                <x:String>NotApproved</x:String>
-                <x:String>ForComment</x:String>
-                <x:String>Experimental</x:String>
-                <x:String>Expired</x:String>
-                <x:String>AsIs</x:String>
-                <x:String>ForPublicRelease</x:String>
-                <x:String>NotForPublicRelease</x:String>
-                <x:String>Departmental</x:String>
-                <x:String>Sold</x:String>
-                <x:String>TopSecret</x:String>
-            </ComboBox>
+            <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="150" AutomationProperties.Name="Stamp type"
+                      ToolTipService.ToolTip="Stamp to place" />
             <AppBarSeparator />
             <AppBarSeparator />
             <ToggleButton Tag="Redact" Click="Tool_Click" ToolTipService.ToolTip="Mark for redaction (drag an area, or select text first)"
@@ -267,7 +252,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Grid x:Name="Sidebar" Width="208" Visibility="Collapsed"
+            <Grid x:Name="Sidebar" Width="264" Visibility="Collapsed"
                   BorderThickness="0,0,1,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -289,7 +274,7 @@
                         </DataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
-                <ListView x:Name="CommentList" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
+                <ListView x:Name="CommentList" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single" RightTapped="CommentList_RightTapped"
                           IsItemClickEnabled="True" ItemClick="CommentList_ItemClick" AutomationProperties.Name="Comments">
                     <ListView.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Delete" Invoked="DeleteCommentAccelerator_Invoked" />
@@ -370,7 +355,7 @@
                 </ListView.ItemTemplate>
             </ListView>
             </Grid>
-            <ScrollViewer x:Name="PageScroller" Grid.Column="1" ZoomMode="Disabled" HorizontalScrollBarVisibility="Auto"
+            <ScrollViewer x:Name="PageScroller" Grid.Column="1" ZoomMode="Disabled" IsTabStop="True" HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto" Background="{ThemeResource LayerFillColorDefaultBrush}"
                           SizeChanged="PageScroller_SizeChanged" ViewChanged="PageScroller_ViewChanged">
                 <Grid>

@@ -16,14 +16,14 @@ public enum CommentTool { Select, Highlight, Underline, StrikeOut, Text, FreeTex
 
 /// <summary>A comment as the engine reports it (comment_threads).</summary>
 public sealed record CommentRecord(int Page, int Index, string Subtype, double[] Rect, string Author, string Contents,
-                                   (int Page, int Index)? ReplyTo, string? State, string Modified);
+                                   (int Page, int Index)? ReplyTo, string? State, string Modified, string Subject = "");
 
 /// <summary>A top-level comment in the Comments panel, with its replies and status.</summary>
 public sealed class CommentItem(CommentRecord record, IReadOnlyList<CommentRecord> replies, string? status)
 {
     public CommentRecord Record { get; } = record;
     public IReadOnlyList<CommentRecord> Replies { get; } = replies;
-    public string Heading => $"{Kind(Record.Subtype)} · page {Record.Page + 1}" + (Record.Author.Length > 0 ? $" · {Record.Author}" : "");
+    public string Heading => $"{(Record.Subject is "Arrow" ? "Arrow" : Kind(Record.Subtype))} · page {Record.Page + 1}" + (Record.Author.Length > 0 ? $" · {Record.Author}" : "");
     public string Contents => Record.Contents;
     public Visibility HasContents => Record.Contents.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     public string Footer => string.Join(" · ", new[]
@@ -73,9 +73,21 @@ public sealed partial class MainWindow
     private Point _moveStart;
     private bool _moving;
 
+    /// <summary>Standard stamp names (ISO 32000 12.5.6.12) and their labels.</summary>
+    private static readonly (string Icon, string Label)[] Stamps =
+    [
+        ("Approved", "Approved"), ("Draft", "Draft"), ("Confidential", "Confidential"), ("Final", "Final"),
+        ("NotApproved", "Not Approved"), ("ForComment", "For Comment"), ("Experimental", "Experimental"),
+        ("Expired", "Expired"), ("AsIs", "As Is"), ("ForPublicRelease", "For Public Release"),
+        ("NotForPublicRelease", "Not for Public Release"), ("Departmental", "Departmental"), ("Sold", "Sold"),
+        ("TopSecret", "Top Secret"),
+    ];
+
     private void InitializeComments()
     {
         CommentList.ItemsSource = _commentItems;
+        StampChoice.ItemsSource = Stamps.Select(s => s.Label).ToList();
+        StampChoice.SelectedIndex = 0;
         foreach (var (name, color) in Palette)
         {
             var swatch = new Button
@@ -266,7 +278,7 @@ public sealed partial class MainWindow
                 annot = new JsonObject
                 {
                     ["subtype"] = "Stamp", ["rect"] = ToJson(PdfRect(info, new Rect(a.X - 75, a.Y - 22, 150, 45))),
-                    ["icon"] = StampChoice.SelectedItem as string ?? "Approved",
+                    ["icon"] = Stamps[Math.Max(0, StampChoice.SelectedIndex)].Icon,
                 };
                 break;
             case CommentTool.Ink:
@@ -282,6 +294,7 @@ public sealed partial class MainWindow
                 {
                     ["subtype"] = "Line", ["line"] = ToJson([pa.X, pa.Y, pb.X, pb.Y]), ["color"] = color, ["width"] = 2,
                     ["line_endings"] = ToJson(_tool == CommentTool.Arrow ? ["None", "OpenArrow"] : ["None", "None"]),
+                    ["subject"] = _tool == CommentTool.Arrow ? "Arrow" : "Line",
                 };
                 break;
             default:  // rectangle, ellipse
@@ -346,7 +359,8 @@ public sealed partial class MainWindow
                         item["rect"]!.AsArray().Select(v => v!.GetValue<double>()).ToArray(),
                         item["author"]?.GetValue<string>() ?? "", item["contents"]?.GetValue<string>() ?? "",
                         irt is { Count: 2 } ? (irt[0]!.GetValue<int>(), irt[1]!.GetValue<int>()) : null,
-                        item["state"]?.GetValue<string>(), item["modified"]?.GetValue<string>() ?? ""));
+                        item["state"]?.GetValue<string>(), item["modified"]?.GetValue<string>() ?? "",
+                        item["subject"]?.GetValue<string>() ?? ""));
                 }
             }
         }
@@ -441,6 +455,13 @@ public sealed partial class MainWindow
             UpdateStatus();
         }
         else GoTo(item.Record.Page);
+    }
+
+    /// <summary>Right-click selects the comment under the pointer, so the menu acts on it.</summary>
+    private void CommentList_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+    {
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is CommentItem item)
+            SelectComment((item.Record.Page, item.Record.Index));
     }
 
     private (int Page, int Index)? TargetComment(object sender) =>
