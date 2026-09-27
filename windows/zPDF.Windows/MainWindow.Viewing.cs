@@ -91,7 +91,10 @@ public sealed partial class MainWindow : IPageHost
 
     public InputSystemCursorShape CursorAt(PageSlot slot, Point point)
     {
+        if (_tool is not (CommentTool.Select or CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut))
+            return InputSystemCursorShape.Cross;
         if (Info(slot.Index) is not { } info) return InputSystemCursorShape.Arrow;
+        if (_tool == CommentTool.Select && CommentAt(slot.Index, point) is not null) return InputSystemCursorShape.SizeAll;
         if (info.LinkAt(point) is not null && !_selecting) return InputSystemCursorShape.Hand;
         return info.IsOverText(point) || _selecting ? InputSystemCursorShape.IBeam : InputSystemCursorShape.Arrow;
     }
@@ -99,6 +102,7 @@ public sealed partial class MainWindow : IPageHost
     public void PagePointerPressed(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
         if (!e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
+        if (CommentPointerPressed(slot, point)) { e.Handled = true; return; }
         _pressSlot = slot;
         _pressPoint = point;
         _selecting = false;
@@ -116,6 +120,7 @@ public sealed partial class MainWindow : IPageHost
 
     public void PagePointerMoved(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        if (CommentPointerMoved(slot, point)) return;
         if (_pressSlot is null || !e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
         if (Info(_pressSlot.Index) is not { } info) return;
         // Positions are relative to the page that captured the pointer.
@@ -136,8 +141,11 @@ public sealed partial class MainWindow : IPageHost
 
     public async void PagePointerReleased(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        var markup = _tool is CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut;
+        if (!markup && CommentPointerReleased(slot, point)) { _pressSlot = null; return; }
         var pressed = _pressSlot;
         _pressSlot = null;
+        if (markup && CommentPointerReleased(slot, point)) { _selecting = false; return; }
         var wasClick = pressed == slot && Distance(point, _pressPoint) <= 3;
         if (_selection is { } sel && sel.Anchor == sel.Focus && wasClick) ClearSelection();
         _selecting = false;
@@ -182,7 +190,7 @@ public sealed partial class MainWindow : IPageHost
         var package = new DataPackage();
         package.SetText(text.Replace("\r\n", "\n").Replace("\n", Environment.NewLine));
         Clipboard.SetContent(package);
-        StatusText.Text = text.Length > 60 ? $"Copied {text.Length} characters" : "Copied";
+        ShowTransient(text.Length > 60 ? $"Copied {text.Length} characters" : "Copied");
         args.Handled = true;
     }
 
@@ -217,6 +225,7 @@ public sealed partial class MainWindow : IPageHost
     private void CloseFind()
     {
         FindBar.Visibility = Visibility.Collapsed;
+        PageScroller.Focus(FocusState.Programmatic);  // not the first toolbar button
         _findWork?.Cancel();
         _hits.Clear();
         _hitIndex = -1;
@@ -228,6 +237,8 @@ public sealed partial class MainWindow : IPageHost
     {
         if (IsFullScreen) SetFullScreen(false);
         else if (FindBar.Visibility == Visibility.Visible) CloseFind();
+        else if (_tool != CommentTool.Select) SetTool(CommentTool.Select);
+        else if (_selectedComment is not null) SelectComment(null);
         else ClearSelection();
         args.Handled = true;
     }
@@ -358,6 +369,7 @@ public sealed partial class MainWindow : IPageHost
             Add(sel.Page, selInfo.RectsFor(Math.Min(sel.Anchor, sel.Focus), Math.Max(sel.Anchor, sel.Focus)), Mark.Selection);
         else if (_selection is { } one && _infos.GetValueOrDefault(one.Page) is { } oneInfo && _selecting)
             Add(one.Page, oneInfo.RectsFor(one.Anchor, one.Anchor), Mark.Selection);
+        foreach (var (page, rect) in CommentMarks()) Add(page, [rect], Mark.CommentSelection);
         foreach (var slot in _slots) slot.SetMarks(marks.TryGetValue(slot.Index, out var list) ? list : []);
     }
 
@@ -366,7 +378,9 @@ public sealed partial class MainWindow : IPageHost
     private void SidebarTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs? args)
     {
         var bookmarks = sender.SelectedItem == BookmarksTab;
-        Thumbnails.Visibility = bookmarks ? Visibility.Collapsed : Visibility.Visible;
+        var comments = sender.SelectedItem == CommentsTab;
+        Thumbnails.Visibility = bookmarks || comments ? Visibility.Collapsed : Visibility.Visible;
+        UpdateCommentsPanel();
         var hasOutline = (OutlineTree.ItemsSource as System.Collections.ICollection)?.Count > 0;
         OutlineTree.Visibility = bookmarks && hasOutline ? Visibility.Visible : Visibility.Collapsed;
         NoBookmarksText.Visibility = bookmarks && OutlineTree.Visibility != Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
@@ -429,7 +443,8 @@ public sealed partial class MainWindow : IPageHost
             ("Application", info["Creator"]), ("PDF producer", info["Producer"]), ("PDF version", version),
             ("Pages", _document.PageCount.ToString()),
             ("Page size", $"{w / 72:0.##} × {h / 72:0.##} in ({w * 25.4 / 72:0} × {h * 25.4 / 72:0} mm)"),
-            ("Security", encrypted ? $"Password protected (permissions 0x{permissions:X})" : "None"),
+            ("Security", encrypted ? "Password protected" : "None"),
+            ("Restrictions", encrypted ? DescribePermissions(permissions) : "None"),
         };
         var grid = new Grid { ColumnSpacing = 16, RowSpacing = 6 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -449,6 +464,28 @@ public sealed partial class MainWindow : IPageHost
             Content = new ScrollViewer { Content = grid, MaxHeight = 480 }, CloseButtonText = "Close",
         };
         await dialog.ShowAsync();
+    }
+
+    /// <summary>PDF permission bits (ISO 32000 table 22) as plain words.</summary>
+    private static string DescribePermissions(uint bits)
+    {
+        var denied = new List<string>();
+        if ((bits & 4) == 0) denied.Add("printing");
+        else if ((bits & 2048) == 0) denied.Add("high-quality printing");
+        if ((bits & 8) == 0) denied.Add("changing the document");
+        if ((bits & 16) == 0) denied.Add("copying text and images");
+        if ((bits & 32) == 0) denied.Add("adding comments");
+        if ((bits & 256) == 0) denied.Add("filling in forms");
+        if ((bits & 1024) == 0) denied.Add("inserting, deleting or rotating pages");
+        return denied.Count == 0 ? "None" : "Not allowed: " + string.Join(", ", denied);
+    }
+
+    /// <summary>A status message that clears itself after a few seconds (unless replaced).</summary>
+    private async void ShowTransient(string message)
+    {
+        StatusText.Text = message;
+        await Task.Delay(4000);
+        if (StatusText.Text == message) StatusText.Text = "";
     }
 
     private static string FormatSize(long bytes) =>
@@ -474,7 +511,14 @@ public sealed partial class MainWindow : IPageHost
         args.Handled = true;
     }
 
-    private void Home_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args) { GoTo(0); args.Handled = true; }
+    private void Home_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (_document is null) return;
+        _page = 0;
+        ScrollTo(0, 0);  // the very top, including the margin above page 1
+        UpdateStatus();
+        args.Handled = true;
+    }
 
     private void End_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -567,6 +611,7 @@ public sealed partial class MainWindow : IPageHost
     /// <summary>Reading mode: the page view only; F11 or Esc returns.</summary>
     private void SetFullScreen(bool on)
     {
+        ToolStrip.Visibility = on || _document is null ? Visibility.Collapsed : Visibility.Visible;
         AppWindow.SetPresenter(on ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
                                   : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
         var chrome = on ? Visibility.Collapsed : Visibility.Visible;

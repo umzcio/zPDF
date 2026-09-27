@@ -11,7 +11,11 @@ using Windows.Foundation;
 namespace zPDF;
 
 /// <summary>What a page overlay rectangle shows.</summary>
-public enum Mark { Selection, FindHit, CurrentFindHit }
+public enum Mark { Selection, FindHit, CurrentFindHit, CommentSelection }
+
+/// <summary>An in-progress drawing (view points), shown until the comment is created.</summary>
+public sealed record Draft(DraftShape Shape, IReadOnlyList<Point> Points, Windows.UI.Color Color);
+public enum DraftShape { Rectangle, Ellipse, Line, Polyline }
 
 /// <summary>Receives pointer input from pages; positions are in page view points.</summary>
 public interface IPageHost
@@ -32,6 +36,7 @@ public sealed partial class PageView : Grid
     private static readonly SolidColorBrush SelectionBrush = new(ColorHelper.FromArgb(0x55, 0x33, 0x88, 0xFF));
     private static readonly SolidColorBrush FindBrush = new(ColorHelper.FromArgb(0x66, 0xFF, 0xD4, 0x00));
     private static readonly SolidColorBrush CurrentFindBrush = new(ColorHelper.FromArgb(0x88, 0xFF, 0x8C, 0x00));
+    private static readonly SolidColorBrush CommentSelectionBrush = new(ColorHelper.FromArgb(0xFF, 0x00, 0x67, 0xC0));
 
     private readonly Image _image = new() { Stretch = Stretch.Fill };
     private readonly Canvas _overlay = new() { IsHitTestVisible = false };
@@ -63,8 +68,8 @@ public sealed partial class PageView : Grid
     private static void OnSlotChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var view = (PageView)d;
-        if (e.OldValue is PageSlot old) { old.PropertyChanged -= view.Slot_PropertyChanged; old.MarksChanged -= view.DrawOverlay; }
-        if (e.NewValue is PageSlot slot) { slot.PropertyChanged += view.Slot_PropertyChanged; slot.MarksChanged += view.DrawOverlay; }
+        if (e.OldValue is PageSlot old) { old.PropertyChanged -= view.Slot_PropertyChanged; old.MarksChanged -= view.DrawOverlay; old.DraftChanged -= view.DrawOverlay; }
+        if (e.NewValue is PageSlot slot) { slot.PropertyChanged += view.Slot_PropertyChanged; slot.MarksChanged += view.DrawOverlay; slot.DraftChanged += view.DrawOverlay; }
         view.Refresh();
     }
 
@@ -99,6 +104,27 @@ public sealed partial class PageView : Grid
         ProtectedCursor = InputSystemCursor.Create(shape);
     }
 
+    private static Shape DraftShapeFor(Draft draft, double scale)
+    {
+        var brush = new SolidColorBrush(draft.Color);
+        var points = draft.Points.Select(p => new Point(p.X * scale, p.Y * scale)).ToList();
+        if (draft.Shape == DraftShape.Polyline || points.Count < 2 || draft.Shape == DraftShape.Line)
+        {
+            var line = new Polyline { Stroke = brush, StrokeThickness = 2 };
+            foreach (var p in draft.Shape == DraftShape.Line && points.Count > 1 ? [points[0], points[^1]] : points) line.Points.Add(p);
+            return line;
+        }
+        var (a, b) = (points[0], points[^1]);
+        Shape box = draft.Shape == DraftShape.Ellipse ? new Ellipse() : new Rectangle();
+        box.Stroke = brush;
+        box.StrokeThickness = 2;
+        box.Width = Math.Abs(b.X - a.X);
+        box.Height = Math.Abs(b.Y - a.Y);
+        Canvas.SetLeft(box, Math.Min(a.X, b.X));
+        Canvas.SetTop(box, Math.Min(a.Y, b.Y));
+        return box;
+    }
+
     private void DrawOverlay()
     {
         _overlay.Children.Clear();
@@ -110,11 +136,21 @@ public sealed partial class PageView : Grid
             {
                 Width = Math.Max(1, rect.Width * scale),
                 Height = Math.Max(1, rect.Height * scale),
-                Fill = mark switch { Mark.Selection => SelectionBrush, Mark.CurrentFindHit => CurrentFindBrush, _ => FindBrush },
             };
+            if (mark == Mark.CommentSelection)
+            {
+                shape.Stroke = CommentSelectionBrush;
+                shape.StrokeThickness = 1.5;
+                shape.StrokeDashArray = [4, 2];
+            }
+            else
+            {
+                shape.Fill = mark switch { Mark.Selection => SelectionBrush, Mark.CurrentFindHit => CurrentFindBrush, _ => FindBrush };
+            }
             Canvas.SetLeft(shape, rect.X * scale);
             Canvas.SetTop(shape, rect.Y * scale);
             _overlay.Children.Add(shape);
         }
+        if (slot.Draft is { Points.Count: > 0 } draft) _overlay.Children.Add(DraftShapeFor(draft, scale));
     }
 }

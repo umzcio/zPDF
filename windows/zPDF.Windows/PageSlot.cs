@@ -20,6 +20,17 @@ public sealed class PageSlot(int index) : INotifyPropertyChanged
     public IReadOnlyList<(Rect Rect, Mark Mark)> Marks { get; private set; } = [];
     public event Action? MarksChanged;
 
+    /// <summary>A comment being drawn on this page (view points), or null.</summary>
+    public Draft? Draft { get; private set; }
+    public event Action? DraftChanged;
+
+    public void SetDraft(Draft? draft)
+    {
+        if (draft is null && Draft is null) return;
+        Draft = draft;
+        DraftChanged?.Invoke();
+    }
+
     public void SetMarks(IReadOnlyList<(Rect Rect, Mark Mark)> marks)
     {
         if (marks.Count == 0 && Marks.Count == 0) return;

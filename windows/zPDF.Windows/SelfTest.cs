@@ -35,6 +35,20 @@ internal static class SelfTest
         using var engine = new Engine();
         var edited = await engine.TransformAsync(input, [new JsonObject { ["op"] = "watermark", ["text"] = "ZPDF WINDOWS" }]);
         using (var doc = PdfDocument.Open(edited)) WriteBmp(doc.Render(0, 1.5), Path.Combine(folder, "page1-watermarked.bmp"));
+        var commented = await engine.TransformAsync(edited, [new JsonObject
+        {
+            ["op"] = "comment_edits",
+            ["items"] = new JsonArray(
+                new JsonObject { ["action"] = "add", ["page"] = 0, ["annot"] = new JsonObject { ["subtype"] = "Highlight",
+                    ["quads"] = new JsonArray(199, 770, 276, 770, 199, 755, 276, 755), ["color"] = new JsonArray(1, 0.85, 0) } },
+                new JsonObject { ["action"] = "add", ["page"] = 0, ["annot"] = new JsonObject { ["subtype"] = "Text",
+                    ["rect"] = new JsonArray(500, 700, 522, 722), ["contents"] = "Self-test note", ["author"] = "selftest" } }),
+        }]);
+        var threads = await engine.QueryAsync(commented, "comment_threads");
+        var first = threads["pages"]![0]!.AsArray();
+        Console.WriteLine($"comments on page 1: {first.Count} ({string.Join(", ", first.Select(c => c!["subtype"]!.GetValue<string>()))}); " +
+                          $"annotations={PdfDocument.Open(commented).AnnotationCount(0)}");
+        File.Delete(commented);
         var saved = Path.Combine(folder, "watermarked.pdf");
         var receipt = await engine.PublishAsync(edited, saved, overwrite: true);
         File.Delete(edited);

@@ -10,6 +10,7 @@ internal static partial class Native
     public struct FSRectF { public float Left, Top, Right, Bottom; }
 
     [LibraryImport(Lib)] public static partial int FPDFPage_GetRotation(IntPtr page);
+    [LibraryImport(Lib)] public static partial int FPDFPage_GetAnnotCount(IntPtr page);
     [LibraryImport(Lib)]
     public static partial int FPDF_PageToDevice(IntPtr page, int startX, int startY, int sizeX, int sizeY, int rotate,
                                                 double pageX, double pageY, out int deviceX, out int deviceY);
@@ -265,6 +266,13 @@ public sealed partial class PdfDocument
             try { action(page); }
             finally { Native.FPDF_ClosePage(page); }
         }
+    }
+
+    public int AnnotationCount(int index)
+    {
+        var count = 0;
+        WithPage(index, page => count = Native.FPDFPage_GetAnnotCount(page));
+        return count;
     }
 
     public string PageLabel(int index)

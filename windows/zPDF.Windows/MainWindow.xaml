@@ -7,6 +7,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -24,6 +25,8 @@
             <KeyboardAccelerator Modifiers="Control" Key="End" Invoked="End_Invoked" />
             <KeyboardAccelerator Key="Escape" Invoked="Escape_Invoked" />
             <KeyboardAccelerator Key="F11" Invoked="FullScreen_Invoked" />
+            <KeyboardAccelerator Key="Delete" Invoked="PageDelete_Invoked" />
+            <KeyboardAccelerator Key="Enter" Invoked="PageEnter_Invoked" />
         </Grid.KeyboardAccelerators>
         <CommandBar x:Name="Toolbar" DefaultLabelPosition="Right" HorizontalAlignment="Left">
             <AppBarButton x:Name="OpenButton" Icon="OpenFile" Label="Open…" Click="Open_Click">
@@ -111,7 +114,62 @@
                 </AppBarButton>
             </CommandBar.SecondaryCommands>
         </CommandBar>
-        <Grid x:Name="FindBar" Grid.Row="1" Visibility="Collapsed" Padding="12,6" ColumnSpacing="8"
+        <!-- Comment tools. Select = text selection, links and picking existing comments. -->
+        <StackPanel x:Name="ToolStrip" Grid.Row="1" Orientation="Horizontal" Spacing="2" Padding="8,2,8,6" Visibility="Collapsed">
+            <ToggleButton x:Name="SelectTool" Tag="Select" IsChecked="True" Click="Tool_Click" ToolTipService.ToolTip="Select"
+                          AutomationProperties.Name="Select"><FontIcon Glyph="&#xE8B0;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Highlight" Click="Tool_Click" ToolTipService.ToolTip="Highlight text" AutomationProperties.Name="Highlight">
+                <FontIcon Glyph="&#xE7E6;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Underline" Click="Tool_Click" ToolTipService.ToolTip="Underline text" AutomationProperties.Name="Underline">
+                <FontIcon Glyph="&#xE8DC;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="StrikeOut" Click="Tool_Click" ToolTipService.ToolTip="Strikethrough text" AutomationProperties.Name="Strikethrough">
+                <FontIcon Glyph="&#xEDE0;" FontSize="16" /></ToggleButton>
+            <AppBarSeparator />
+            <ToggleButton Tag="Text" Click="Tool_Click" ToolTipService.ToolTip="Sticky note" AutomationProperties.Name="Sticky note">
+                <FontIcon Glyph="&#xE70B;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="FreeText" Click="Tool_Click" ToolTipService.ToolTip="Text box" AutomationProperties.Name="Text box">
+                <FontIcon Glyph="&#xE8D2;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Ink" Click="Tool_Click" ToolTipService.ToolTip="Draw (pen)" AutomationProperties.Name="Draw">
+                <FontIcon Glyph="&#xEDC6;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Square" Click="Tool_Click" ToolTipService.ToolTip="Rectangle" AutomationProperties.Name="Rectangle">
+                <FontIcon Glyph="&#xE739;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Circle" Click="Tool_Click" ToolTipService.ToolTip="Ellipse" AutomationProperties.Name="Ellipse">
+                <FontIcon Glyph="&#xEA3A;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Line" Click="Tool_Click" ToolTipService.ToolTip="Line" AutomationProperties.Name="Line">
+                <FontIcon Glyph="&#xE738;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Arrow" Click="Tool_Click" ToolTipService.ToolTip="Arrow" AutomationProperties.Name="Arrow">
+                <FontIcon Glyph="&#xE72A;" FontSize="16" /></ToggleButton>
+            <ToggleButton Tag="Stamp" Click="Tool_Click" ToolTipService.ToolTip="Stamp" AutomationProperties.Name="Stamp">
+                <FontIcon Glyph="&#xE8F1;" FontSize="16" /></ToggleButton>
+            <ComboBox x:Name="StampChoice" SelectedIndex="0" MinWidth="130" AutomationProperties.Name="Stamp type"
+                      ToolTipService.ToolTip="Stamp to place">
+                <x:String>Approved</x:String>
+                <x:String>Draft</x:String>
+                <x:String>Confidential</x:String>
+                <x:String>Final</x:String>
+                <x:String>NotApproved</x:String>
+                <x:String>ForComment</x:String>
+                <x:String>Experimental</x:String>
+                <x:String>Expired</x:String>
+                <x:String>AsIs</x:String>
+                <x:String>ForPublicRelease</x:String>
+                <x:String>NotForPublicRelease</x:String>
+                <x:String>Departmental</x:String>
+                <x:String>Sold</x:String>
+                <x:String>TopSecret</x:String>
+            </ComboBox>
+            <AppBarSeparator />
+            <DropDownButton x:Name="ColorButton" AutomationProperties.Name="Comment color" ToolTipService.ToolTip="Color">
+                <Border x:Name="ColorSwatch" Width="18" Height="18" CornerRadius="9" Background="Gold"
+                        BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                <DropDownButton.Flyout>
+                    <Flyout x:Name="ColorFlyout">
+                        <StackPanel x:Name="ColorPalette" Orientation="Horizontal" Spacing="6" />
+                    </Flyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
+        </StackPanel>
+        <Grid x:Name="FindBar" Grid.Row="2" Visibility="Collapsed" Padding="12,6" ColumnSpacing="8"
               Background="{ThemeResource LayerFillColorDefaultBrush}"
               BorderThickness="0,0,0,1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
             <Grid.ColumnDefinitions>
@@ -140,7 +198,7 @@
                 <FontIcon Glyph="&#xE711;" FontSize="12" />
             </Button>
         </Grid>
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -154,6 +212,7 @@
                 <SelectorBar x:Name="SidebarTabs" SelectionChanged="SidebarTabs_SelectionChanged">
                     <SelectorBarItem x:Name="PagesTab" Text="Pages" IsSelected="True" />
                     <SelectorBarItem x:Name="BookmarksTab" Text="Bookmarks" />
+                    <SelectorBarItem x:Name="CommentsTab" Text="Comments" />
                 </SelectorBar>
                 <TreeView x:Name="OutlineTree" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
                           ItemInvoked="OutlineTree_ItemInvoked" AutomationProperties.Name="Bookmarks">
@@ -166,6 +225,41 @@
                         </DataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
+                <ListView x:Name="CommentList" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
+                          IsItemClickEnabled="True" ItemClick="CommentList_ItemClick" AutomationProperties.Name="Comments">
+                    <ListView.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Delete" Invoked="DeleteCommentAccelerator_Invoked" />
+                    </ListView.KeyboardAccelerators>
+                    <ListView.ContextFlyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="Reply…" Click="ReplyComment_Click" />
+                            <MenuFlyoutItem Text="Edit Text…" Click="EditComment_Click" />
+                            <MenuFlyoutSubItem Text="Set Status">
+                                <MenuFlyoutItem Text="Accepted" Tag="Accepted" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="Rejected" Tag="Rejected" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="Cancelled" Tag="Cancelled" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="Completed" Tag="Completed" Click="SetStatus_Click" />
+                                <MenuFlyoutItem Text="None" Tag="None" Click="SetStatus_Click" />
+                            </MenuFlyoutSubItem>
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Delete" Click="DeleteComment_Click" />
+                        </MenuFlyout>
+                    </ListView.ContextFlyout>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:CommentItem">
+                            <StackPanel Padding="0,6" Spacing="2" AutomationProperties.Name="{x:Bind Summary}">
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="{x:Bind Heading}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind Contents}" TextWrapping="Wrap" MaxLines="4" TextTrimming="CharacterEllipsis"
+                                           Visibility="{x:Bind HasContents}" />
+                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Footer}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind HasFooter}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <TextBlock x:Name="NoCommentsText" Grid.Row="1" Visibility="Collapsed" Margin="16" TextWrapping="Wrap"
+                           Text="No comments yet. Use the tools above the page to add some." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <TextBlock x:Name="NoBookmarksText" Grid.Row="1" Visibility="Collapsed" Margin="16" TextWrapping="Wrap"
                            Text="This document has no bookmarks." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <ListView x:Name="Thumbnails" Grid.Row="1" SelectionMode="Extended"
@@ -240,7 +334,7 @@
                 </Grid>
             </ScrollViewer>
         </Grid>
-        <Grid x:Name="StatusBar" Grid.Row="3" Padding="12,6" ColumnSpacing="16">
+        <Grid x:Name="StatusBar" Grid.Row="4" Padding="12,6" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

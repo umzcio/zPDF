@@ -92,6 +92,17 @@ public sealed class Engine : IDisposable
         return destination;
     }
 
+    /// <summary>A read-only document query (e.g. comment_threads).</summary>
+    public Task<JsonNode> QueryAsync(string source, string name, JsonObject? parameters = null, string? password = null)
+    {
+        var request = new JsonObject
+        {
+            ["path"] = source, ["name"] = name, ["params"] = parameters ?? new JsonObject(), ["sha256"] = Sha256(source),
+        };
+        if (password is not null) request["password"] = password;
+        return CallAsync("query", request);
+    }
+
     /// <summary>Publishes a finished private copy to the user's chosen file.</summary>
     public Task<JsonNode> PublishAsync(string candidate, string destination, bool overwrite) =>
         CallAsync("publish", new JsonObject

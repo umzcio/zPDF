@@ -38,6 +38,7 @@ public sealed partial class MainWindow : Window
     private bool _syncingSelection;
     private bool _closeConfirmed;
     private List<int>? _reselect;  // thumbnails to select once the sidebar is rebuilt
+    private bool _rebuilding;      // Show() is replacing the page list
     // While zoom or navigation scrolls the view, the page it is keeping in place;
     // intermediate scroll events must not change the current page.
     private (int Page, double Offset, DateTime Started)? _pendingAnchor;
@@ -47,6 +48,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 900));
         Thumbnails.ItemsSource = _thumbnails;
+        InitializeComments();
         Pages.ItemsSource = _slots;
         // Ctrl with the main keyboard's =/+ and − keys (OEM keys have no XAML name).
         ZoomInButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)187 });
@@ -326,6 +328,9 @@ public sealed partial class MainWindow : Window
 
     private void PageScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
     {
+        // While pages are being rebuilt the view clamps its offset against the new
+        // layout; those intermediate positions say nothing about the current page.
+        if (_rebuilding) return;
         if (_pendingAnchor is { } pending)
         {
             var arrived = Math.Abs(PageScroller.VerticalOffset - pending.Offset) <= 2;
@@ -387,27 +392,40 @@ public sealed partial class MainWindow : Window
         _document = document;
         _pageSizes = Enumerable.Range(0, document.PageCount).Select(document.PageSize).ToArray();
         _page = Math.Min(_page, document.PageCount - 1);
-        _slots.Clear();
-        for (var i = 0; i < document.PageCount; i++) _slots.Add(new PageSlot(i) { Host = this, PointWidth = _pageSizes[i].Width });
-        ResetViewingState();
-        EmptyText.Visibility = Visibility.Collapsed;
-        Sidebar.Visibility = Visibility.Visible;
-        Relayout(keepPage: false);
-        if (focus is { } page && page < document.PageCount)
+        var targetPage = _page;
+        _rebuilding = true;
+        try
         {
-            _page = page;
-            ScrollTo(page, PageTop(page));
+            _slots.Clear();
+            for (var i = 0; i < document.PageCount; i++) _slots.Add(new PageSlot(i) { Host = this, PointWidth = _pageSizes[i].Width });
+            ResetViewingState();
+            EmptyText.Visibility = Visibility.Collapsed;
+            Sidebar.Visibility = Visibility.Visible;
+            Relayout(keepPage: false);
+            if (focus is { } page && page < document.PageCount)
+            {
+                _page = page;
+                ScrollTo(page, PageTop(page));
+            }
+            else if (keepPosition && !atTop)
+            {
+                _page = Math.Min(anchor, document.PageCount - 1);
+                ScrollTo(_page, PageTop(_page) + within * _slots[_page].Height - ReadingDepth);
+            }
+            else
+            {
+                _page = targetPage;
+                ScrollTo(_page, 0);
+            }
         }
-        else if (keepPosition && !atTop)
+        finally
         {
-            _page = Math.Min(anchor, document.PageCount - 1);
-            ScrollTo(_page, PageTop(_page) + within * _slots[_page].Height - ReadingDepth);
+            _rebuilding = false;
         }
-        else
-        {
-            ScrollTo(_page, 0);
-        }
+        UpdateStatus();
+        ToolStrip.Visibility = IsFullScreen ? Visibility.Collapsed : Visibility.Visible;
         _ = RenderThumbnailsAsync(document);
+        _ = RefreshCommentsAsync();
     }
 
     /// <summary>Sizes every page for the current zoom and re-renders what is visible.</summary>
