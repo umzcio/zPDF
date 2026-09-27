@@ -27,6 +27,7 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _thumbnailWork;
     private string? _sourcePath;
     private string? _savedPath;  // the revision the user's file currently matches
+    private string? _password;   // the open password, for encrypted documents
     private PdfDocument? _document;
     private (double Width, double Height)[] _pageSizes = [];
     private Engine? _engine;
@@ -80,15 +81,15 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Opens a PDF (from the picker, the command line or a drop).</summary>
-    public Task OpenAsync(string path) => Run("Opening…", () =>
+    public Task OpenAsync(string path) => Run("Opening…", async () =>
     {
-        var document = PdfDocument.Open(path);  // throws before anything is replaced
+        if (await OpenWithPasswordAsync(path) is not { } opened) return;  // cancelled; nothing replaced
         DeleteRevisions();
         _sourcePath = _savedPath = path;
+        _password = opened.Password;
         _page = 0;
         _fitWidth = true;
-        Show(document, keepPosition: false);
-        return Task.CompletedTask;
+        Show(opened.Document, keepPosition: false);
     });
 
     private void Root_DragOver(object sender, DragEventArgs e)
@@ -183,16 +184,16 @@ public sealed partial class MainWindow : Window
     private async void Watermark_Click(object sender, RoutedEventArgs e) =>
         await Run("Adding watermark…", async () =>
         {
-            var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "watermark", ["text"] = "DRAFT" }]);
+            var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "watermark", ["text"] = "DRAFT" }], _password);
             _revisions.Push(edited);
-            Show(PdfDocument.Open(edited), keepPosition: true);
+            Show(PdfDocument.Open(edited, _password), keepPosition: true);
         });
 
     private async void Undo_Click(object sender, RoutedEventArgs e) =>
         await Run("Undoing…", () =>
         {
             if (!_revisions.TryPop(out var undone)) return Task.CompletedTask;
-            Show(PdfDocument.Open(CurrentPath!), keepPosition: true);
+            Show(PdfDocument.Open(CurrentPath!, _password), keepPosition: true);
             if (undone != _savedPath) TryDelete(undone);
             return Task.CompletedTask;
         });
@@ -289,9 +290,9 @@ public sealed partial class MainWindow : Window
     private Task ApplyAsync(string status, JsonObject op, List<int> select, int? focus = null) =>
         Run(status, async () =>
         {
-            var edited = await Engine.TransformAsync(CurrentPath!, [op]);
+            var edited = await Engine.TransformAsync(CurrentPath!, [op], _password);
             _revisions.Push(edited);
-            Show(PdfDocument.Open(edited), keepPosition: focus is null, select: select, focus: focus);
+            Show(PdfDocument.Open(edited, _password), keepPosition: focus is null, select: select, focus: focus);
         });
 
     private static JsonArray ToJson(IEnumerable<int> values) => new(values.Select(v => (JsonNode)v).ToArray());
@@ -385,9 +386,10 @@ public sealed partial class MainWindow : Window
         _pageSizes = Enumerable.Range(0, document.PageCount).Select(document.PageSize).ToArray();
         _page = Math.Min(_page, document.PageCount - 1);
         _slots.Clear();
-        for (var i = 0; i < document.PageCount; i++) _slots.Add(new PageSlot(i));
+        for (var i = 0; i < document.PageCount; i++) _slots.Add(new PageSlot(i) { Host = this, PointWidth = _pageSizes[i].Width });
+        ResetViewingState();
         EmptyText.Visibility = Visibility.Collapsed;
-        Thumbnails.Visibility = Visibility.Visible;
+        Sidebar.Visibility = Visibility.Visible;
         Relayout(keepPage: false);
         if (focus is { } page && page < document.PageCount)
         {
@@ -505,6 +507,7 @@ public sealed partial class MainWindow : Window
         var scale = Dips * RasterScale;
         for (var i = Math.Max(0, first - 1); i <= Math.Min(_slots.Count - 1, last + 1); i++)
         {
+            _ = Info(i);
             var slot = _slots[i];
             if (slot.RenderedFor == generation) continue;
             slot.RenderedFor = generation;
@@ -599,7 +602,10 @@ public sealed partial class MainWindow : Window
     private void UpdateStatus()
     {
         if (_document is null) return;
-        PageText.Text = $"Page {_page + 1} of {_document.PageCount}";
+        var label = _document.PageLabel(_page);
+        PageText.Text = label.Length > 0 && label != (_page + 1).ToString()
+            ? $"Page {_page + 1} ({label}) of {_document.PageCount}"
+            : $"Page {_page + 1} of {_document.PageCount}";
         ZoomText.Text = $"{_zoom * 100:0}%";
         Title = $"{(IsEdited ? "• " : "")}{Path.GetFileName(_sourcePath)} — zPDF";
         SyncThumbnailSelection();
@@ -610,6 +616,7 @@ public sealed partial class MainWindow : Window
     {
         var open = _document is not null;
         SaveAsButton.IsEnabled = WatermarkButton.IsEnabled = open;
+        FindButton.IsEnabled = GoToPageButton.IsEnabled = PropertiesButton.IsEnabled = open;
         RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = open;
         DeletePagesButton.IsEnabled = open && _document!.PageCount > 1;
         SaveButton.IsEnabled = IsEdited;

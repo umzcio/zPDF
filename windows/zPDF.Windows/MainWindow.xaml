@@ -6,9 +6,24 @@
     <Grid AllowDrop="True" DragOver="Root_DragOver" Drop="Root_Drop">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="Find_Invoked" />
+            <KeyboardAccelerator Key="F3" Invoked="FindNext_Invoked" />
+            <KeyboardAccelerator Modifiers="Shift" Key="F3" Invoked="FindPrevious_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="C" Invoked="Copy_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="A" Invoked="SelectAll_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="G" Invoked="GoToPage_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="D" Invoked="Properties_Invoked" />
+            <KeyboardAccelerator Key="PageDown" Invoked="PageDown_Invoked" />
+            <KeyboardAccelerator Key="PageUp" Invoked="PageUp_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="Home" Invoked="Home_Invoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="End" Invoked="End_Invoked" />
+            <KeyboardAccelerator Key="Escape" Invoked="Escape_Invoked" />
+        </Grid.KeyboardAccelerators>
         <CommandBar DefaultLabelPosition="Right" HorizontalAlignment="Left">
             <AppBarButton x:Name="OpenButton" Icon="OpenFile" Label="Open…" Click="Open_Click">
                 <AppBarButton.KeyboardAccelerators>
@@ -70,17 +85,77 @@
             <AppBarSeparator />
             <AppBarButton x:Name="PreviousButton" Icon="Back" Label="Previous Page" Click="Previous_Click" IsEnabled="False" />
             <AppBarButton x:Name="NextButton" Icon="Forward" Label="Next Page" Click="Next_Click" IsEnabled="False" />
+            <CommandBar.SecondaryCommands>
+                <AppBarButton x:Name="FindButton" Icon="Find" Label="Find…" Click="Find_Click" IsEnabled="False" />
+                <AppBarButton x:Name="GoToPageButton" Label="Go to Page…" Click="GoToPage_Click" IsEnabled="False">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE8A5;" /></AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton x:Name="PropertiesButton" Label="Document Properties…" Click="Properties_Click" IsEnabled="False">
+                    <AppBarButton.Icon><FontIcon Glyph="&#xE946;" /></AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar.SecondaryCommands>
         </CommandBar>
-        <Grid Grid.Row="1">
+        <Grid x:Name="FindBar" Grid.Row="1" Visibility="Collapsed" Padding="12,6" ColumnSpacing="8"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
+              BorderThickness="0,0,0,1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="FindBox" PlaceholderText="Find in document" TextChanged="FindBox_TextChanged"
+                     KeyDown="FindBox_KeyDown" AutomationProperties.Name="Find in document" />
+            <Button Grid.Column="1" Click="FindPrevious_Click" ToolTipService.ToolTip="Previous match (Shift+F3)"
+                    AutomationProperties.Name="Previous match">
+                <FontIcon Glyph="&#xE70E;" FontSize="14" />
+            </Button>
+            <Button Grid.Column="2" Click="FindNext_Click" ToolTipService.ToolTip="Next match (F3)"
+                    AutomationProperties.Name="Next match">
+                <FontIcon Glyph="&#xE70D;" FontSize="14" />
+            </Button>
+            <CheckBox x:Name="MatchCaseBox" Grid.Column="3" Content="Match case" Click="MatchCase_Click" MinWidth="0" />
+            <TextBlock x:Name="FindCountText" Grid.Column="4" VerticalAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Button Grid.Column="6" Click="CloseFind_Click" ToolTipService.ToolTip="Close (Esc)" AutomationProperties.Name="Close find">
+                <FontIcon Glyph="&#xE711;" FontSize="12" />
+            </Button>
+        </Grid>
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <ListView x:Name="Thumbnails" Width="176" SelectionMode="Extended" Visibility="Collapsed"
+            <Grid x:Name="Sidebar" Width="208" Visibility="Collapsed"
+                  BorderThickness="0,0,1,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <SelectorBar x:Name="SidebarTabs" SelectionChanged="SidebarTabs_SelectionChanged">
+                    <SelectorBarItem x:Name="PagesTab" Text="Pages" IsSelected="True" />
+                    <SelectorBarItem x:Name="BookmarksTab" Text="Bookmarks" />
+                </SelectorBar>
+                <TreeView x:Name="OutlineTree" Grid.Row="1" Visibility="Collapsed" SelectionMode="Single"
+                          ItemInvoked="OutlineTree_ItemInvoked" AutomationProperties.Name="Bookmarks">
+                    <TreeView.ItemTemplate>
+                        <DataTemplate x:DataType="local:OutlineNode">
+                            <TreeViewItem ItemsSource="{x:Bind Children}" IsExpanded="{x:Bind Expanded}"
+                                          AutomationProperties.Name="{x:Bind Title}">
+                                <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Title}" />
+                            </TreeViewItem>
+                        </DataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+                <TextBlock x:Name="NoBookmarksText" Grid.Row="1" Visibility="Collapsed" Margin="16" TextWrapping="Wrap"
+                           Text="This document has no bookmarks." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <ListView x:Name="Thumbnails" Grid.Row="1" SelectionMode="Extended"
                       CanDragItems="True" CanReorderItems="True" AllowDrop="True"
                       DragItemsCompleted="Thumbnails_DragItemsCompleted"
-                      SelectionChanged="Thumbnails_SelectionChanged" AutomationProperties.Name="Pages"
-                      BorderThickness="0,0,1,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                      SelectionChanged="Thumbnails_SelectionChanged" AutomationProperties.Name="Pages">
                 <ListView.KeyboardAccelerators>
                     <KeyboardAccelerator Key="Delete" Invoked="DeleteAccelerator_Invoked" />
                 </ListView.KeyboardAccelerators>
@@ -120,6 +195,7 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+            </Grid>
             <ScrollViewer x:Name="PageScroller" Grid.Column="1" ZoomMode="Disabled" HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto" Background="{ThemeResource LayerFillColorDefaultBrush}"
                           SizeChanged="PageScroller_SizeChanged" ViewChanged="PageScroller_ViewChanged">
@@ -135,11 +211,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="local:PageSlot">
-                                <Border Width="{x:Bind Width, Mode=OneWay}" Height="{x:Bind Height, Mode=OneWay}" Background="White"
-                                        BorderThickness="1" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                        AutomationProperties.Name="{x:Bind Label}">
-                                    <Image Source="{x:Bind Image, Mode=OneWay}" Stretch="Fill" />
-                                </Border>
+                                <local:PageView Slot="{x:Bind}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -148,7 +220,7 @@
                 </Grid>
             </ScrollViewer>
         </Grid>
-        <Grid Grid.Row="2" Padding="12,6" ColumnSpacing="16">
+        <Grid Grid.Row="3" Padding="12,6" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

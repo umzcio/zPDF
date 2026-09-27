@@ -26,12 +26,15 @@ internal static partial class Native
     public static partial void FPDF_RenderPageBitmap(IntPtr bitmap, IntPtr page, int x, int y, int width, int height, int rotate, int flags);
 }
 
+/// <summary>The PDF has a password and none (or the wrong one) was given.</summary>
+public sealed class PasswordRequiredException() : IOException("This PDF needs a password.");
+
 /// <summary>A rendered page: top-down BGRA pixels.</summary>
 public sealed record RenderedPage(int Width, int Height, byte[] Pixels);
 
 /// <summary>A PDF opened from memory, so the file itself is never held open
 /// (Windows would otherwise block replacing it on Save).</summary>
-public sealed class PdfDocument : IDisposable
+public sealed partial class PdfDocument : IDisposable
 {
     private const int RenderAnnotations = 0x01, RenderLcdText = 0x02;
     private static readonly object Gate = new();
@@ -62,6 +65,7 @@ public sealed class PdfDocument : IDisposable
             {
                 var error = Native.FPDF_GetLastError();
                 Marshal.FreeHGlobal(data);
+                if (error == 4) throw new PasswordRequiredException();
                 throw new InvalidDataException(error switch
                 {
                     3 => "This file isn't a PDF, or it's damaged.",

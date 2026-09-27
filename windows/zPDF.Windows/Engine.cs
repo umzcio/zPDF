@@ -80,13 +80,15 @@ public sealed class Engine : IDisposable
     }
 
     /// <summary>Runs edit operations on `source` into a new private file; returns its path.</summary>
-    public async Task<string> TransformAsync(string source, JsonArray ops)
+    public async Task<string> TransformAsync(string source, JsonArray ops, string? password = null)
     {
         var destination = Path.Combine(Path.GetTempPath(), $"zpdf-{Guid.NewGuid():N}.pdf");
-        await CallAsync("transform", new JsonObject
+        var parameters = new JsonObject
         {
             ["path"] = source, ["destination"] = destination, ["ops"] = ops, ["sha256"] = Sha256(source),
-        });
+        };
+        if (password is not null) parameters["password"] = password;
+        await CallAsync("transform", parameters);
         return destination;
     }
 
