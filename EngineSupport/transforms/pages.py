@@ -1104,14 +1104,28 @@ def split_by_size(ctx, max_bytes):
     require(isinstance(max_bytes, (int, float)) and max_bytes >= 10_000, "INVALID_ARGUMENT",
             "Choose a maximum size of at least 10 KB.")
     pdf = ctx.pdf
-    groups, current, seen, size = [], [], set(), 2000
+    # Every part keeps the document-level objects (form, tags, metadata, output intents,
+    # names…): count them once per part, and never again for its pages.
+    shared = set()
+    base = 2000 + sum(_reachable_size(value, shared) for key, value in pdf.Root.items()
+                      if key not in ("/Pages", "/Type") and isinstance(value, CONTAINERS))
+    # Raw object sizes overstate the saved file (object streams, shared dictionaries):
+    # scale by how the whole estimate compares with the document's real size.
+    total_seen = set(shared)
+    estimate = base + sum(_reachable_size(page.obj, total_seen) for page in pdf.pages)
+    try:
+        factor = min(1.25, max(0.5, ctx.source.stat().st_size / estimate))
+    except (OSError, ZeroDivisionError, AttributeError):
+        factor = 1.0
+    limit = max_bytes / factor
+    groups, current, seen, size = [], [], set(shared), base
     for index, page in enumerate(pdf.pages):
         trial = set(seen)
         added = _reachable_size(page.obj, trial)
-        if current and size + added > max_bytes:
+        if current and size + added > limit:
             groups.append(current)
-            current, seen, size = [], set(), 2000
-            trial = set()
+            current, seen, size = [], set(shared), base
+            trial = set(shared)
             added = _reachable_size(page.obj, trial)
         current.append(index)
         seen = trial

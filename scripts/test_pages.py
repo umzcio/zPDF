@@ -292,6 +292,19 @@ class LabelBoxTests(Base):
         self.assertEqual(sum(len(g) for g in groups), 5)
         self.assertGreater(len(groups), 1)
 
+    def test_split_by_size_parts_fit(self):
+        # Document-level objects (the W-9's form and tags) are in every part: the
+        # estimate must count them, and not so heavily that the whole file splits.
+        import transforms
+        src = self.fixture("irs-w9.pdf")
+        for limit, expected in ((150_000, 1), (110_000, None)):
+            groups = transforms.inspect(src, "split_by_size", {"max_bytes": limit})["groups"]
+            if expected is not None:
+                self.assertEqual(len(groups), expected)
+            for n, group in enumerate(groups):
+                part, _ = self.run_ops(src, [{"op": "keep_pages", "pages": group}], name=f"part{limit}-{n}.pdf")
+                self.assertLessEqual(part.stat().st_size, limit)
+
 
 class PortfolioTests(Base):
     def test_create_list_extract(self):
