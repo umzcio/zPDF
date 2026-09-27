@@ -64,7 +64,7 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 
 ## H. Edit content
 - [x] Edit text blocks in place; add text; find & replace in content
-- [~] Images: add, replace; objects: move, resize (corner handles), arrange, delete — no crop/align yet
+- [x] Images: add, replace, crop; objects: move, resize (corner handles), align on the page, arrange, delete
 - [x] Links: add/edit/remove; attachments; layers
 
 ## I. App

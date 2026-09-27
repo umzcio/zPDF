@@ -135,6 +135,14 @@ public sealed partial class DocumentPane
         if (!IsEditingContent) return false;
         CloseContentEditor(commit: true);
         if (!_content.ContainsKey(slot.Index)) { _ = LoadContentAsync(slot.Index); return true; }
+        if (_croppingImage && _contentSelection is { } cropping && cropping.Page == slot.Index)
+        {
+            _contentPressSlot = slot;
+            _contentMoveStart = point;
+            _contentMoving = false;
+            return true;
+        }
+        _croppingImage = false;
         if (_contentSelection is { } current && current.Page == slot.Index && CornerAt(slot, point, ContentCorners()) is var corner and >= 0)
         {
             _contentResizeCorner = corner;
@@ -166,6 +174,11 @@ public sealed partial class DocumentPane
         if (!_contentMoving && Distance(point, _contentMoveStart) < 3) return true;
         _contentMoving = true;
         var rect = BoxRect(info, sel.Box);
+        if (_croppingImage)
+        {
+            pressSlot.SetDraft(new Draft(DraftShape.Rectangle, [_contentMoveStart, point], Microsoft.UI.ColorHelper.FromArgb(255, 0, 103, 192)));
+            return true;
+        }
         if (_contentResizeCorner >= 0)
         {
             var corners = ContentCorners();
@@ -191,6 +204,18 @@ public sealed partial class DocumentPane
             if (_contentMoving && _contentSelection is { } sel && Info(sel.Page) is { } info)
             {
                 _contentMoving = false;
+                if (_croppingImage)
+                {
+                    _croppingImage = false;
+                    var keep = new Rect(_contentMoveStart, point);
+                    keep.Intersect(BoxRect(info, sel.Box));
+                    if (keep.IsEmpty || keep.Width < 2 || keep.Height < 2) { StatusText.Text = "Drag inside the image to choose what to keep."; return true; }
+                    _ = EditContentAsync("Cropping…", sel.Page, new JsonObject
+                    {
+                        ["op"] = "image_crop", ["id"] = sel.Id, ["rect"] = ToJson(PdfRect(info, keep)),
+                    });
+                    return true;
+                }
                 if (_contentResizeCorner >= 0)
                 {
                     var (scale, anchor) = ContentScale(ContentCorners(), _contentResizeCorner, point);
@@ -287,7 +312,7 @@ public sealed partial class DocumentPane
     {
         var selected = IsEditingContent && _contentSelection is not null;
         ObjectCommands.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
-        ReplaceImageButton.Visibility = _contentSelection?.Kind == "image" ? Visibility.Visible : Visibility.Collapsed;
+        ReplaceImageButton.Visibility = CropImageButton.Visibility = _contentSelection?.Kind == "image" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ObjectArrange_Click(object sender, RoutedEventArgs e)
@@ -300,6 +325,36 @@ public sealed partial class DocumentPane
     }
 
     private void ObjectDelete_Click(object sender, RoutedEventArgs e) => DeleteSelectedObject();
+
+    private bool _croppingImage;  // the next drag on the page is the area of the selected image to keep
+
+    private void CropImage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contentSelection is not { Kind: "image" }) return;
+        _croppingImage = true;
+        ShowTransient("Drag over the part of the image to keep (Esc to cancel).");
+    }
+
+    /// <summary>Moves the selected object to a page edge or centre (the page as seen, 36 pt margin for edges).</summary>
+    private void ObjectAlign_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contentSelection is not { } sel || sender is not FrameworkElement { Tag: string how } || Info(sel.Page) is not { } info) return;
+        var box = BoxRect(info, sel.Box);
+        const double margin = 36;
+        var target = how switch
+        {
+            "left" => new Point(margin, box.Y), "center" => new Point((info.Width - box.Width) / 2, box.Y),
+            "right" => new Point(info.Width - margin - box.Width, box.Y), "top" => new Point(box.X, margin),
+            "middle" => new Point(box.X, (info.Height - box.Height) / 2), _ => new Point(box.X, info.Height - margin - box.Height),
+        };
+        var from = info.ToPage(new Point(box.X, box.Y));
+        var to = info.ToPage(target);
+        _ = EditContentAsync("Aligning…", sel.Page, new JsonObject
+        {
+            ["op"] = "object_transform", ["ids"] = new JsonArray(sel.Id),
+            ["matrix"] = new JsonArray(1, 0, 0, 1, Math.Round(to.X - from.X, 3), Math.Round(to.Y - from.Y, 3)),
+        });
+    }
 
     private bool DeleteSelectedObject()
     {

@@ -341,6 +341,21 @@
                 <Button Tag="backward" Click="ObjectArrange_Click" ToolTipService.ToolTip="Send backward" AutomationProperties.Name="Send backward"><FontIcon Glyph="&#xE74B;" FontSize="16" /></Button>
                 <Button Tag="back" Click="ObjectArrange_Click" ToolTipService.ToolTip="Send to back" AutomationProperties.Name="Send to back"><FontIcon Glyph="&#xE747;" FontSize="16" /></Button>
                 <Button x:Name="ReplaceImageButton" Click="ReplaceImage_Click" ToolTipService.ToolTip="Replace image" AutomationProperties.Name="Replace image"><FontIcon Glyph="&#xE8B9;" FontSize="16" /></Button>
+                <Button x:Name="CropImageButton" Click="CropImage_Click" ToolTipService.ToolTip="Crop image (drag the area to keep)" AutomationProperties.Name="Crop image"><FontIcon Glyph="&#xE7A8;" FontSize="16" /></Button>
+                <DropDownButton ToolTipService.ToolTip="Align on the page" AutomationProperties.Name="Align on the page">
+                    <FontIcon Glyph="&#xE8E4;" FontSize="16" />
+                    <DropDownButton.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="Align Left" Tag="left" Click="ObjectAlign_Click" />
+                            <MenuFlyoutItem Text="Center Horizontally" Tag="center" Click="ObjectAlign_Click" />
+                            <MenuFlyoutItem Text="Align Right" Tag="right" Click="ObjectAlign_Click" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Align Top" Tag="top" Click="ObjectAlign_Click" />
+                            <MenuFlyoutItem Text="Center Vertically" Tag="middle" Click="ObjectAlign_Click" />
+                            <MenuFlyoutItem Text="Align Bottom" Tag="bottom" Click="ObjectAlign_Click" />
+                        </MenuFlyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
                 <Button Click="ObjectDelete_Click" ToolTipService.ToolTip="Delete" AutomationProperties.Name="Delete object"><FontIcon Glyph="&#xE74D;" FontSize="16" /></Button>
             </StackPanel>
             <AppBarSeparator />

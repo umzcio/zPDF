@@ -267,6 +267,7 @@ public sealed partial class DocumentPane : IPageHost
     private void Escape_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         if (IsFullScreen) SetFullScreen(false);
+        else if (_croppingImage) { _croppingImage = false; StatusText.Text = ""; }
         else if (FindBar.Visibility == Visibility.Visible) CloseFind();
         else if (IsEditingContent && _contentSelection is not null) { _contentSelection = null; UpdateContentCommands(); RefreshMarks(); }
         else if (_tool != CommentTool.Select) SetTool(CommentTool.Select);
