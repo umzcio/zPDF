@@ -76,9 +76,9 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 - [x] OCR: straighten and clean scans; text-layer status; remove recognized text
 - [x] Measurement snapping to vector art; measurement list and CSV export; compare comments
 - [x] Signatures: add LTV (after or while signing), clear signature field, view signed version
-- [x] Forms: calculation order, tab order, duplicate field across pages, recalculate, XFA → AcroForm, QR barcodes (PDF417 not yet)
+- [x] Forms: calculation order, tab order, duplicate field across pages, recalculate, XFA → AcroForm, QR and PDF417 barcodes
 - [x] Document JavaScript list/remove; tags editor; identify as PDF/UA; standards status
-- [~] Print a selected area (done); articles and 3D content lists (not yet)
+- [x] Print a selected area; articles and 3D content lists
 
 ## I. App
 - [x] Several documents: tabs (Ctrl+T, Ctrl+W, Ctrl+Tab; reorder) and separate windows (Ctrl+N; preference)
