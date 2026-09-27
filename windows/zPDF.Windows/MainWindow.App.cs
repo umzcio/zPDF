@@ -67,7 +67,26 @@ public sealed partial class MainWindow
         var windows = new CheckBox { Content = "Open files in a new window when one is already open", IsChecked = settings.OpenInNewWindow };
         var clear = new Button { Content = "Clear Recent Files" };
         clear.Click += (_, _) => { settings.ClearRecent(); ShowStartRecents(); clear.IsEnabled = false; };
-        if (!await AskAsync("Preferences", Stack(author, zoom, fields, windows, clear), "Save")) return;
+        var defaults = new Button { Content = FileAssociation.IsRegistered() ? "Choose zPDF as the Default PDF App…" : "Make zPDF Available for PDFs…" };
+        defaults.Click += async (_, _) =>
+        {
+            try
+            {
+                FileAssociation.Register();
+                await FileAssociation.OpenDefaultAppsSettingsAsync();
+                defaults.Content = "Choose zPDF as the Default PDF App…";
+            }
+            catch (Exception error) when (error is UnauthorizedAccessException or IOException or InvalidOperationException or System.Security.SecurityException)
+            {
+                StatusText.Text = $"Couldn't register zPDF for PDFs: {error.Message}";
+            }
+        };
+        var defaultsNote = new TextBlock
+        {
+            Text = "zPDF appears in \"Open with\". Windows lets only you choose the default app, so this opens Settings ▸ Default apps.",
+            TextWrapping = TextWrapping.Wrap, Opacity = 0.75,
+        };
+        if (!await AskAsync("Preferences", Stack(author, zoom, fields, windows, clear, defaults, defaultsNote), "Save")) return;
         settings.AuthorName = author.Text.Trim();
         settings.FitWidthOnOpen = zoom.SelectedIndex == 0;
         settings.HighlightFields = fields.IsChecked == true;
