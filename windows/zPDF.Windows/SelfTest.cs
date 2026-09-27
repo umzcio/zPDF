@@ -85,6 +85,22 @@ internal static class SelfTest
         var sig = report["signatures"]!.AsArray().First(x => x!["signed"]?.GetValue<bool>() == true)!;
         Console.WriteLine($"signature image {SignatureArt.Size(png)}; digital signature by {sig["name"]}: integrity={sig["integrity"]} covers={sig["covers_document"]}");
         File.Delete(stamped); File.Delete(signed);
+        var docx = Path.Combine(folder, "export.docx");
+        var exported = await Exporter.ExportAsync(input, "docx", [0, 1], docx, null, null, CancellationToken.None);
+        Console.WriteLine($"export: {Path.GetFileName(exported.Path)} {exported.Bytes} bytes, notices [{string.Join(", ", exported.Notices)}]");
+        var ocr = Windows.Media.Ocr.OcrEngine.TryCreateFromUserProfileLanguages();
+        if (ocr is null) Console.WriteLine("ocr: no OCR language installed");
+        else
+        {
+            using var ocrDoc = PdfDocument.Open(input);
+            var image = ocrDoc.Render(0, 2);
+            using var bitmap = Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromBuffer(
+                System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(image.Pixels),
+                Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, image.Width, image.Height, Windows.Graphics.Imaging.BitmapAlphaMode.Ignore);
+            var result = await ocr.RecognizeAsync(bitmap);
+            var words = result.Lines.SelectMany(l => l.Words).ToList();
+            Console.WriteLine($"ocr ({ocr.RecognizerLanguage.LanguageTag}): {result.Lines.Count} lines, {words.Count} words; first: {string.Join(" ", words.Take(4).Select(w => w.Text))}");
+        }
         var saved = Path.Combine(folder, "watermarked.pdf");
         var receipt = await engine.PublishAsync(edited, saved, overwrite: true);
         File.Delete(edited);

@@ -120,6 +120,32 @@
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
+            <AppBarButton x:Name="ConvertMenuButton" Label="Convert" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE8AB;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Export to Word…" Tag="docx" Click="Export_Click" />
+                        <MenuFlyoutItem Text="Export to Excel…" Tag="xlsx" Click="Export_Click" />
+                        <MenuFlyoutItem Text="Export to PowerPoint…" Tag="pptx" Click="Export_Click" />
+                        <MenuFlyoutSubItem Text="Export to Other Format">
+                            <MenuFlyoutItem Text="Web Page (HTML)…" Tag="html" Click="Export_Click" />
+                            <MenuFlyoutItem Text="Markdown…" Tag="md" Click="Export_Click" />
+                            <MenuFlyoutItem Text="Rich Text (RTF)…" Tag="rtf" Click="Export_Click" />
+                            <MenuFlyoutItem Text="XML…" Tag="xml" Click="Export_Click" />
+                            <MenuFlyoutItem Text="EPUB Book…" Tag="epub" Click="Export_Click" />
+                            <MenuFlyoutItem Text="Plain Text…" Tag="txt" Click="Export_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSubItem Text="Export Pages as Images">
+                            <MenuFlyoutItem Text="PNG…" Tag="png" Click="Export_Click" />
+                            <MenuFlyoutItem Text="JPEG…" Tag="jpg" Click="Export_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Recognize Text (OCR)…" Click="RecognizeText_Click" />
+                        <MenuFlyoutItem Text="Reduce File Size…" Click="ReduceSize_Click" />
+                        <MenuFlyoutItem Text="Save as PDF/A…" Click="ConvertPdfA_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
             <AppBarButton x:Name="DocumentMenuButton" Label="Document" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE8F4;" /></AppBarButton.Icon>
                 <AppBarButton.Flyout>
