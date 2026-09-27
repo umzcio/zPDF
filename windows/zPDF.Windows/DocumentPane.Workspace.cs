@@ -81,7 +81,7 @@ public sealed partial class DocumentPane
             {
                 var row = new Button { Style = (Style)Application.Current.Resources["ZRow"], MinHeight = 38 };
                 var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-                content.Children.Add(new FontIcon { Glyph = tool.Glyph, FontSize = 17, Width = 24, Foreground = (Brush)Application.Current.Resources["ZAccent"] });
+                content.Children.Add(new FontIcon { Glyph = tool.Glyph, FontSize = 17, Width = 24, Foreground = ThemeBrushes.Get(this, "ZAccent") });
                 content.Children.Add(new TextBlock { Text = tool.Name, FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
                 row.Content = content;
                 ToolTipService.SetToolTip(row, tool.Description);
@@ -92,7 +92,7 @@ public sealed partial class DocumentPane
             }
         }
         if (ToolListItems.Children.Count == 0)
-            ToolListItems.Children.Add(new TextBlock { Text = "No tools match.", FontSize = 12, Foreground = (Brush)Application.Current.Resources["ZMuted"], Margin = new Thickness(4, 12, 0, 0) });
+            ToolListItems.Children.Add(new TextBlock { Text = "No tools match.", FontSize = 12, Foreground = ThemeBrushes.Get(this, "ZMuted"), Margin = new Thickness(4, 12, 0, 0) });
     }
 
     private void ToolSearch_TextChanged(object sender, TextChangedEventArgs e) => BuildToolList(ToolSearchBox.Text.Trim());
@@ -183,7 +183,7 @@ public sealed partial class DocumentPane
     {
         var button = new Button { Style = (Style)Application.Current.Resources["ZRow"], Tag = tag };
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        content.Children.Add(new FontIcon { Glyph = glyph, FontSize = 13, Width = 18, Foreground = (Brush)Application.Current.Resources["ZMuted"] });
+        content.Children.Add(new FontIcon { Glyph = glyph, FontSize = 13, Width = 18, Foreground = ThemeBrushes.Get(this, "ZMuted") });
         content.Children.Add(new TextBlock { Text = title, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap });
         button.Content = content;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, title.TrimEnd('…'));
@@ -192,11 +192,11 @@ public sealed partial class DocumentPane
     }
 
     /// <summary>Mac PanelNote: small muted text on an inset box.</summary>
-    private static Border PanelNote(string text) => new()
+    private Border PanelNote(string text) => new()
     {
-        Background = (Brush)Application.Current.Resources["ZInset"], CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 8),
-        BorderBrush = (Brush)Application.Current.Resources["ZHairline"], BorderThickness = new Thickness(1), Margin = new Thickness(0, 10, 0, 0),
-        Child = new TextBlock { Text = text, FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)Application.Current.Resources["ZMuted"] },
+        Background = ThemeBrushes.Get(this, "ZInset"), CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 8),
+        BorderBrush = ThemeBrushes.Get(this, "ZHairline"), BorderThickness = new Thickness(1), Margin = new Thickness(0, 10, 0, 0),
+        Child = new TextBlock { Text = text, FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = ThemeBrushes.Get(this, "ZMuted") },
     };
 
     private static void AddAll(Panel panel, params UIElement[] children)
@@ -481,7 +481,7 @@ public sealed partial class DocumentPane
         void Line(string text, bool muted = false) => InfoPanelBody.Children.Add(new TextBlock
         {
             Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap,
-            Foreground = muted ? (Brush)Application.Current.Resources["ZMuted"] : (Brush)Application.Current.Resources["ZText"],
+            Foreground = muted ? ThemeBrushes.Get(this, "ZMuted") : ThemeBrushes.Get(this, "ZText"),
         });
         try
         {
@@ -591,6 +591,35 @@ public sealed partial class DocumentPane
     }
 
     private void ZoomButton_Click(object sender, RoutedEventArgs e) => FlyoutBase.ShowAttachedFlyout(ZoomButton);
+
+    /// <summary>For --xamlcheck: removes one part of the pane ("none" keeps everything).</summary>
+    public void RemoveForCheck(string part)
+    {
+        var body = (Grid)ToolsDrawer.Parent;
+        switch (part)
+        {
+            case "accelerators": RootGrid.KeyboardAccelerators.Clear(); break;
+            case "menu": RootGrid.Children.Remove(AppMenu); break;
+            case "toolbar": RootGrid.Children.Remove(Toolbar); break;
+            case "status": RootGrid.Children.Remove(StatusBar); break;
+            case "body": RootGrid.Children.Remove(body); break;
+            case "drawer": body.Children.Remove(ToolsDrawer); break;
+            case "canvas": body.Children.Remove((FrameworkElement)PageScroller.Parent); break;
+            case "sidebar": body.Children.Remove(Sidebar); break;
+            case "rail": body.Children.Remove(RailColumn); break;
+            case "alltools": Toolbar.Children.Remove((FrameworkElement)AllToolsButton.Parent); break;
+            case "viewcontrols": Toolbar.Children.Remove(ViewControls); break;
+            case "right": Toolbar.Children.Remove((FrameworkElement)FindButton.Parent); break;
+            case "pagebox": ViewControls.Children.Remove(PageBox); break;
+            case "rotate": ViewControls.Children.Remove(RotateButton); break;
+            case "find": ((Panel)FindButton.Parent).Children.Remove(FindButton); break;
+            case "share": ((Panel)ShareButton.Parent).Children.Remove(ShareButton); break;
+        }
+    }
+
+    /// <summary>For --xamlcheck: the pane's big sections, to show one at a time.</summary>
+    public IEnumerable<FrameworkElement> LayoutSections() =>
+        [AppMenu, Toolbar, StatusBar, RailColumn, QuickTools, PageScroller, ToolList, ToolsDrawer, ToolPanelHost, CommentBox, EditBox, FillBox, PrepareBox, RedactBox, MeasureBox, Sidebar];
 
     /// <summary>For --screenshot: "tools" shows All tools; anything else opens that tool.</summary>
     public void ShowForScreenshot(string step)

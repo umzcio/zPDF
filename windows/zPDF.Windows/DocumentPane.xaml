@@ -359,6 +359,17 @@
                 </Grid>
                 <!-- An open tool's panel -->
                 <Grid x:Name="ToolPanelHost" Visibility="Collapsed" Padding="12,10,12,0" RowSpacing="8">
+                    <Grid.Resources>
+                    <!-- Selected = accent icon on an accent tint (Mac rail / panel tiles), not a solid fill. -->
+                    <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="ZAccentTint" />
+                    <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ZAccentTint" />
+                    <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ZAccentTint" />
+                    <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="ZAccent" />
+                    </Grid.Resources>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -787,6 +798,17 @@
             <!-- ======================== panel rail (Mac DocumentPanelRail, 44 wide) -->
             <Grid x:Name="RailColumn" Grid.Column="3" Width="44" Background="{ThemeResource ZBar}" BorderBrush="{ThemeResource ZHairline}" BorderThickness="1,0,0,0">
                 <StackPanel x:Name="PanelRail" Spacing="4" Padding="0,8">
+                    <StackPanel.Resources>
+                    <!-- Selected = accent icon on an accent tint (Mac rail / panel tiles), not a solid fill. -->
+                    <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="ZAccentTint" />
+                    <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ZAccentTint" />
+                    <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ZAccentTint" />
+                    <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="ZAccent" />
+                    <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="ZAccent" />
+                    </StackPanel.Resources>
                     <ToggleButton x:Name="CommentsTab" Tag="Comments" Style="{StaticResource ZRailButton}" Click="RailButton_Click"
                                   ToolTipService.ToolTip="Comments" AutomationProperties.Name="Comments"><FontIcon Glyph="&#xE90A;" FontSize="16" /></ToggleButton>
                     <ToggleButton x:Name="PagesTab" Tag="Pages" Style="{StaticResource ZRailButton}" Click="RailButton_Click"

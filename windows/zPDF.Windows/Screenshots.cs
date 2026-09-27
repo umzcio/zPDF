@@ -13,18 +13,26 @@ internal static class Screenshots
     public static async Task CaptureAsync(MainWindow window, string input, string folder)
     {
         Directory.CreateDirectory(folder);
+        var log = Path.Combine(folder, "steps.txt");
+        void Step(string text) => File.AppendAllText(log, $"{DateTime.Now:HH:mm:ss.fff} {text}\n");
+        Step("start");
         window.AppWindow.Resize(new Windows.Graphics.SizeInt32(1440, 900));
         await Task.Delay(1500);
         await SaveAsync(window, Path.Combine(folder, "1-home.png"));
+        Step("home saved");
         var pane = window.AddTab(input);
+        Step("tab added");
         for (var i = 0; i < 100 && pane.IsEmpty; i++) await Task.Delay(100);
+        Step($"document loaded: {!pane.IsEmpty}");
         await Task.Delay(2500);
         await SaveAsync(window, Path.Combine(folder, "2-document.png"));
+        Step("document saved");
         foreach (var (step, name) in new[] { ("tools", "3-all-tools"), ("comment", "4-comment"), ("protect", "5-protect"), ("fillSign", "6-fill-forms"), ("edit", "7-edit") })
         {
             pane.ShowForScreenshot(step);
             await Task.Delay(900);
             await SaveAsync(window, Path.Combine(folder, name + ".png"));
+            Step(name);
         }
         if (window.Content is FrameworkElement root)
         {

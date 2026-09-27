@@ -54,8 +54,8 @@ public sealed partial class HomeView : UserControl
     private FrameworkElement Card(string path, bool isStarred, int generation)
     {
         var res = Application.Current.Resources;
-        var well = new Grid { Height = 118, Background = (Brush)res["ZWindow"] };
-        var placeholder = new FontIcon { Glyph = "", FontSize = 34, Foreground = (Brush)res["ZAccent"] };
+        var well = new Grid { Height = 118, Background = ThemeBrushes.Get(this, "ZWindow") };
+        var placeholder = new FontIcon { Glyph = "", FontSize = 34, Foreground = ThemeBrushes.Get(this, "ZAccent") };
         well.Children.Add(placeholder);
         var image = new Image { Stretch = Stretch.Uniform, Margin = new Thickness(0, 8, 0, 0) };
         well.Children.Add(image);
@@ -65,12 +65,12 @@ public sealed partial class HomeView : UserControl
         var opened = AppSettings.Current.LastOpened.TryGetValue(path, out var when) ? when : info.LastWriteTime;
         var size = info.Length >= 1 << 20 ? $"{info.Length / 1048576.0:0.0} MB" : $"{Math.Max(1, info.Length / 1024)} KB";
         var name = new TextBlock { Text = Path.GetFileName(path), FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
-        var detail = new TextBlock { Text = $"Last opened {Relative(opened)} · {size}", FontSize = 11, Foreground = (Brush)res["ZMuted"], TextTrimming = TextTrimming.CharacterEllipsis };
+        var detail = new TextBlock { Text = $"Last opened {Relative(opened)} · {size}", FontSize = 11, Foreground = ThemeBrushes.Get(this, "ZMuted"), TextTrimming = TextTrimming.CharacterEllipsis };
         var star = new Button
         {
             Width = 28, Height = 28, Padding = new Thickness(0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
-            Content = new FontIcon { Glyph = isStarred ? "" : "", FontSize = 13, Foreground = isStarred ? (Brush)res["ZStar"] : (Brush)res["ZMuted"] },
+            Content = new FontIcon { Glyph = isStarred ? "" : "", FontSize = 13, Foreground = isStarred ? ThemeBrushes.Get(this, "ZStar") : ThemeBrushes.Get(this, "ZMuted") },
         };
         ToolTipService.SetToolTip(star, isStarred ? "Remove from Starred" : "Star");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(star, isStarred ? $"Unstar {Path.GetFileName(path)}" : $"Star {Path.GetFileName(path)}");
@@ -96,7 +96,7 @@ public sealed partial class HomeView : UserControl
         var card = new Button
         {
             Width = 190, Padding = new Thickness(0), CornerRadius = new CornerRadius(10), HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background = (Brush)res["ZSurface"], BorderBrush = (Brush)res["ZHairline"], BorderThickness = new Thickness(1), Content = body,
+            Background = ThemeBrushes.Get(this, "ZSurface"), BorderBrush = ThemeBrushes.Get(this, "ZHairline"), BorderThickness = new Thickness(1), Content = body,
         };
         ToolTipService.SetToolTip(card, path);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"Open {Path.GetFileName(path)}, last opened {Relative(opened)}, {size}");

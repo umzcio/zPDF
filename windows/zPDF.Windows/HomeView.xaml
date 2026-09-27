@@ -10,6 +10,17 @@
         </Grid.ColumnDefinitions>
         <StackPanel Background="{ThemeResource ZSidebar}" Padding="10,16" Spacing="2"
                     BorderBrush="{ThemeResource ZHairline}" BorderThickness="0,0,1,0">
+            <StackPanel.Resources>
+                <!-- Selected = accent icon on an accent tint (Mac rail / panel tiles), not a solid fill. -->
+                <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="ZAccentTint" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ZAccentTint" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ZAccentTint" />
+                <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="ZAccent" />
+                <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="ZAccent" />
+                <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="ZAccent" />
+                <StaticResource x:Key="ToggleButtonBorderBrushChecked" ResourceKey="ZAccent" />
+                <StaticResource x:Key="ToggleButtonBorderBrushCheckedPointerOver" ResourceKey="ZAccent" />
+            </StackPanel.Resources>
             <TextBlock Text="FILES" Style="{StaticResource ZSectionLabel}" Margin="8,0,0,6" />
             <ToggleButton x:Name="RecentFilter" Tag="recent" IsChecked="True" Click="Filter_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           Height="30" Padding="8,0" CornerRadius="6" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Recent">
@@ -50,7 +61,7 @@
                 <TextBlock x:Name="ListTitle" Text="Recent files" FontSize="14" FontWeight="SemiBold" />
                 <GridView x:Name="Cards" SelectionMode="None" IsItemClickEnabled="False" Padding="0">
                     <GridView.ItemContainerStyle>
-                        <Style TargetType="GridViewItem" BasedOn="{StaticResource DefaultGridViewItemStyle}">
+                        <Style TargetType="GridViewItem">
                             <Setter Property="Margin" Value="0,0,16,16" />
                             <Setter Property="Padding" Value="0" />
                         </Style>

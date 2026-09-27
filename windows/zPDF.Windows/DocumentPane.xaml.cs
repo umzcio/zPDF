@@ -52,9 +52,19 @@ public sealed partial class DocumentPane : UserControl
         AttachmentList.ItemsSource = _attachments;
         LayerList.ItemsSource = _layers;
         Pages.ItemsSource = _slots;
-        // Ctrl with the main keyboard's =/+ and − keys (OEM keys have no XAML name).
-        ZoomInButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)187 });
-        ZoomOutButton.KeyboardAccelerators.Add(new() { Modifiers = VirtualKeyModifiers.Control, Key = (VirtualKey)189 });
+        // Ctrl with the main keyboard's =/+ and − keys (OEM keys have no XAML name). On the root,
+        // not on the buttons: a button's tooltip can't display an OEM key and WinUI crashes.
+        foreach (var (key, zoomIn) in new[] { ((VirtualKey)187, true), ((VirtualKey)189, false) })
+        {
+            var shortcut = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Modifiers = VirtualKeyModifiers.Control, Key = key };
+            shortcut.Invoked += (_, args) =>
+            {
+                if (_document is null) return;
+                args.Handled = true;
+                if (zoomIn) ZoomIn_Click(this, new RoutedEventArgs()); else ZoomOut_Click(this, new RoutedEventArgs());
+            };
+            RootGrid.KeyboardAccelerators.Add(shortcut);
+        }
         HoistToolbarAccelerators();
         InitializeWorkspace();
         ShowStartRecents();

@@ -14,6 +14,9 @@ public sealed partial class MainWindow : Window
     private bool _closeConfirmed;
     private bool _updatesStarted;
 
+    /// <summary>--xamlcheck: records progress through AddTab.</summary>
+    public static Action<string>? Trace;
+
     public MainWindow(string? path = null)
     {
         InitializeComponent();
@@ -35,13 +38,18 @@ public sealed partial class MainWindow : Window
     public DocumentPane? ActivePane => (Tabs.SelectedItem as TabViewItem)?.Tag as DocumentPane;
 
     /// <summary>A new tab, optionally opening `path` in it; it becomes the selected tab.</summary>
-    public DocumentPane AddTab(string? path)
+    public DocumentPane AddTab(string? path, Action<DocumentPane>? prepare = null)
     {
         var pane = new DocumentPane(this);
+        prepare?.Invoke(pane);
+        Trace?.Invoke("pane created");
         var tab = new TabViewItem { Tag = pane, Header = "New Tab", MaxWidth = 220, IconSource = new SymbolIconSource { Symbol = Symbol.Document } };
         Tabs.TabItems.Add(tab);
+        Trace?.Invoke("tab added");
         Tabs.SelectedItem = tab;
+        Trace?.Invoke("tab selected");
         ShowPane(pane);
+        Trace?.Invoke("pane shown");
         if (path is not null) _ = pane.OpenAsync(path);
         if (!_updatesStarted)
         {
@@ -140,7 +148,9 @@ public sealed partial class MainWindow : Window
 
     private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        Trace?.Invoke("selection changed");
         if (ActivePane is { } pane) ShowPane(pane);
+        Trace?.Invoke("selection handled");
         UpdateTitle();
     }
 
