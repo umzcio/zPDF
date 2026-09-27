@@ -353,6 +353,11 @@ public sealed partial class DocumentPane : UserControl
     private void ZoomOut_Click(object sender, RoutedEventArgs e) => SetZoom(ZoomSteps.LastOrDefault(z => z < _zoom - 0.001, ZoomSteps[0]));
     private void ActualSize_Click(object sender, RoutedEventArgs e) => SetZoom(1);
 
+    private void ZoomPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string value } && double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var zoom)) SetZoom(zoom);
+    }
+
     private void FitWidth_Click(object sender, RoutedEventArgs e)
     {
         _fitWidth = true;
@@ -760,7 +765,7 @@ public sealed partial class DocumentPane : UserControl
         var open = _document is not null;
         SaveAsItem.IsEnabled = ExportMenu.IsEnabled = ReduceItem.IsEnabled = PrintItem.IsEnabled = PropertiesItem.IsEnabled = PrintAreaItem.IsEnabled = open;
         EditMenu.IsEnabled = ViewMenu.IsEnabled = NavigateMenu.IsEnabled = CommentMenu.IsEnabled = FormsMenu.IsEnabled = DocumentMenu.IsEnabled = open;
-        FindButton.IsEnabled = ShareButton.IsEnabled = FitPageButton.IsEnabled = RotateButton.IsEnabled = PageBox.IsEnabled = open;
+        FindButton.IsEnabled = ShareButton.IsEnabled = ToolbarZoomButton.IsEnabled = FitPageButton.IsEnabled = RotateButton.IsEnabled = PageBox.IsEnabled = open;
         SaveItem.IsEnabled = IsEdited;
         ZoomInButton.IsEnabled = open && _zoom < ZoomSteps[^1] - 0.001;
         ZoomOutButton.IsEnabled = open && _zoom > ZoomSteps[0] + 0.001;

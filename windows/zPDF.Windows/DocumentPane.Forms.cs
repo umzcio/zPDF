@@ -308,6 +308,8 @@ public sealed partial class DocumentPane
         _editing = null;
         _editorSlot = null;
         slot.SetEditor(null, null);
+        // The field's hint was only for while it was being filled in.
+        if (StatusText.Text == (widget.Field.Tooltip.Length > 0 ? widget.Field.Tooltip.Trim() : widget.Field.Name)) StatusText.Text = "";
         if (commit && element is TextBox box && box.Text != CurrentText(widget.Field)) SetPending(widget.Field, JsonValue.Create(box.Text));
         else if (commit && element is ComboBox { IsEditable: true } combo && combo.SelectedIndex < 0 && combo.Text != CurrentText(widget.Field))
             SetPending(widget.Field, JsonValue.Create(combo.Text));
@@ -424,7 +426,7 @@ public sealed partial class DocumentPane
 
     private void Space_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (FindBox.FocusState != FocusState.Unfocused) return;
+        if (FindBox.FocusState != FocusState.Unfocused || DialogOpen()) return;
         args.Handled = ToggleFocusedField();
     }
 

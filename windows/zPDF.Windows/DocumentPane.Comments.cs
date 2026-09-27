@@ -641,6 +641,7 @@ public sealed partial class DocumentPane
     /// <summary>Delete with a comment selected on the page deletes it; Enter edits its text.</summary>
     private void PageDelete_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (DialogOpen()) return;
         if (_contentEditing is null && FindBox.FocusState == FocusState.Unfocused && (DeleteSelectedObject() || DeletePreparedField())) { args.Handled = true; return; }
         if (_selectedComment is null || FindBox.FocusState != FocusState.Unfocused) return;
         args.Handled = true;
@@ -649,6 +650,7 @@ public sealed partial class DocumentPane
 
     private void PageEnter_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (DialogOpen()) return;
         if (IsPreparingForm && _preparedWidget is not null && FindBox.FocusState == FocusState.Unfocused)
         {
             args.Handled = true;

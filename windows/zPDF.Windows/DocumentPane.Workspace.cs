@@ -24,9 +24,9 @@ public sealed partial class DocumentPane
 
     private static readonly Dictionary<string, string> ToolKeywords = new()
     {
-        ["comment"] = "highlight underline strikethrough note sticky text box stamp draw ink rectangle ellipse line arrow color import export xfdf fdf flatten comments",
+        ["comment"] = "sticky note highlight underline strikethrough note text box stamp draw ink rectangle ellipse line arrow color import export xfdf fdf flatten comments",
         ["fillSign"] = "fill form signature initials sign date check mark cross dot clear reset flatten fields",
-        ["organize"] = "insert blank pages from file images replace duplicate rotate delete extract split number page labels page boxes page size resize scale transitions reorder move",
+        ["organize"] = "insert images insert pages insert blank pages from file images replace duplicate rotate delete extract split number page labels page boxes page size resize scale transitions reorder move",
         ["combine"] = "merge join files",
         ["reduce"] = "compress optimize smaller size",
         ["export"] = "word excel powerpoint html markdown rtf xml epub text png jpeg images extract attachments convert",
@@ -34,7 +34,7 @@ public sealed partial class DocumentPane
         ["edit"] = "edit text images add text add image link crop header footer watermark background bates find replace align arrange",
         ["share"] = "send email",
         ["protect"] = "password encrypt security permissions remove security sanitize hidden information",
-        ["redact"] = "black out remove search redact hidden information marks",
+        ["redact"] = "black out remove search & redact search and redact hidden information marks",
         ["optimize"] = "reduce compress space usage audit",
         ["certificates"] = "digital id sign certify validate ltv long-term signed version clear signature",
         ["prepareForm"] = "form fields text check box radio drop-down list date signature button detect tab order calculation barcode xfa",
@@ -123,11 +123,42 @@ public sealed partial class DocumentPane
                 ToolListItems.Children.Add(row);
             }
         }
+        // Menu commands too ("properties", "preferences", "shortcuts", "layers"…), under their menu.
+        if (filter.Length > 1)
+        {
+            var commands = MenuCommands().Where(c => c.Item.Text.Contains(filter, StringComparison.OrdinalIgnoreCase)).Take(12).ToList();
+            if (commands.Count > 0) ToolListItems.Children.Add(Section("Commands"));
+            foreach (var (path, item) in commands)
+            {
+                var row = PanelRow($"{item.Text}", "\uE756", (_, _) =>
+                {
+                    if (item.IsEnabled)
+                        (new Microsoft.UI.Xaml.Automation.Peers.MenuFlyoutItemAutomationPeer(item) as Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider)?.Invoke();
+                });
+                ToolTipService.SetToolTip(row, path);
+                ToolListItems.Children.Add(row);
+            }
+        }
         if (ToolListItems.Children.Count == 0)
             ToolListItems.Children.Add(new TextBlock { Text = "No tools match.", FontSize = 12, Foreground = ThemeBrushes.Get(this, "ZMuted"), Margin = new Thickness(4, 12, 0, 0) });
     }
 
     private void ToolSearch_TextChanged(object sender, TextChangedEventArgs e) => BuildToolList(ToolSearchBox.Text.Trim());
+
+    /// <summary>Every menu command with its path ("File ▸ Export ▸ Word…").</summary>
+    private IEnumerable<(string Path, MenuFlyoutItem Item)> MenuCommands()
+    {
+        IEnumerable<(string, MenuFlyoutItem)> Walk(string path, IEnumerable<MenuFlyoutItemBase> items)
+        {
+            foreach (var item in items)
+            {
+                if (item is MenuFlyoutItem leaf && leaf.Visibility == Visibility.Visible) yield return ($"{path} ▸ {leaf.Text}", leaf);
+                else if (item is MenuFlyoutSubItem sub) foreach (var inner in Walk($"{path} ▸ {sub.Text}", sub.Items)) yield return inner;
+            }
+        }
+        foreach (var menu in AppMenu.Items)
+            foreach (var command in Walk(menu.Title, menu.Items)) yield return command;
+    }
 
     /// <summary>Opens a tool: its panel replaces the tool list in the drawer (Mac AppState.openTool).</summary>
     private void OpenTool(string id)

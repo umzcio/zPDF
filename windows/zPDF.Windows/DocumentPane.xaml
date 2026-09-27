@@ -265,7 +265,24 @@
                         ToolTipService.ToolTip="Zoom out (Ctrl+−)" AutomationProperties.Name="Zoom out">
                     <FontIcon Glyph="&#xE71F;" FontSize="15" />
                 </Button>
-                <TextBlock x:Name="ToolbarZoomText" Text="100%" FontSize="12" Width="44" TextAlignment="Center" VerticalAlignment="Center" />
+                <Button x:Name="ToolbarZoomButton" Style="{StaticResource ZBarButton}" Width="52" Padding="2,0" ToolTipService.ToolTip="Zoom"
+                        AutomationProperties.Name="Zoom" IsEnabled="False">
+                    <TextBlock x:Name="ToolbarZoomText" Text="100%" FontSize="12" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="Bottom">
+                            <MenuFlyoutItem Text="50%" Tag="0.5" Click="ZoomPreset_Click" />
+                            <MenuFlyoutItem Text="75%" Tag="0.75" Click="ZoomPreset_Click" />
+                            <MenuFlyoutItem Text="100%" Tag="1" Click="ZoomPreset_Click" />
+                            <MenuFlyoutItem Text="125%" Tag="1.25" Click="ZoomPreset_Click" />
+                            <MenuFlyoutItem Text="150%" Tag="1.5" Click="ZoomPreset_Click" />
+                            <MenuFlyoutItem Text="200%" Tag="2" Click="ZoomPreset_Click" />
+                            <MenuFlyoutItem Text="400%" Tag="4" Click="ZoomPreset_Click" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Fit Width" Click="FitWidth_Click" />
+                            <MenuFlyoutItem Text="Fit Page" Click="FitPage_Click" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
                 <Button x:Name="ZoomInButton" Style="{StaticResource ZBarButton}" Click="ZoomIn_Click" IsEnabled="False"
                         ToolTipService.ToolTip="Zoom in (Ctrl++)" AutomationProperties.Name="Zoom in">
                     <FontIcon Glyph="&#xE8A3;" FontSize="15" />

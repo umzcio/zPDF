@@ -273,8 +273,12 @@ public sealed partial class DocumentPane : IPageHost
         RefreshMarks();
     }
 
+    /// <summary>A dialog is showing: the page's keys (Esc, Delete, Enter, Space) are the dialog's.</summary>
+    private bool DialogOpen() => XamlRoot is not null && Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Any(p => p.Child is ContentDialog);
+
     private void Escape_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (DialogOpen()) return;
         if (IsFullScreen) SetFullScreen(false);
         else if (_croppingImage) { _croppingImage = false; StatusText.Text = ""; }
         else if (_findOpen) CloseFind();

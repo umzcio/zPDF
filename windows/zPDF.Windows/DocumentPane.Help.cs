@@ -21,14 +21,14 @@ public sealed partial class DocumentPane
 
     private async void KeyboardShortcuts_Click(object sender, RoutedEventArgs e)
     {
-        var panel = new StackPanel { Spacing = 4, MinWidth = 440 };
+        var panel = new StackPanel { Spacing = 4, MinWidth = 500 };
         foreach (var (group, items) in Shortcuts)
         {
             panel.Children.Add(new TextBlock { Text = group, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"], Margin = new Thickness(0, 10, 0, 2) });
             foreach (var (keys, action) in items)
             {
                 var row = new Grid { ColumnSpacing = 16 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 var key = new TextBlock { Text = keys, FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas") };
                 var what = new TextBlock { Text = action, TextWrapping = TextWrapping.Wrap };
