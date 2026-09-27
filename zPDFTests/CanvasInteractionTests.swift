@@ -105,8 +105,10 @@ final class CanvasInteractionTests: XCTestCase {
         let window = try XCTUnwrap(self.window)
         // If PDFKit (not zPDF) takes the mouse-down it tracks the drag in its
         // own loop; this queued mouse-up ends that loop so the test fails
-        // instead of hanging. Unused, it's drained below.
-        let fallback = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseUp, location: start, modifierFlags: [],
+        // instead of hanging. It is at the end point, so a tool that tracks the
+        // gesture itself and dequeues it early still ends where the drag ends.
+        // Unused, it's drained below.
+        let fallback = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseUp, location: end, modifierFlags: [],
                                                         timestamp: ProcessInfo.processInfo.systemUptime,
                                                         windowNumber: window.windowNumber, context: nil,
                                                         eventNumber: 0, clickCount: 1, pressure: 0))
