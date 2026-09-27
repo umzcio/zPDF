@@ -1,9 +1,13 @@
 # zPDF for Windows (prototype)
 
 A C# / WinUI 3 front end on the same engine as the Mac app
-(`EngineSupport/`, PDFium + pikepdf/QPDF). Status: early prototype — open,
-view (zoom, page thumbnails), one engine edit (watermark) with undo, and
-Save As.
+(`EngineSupport/`, PDFium + pikepdf/QPDF). Status: preview — viewing, comments,
+forms, pages, protection and redaction, signing, OCR, conversion and export,
+accessibility, print production and batch processing; see `PARITY.md` for the
+feature-by-feature state against the Mac app.
+
+Each window holds document tabs; one tab is a `DocumentPane` (the
+`DocumentPane*.cs` partials, grouped by area), and `MainWindow` only hosts them.
 
 ## Build and run
 
@@ -23,8 +27,17 @@ its published SHA-256. The build copies it next to `zPDF.exe`; the app then
 needs no Python or QPDF installed. Without it, the app falls back to a
 development Python (`ZPDF_PYTHON`, `ZPDF_ENGINE`, `QPDF_BIN`).
 
-## Headless check
+## Checks
 
-`zPDF.exe --selftest input.pdf outdir` renders page 1 with PDFium, adds a
-watermark through the engine, renders again and saves a copy — no window
-needed (used for checks over SSH). It prints whether the bundled engine ran.
+- `zPDF.exe --selftest input.pdf outdir` — headless (works over SSH): PDFium
+  rendering, forms, a signature, text diff, Word export, OCR with scan cleanup,
+  and an engine edit saved through the publish path. It prints whether the
+  bundled engine ran.
+- `zPDF.exe --printtest input.pdf out.pdf` — prints every page through
+  "Microsoft Print to PDF" without a dialog.
+- `zPDF.exe --uitest input.pdf log.txt` — opens a real window and drives it
+  (edit, undo, redo, measure, checkbox keyboard focus, tabs, preflight), writing
+  PASS/FAIL lines; the exit code is the number of failures. Needs a desktop
+  session (WinUI can't start over SSH).
+
+Unexpected errors are logged to `%LOCALAPPDATA%\zPDF\errors.log`.
