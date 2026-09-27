@@ -83,6 +83,8 @@ partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 ## I. App
 - [x] Several documents: tabs (Ctrl+T, Ctrl+W, Ctrl+Tab; reorder) and separate windows (Ctrl+N; preference)
 - [x] Undo/redo history (Redo), unsaved-change handling on exit
+- [x] Page Display (single page, scrolling, two page, cover page; default in Preferences) and the Organize Pages grid, as on the Mac
+- [x] After an update restart, the windows and tabs that were open reopen
 - [x] Preferences
 - [x] Report a Bug (feedback relay), About, licenses
 - [~] Installer and updates — Velopack Setup.exe and GitHub-Releases updates build; unsigned until there's a code-signing certificate [!]
