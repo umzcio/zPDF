@@ -56,6 +56,17 @@ internal static class SelfTest
         var form = await engine.QueryAsync(filled, "form_fields");
         var field = form["fields"]!.AsArray().First(f => f!["name"]!.GetValue<string>() == "Last Name Family Name from Section 1");
         Console.WriteLine($"form: {form["fields"]!.AsArray().Count} fields; filled value = '{field!["value"]}'");
+        using (var filledDoc = PdfDocument.Open(filled))
+        {
+            // The filled value must be drawn (PDFium needs its form environment for this).
+            var r = field["widgets"]![0]!["rect"]!.AsArray().Select(v => v!.GetValue<double>()).ToArray();
+            var page = filledDoc.Render(field["widgets"]![0]!["page"]!.GetValue<int>(), 2);
+            var dark = 0;
+            for (var y = (int)((792 - r[3]) * 2); y < (int)((792 - r[1]) * 2); y++)
+                for (var x = (int)(r[0] * 2); x < (int)(r[2] * 2); x++)
+                    if (page.Pixels[(y * page.Width + x) * 4 + 1] < 128) dark++;
+            Console.WriteLine($"filled field renders {dark} dark pixels (0 would mean the value is invisible)");
+        }
         File.Delete(filled);
         // Fill & Sign image and a digital signature, end to end.
         var png = SignatureArt.Typed("Jane Doe", SignatureArt.InstalledFonts().FirstOrDefault() ?? "Segoe Script", System.Drawing.Color.Navy);

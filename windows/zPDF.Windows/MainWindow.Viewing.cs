@@ -647,8 +647,16 @@ public sealed partial class MainWindow : IPageHost
         var total = job.Pages.Count;
         var progress = new Progress<int>(done => StatusText.Text = $"Printing page {Math.Min(done + 1, total)} of {total}…");
         StatusText.Text = $"Printing page 1 of {total}…";
+        string? flattened = null;
         try
         {
+            // Printer device contexts don't get PDFium's form-field drawing, so a form
+            // prints from a copy whose fields are flattened into the page.
+            if (_fields.Count > 0)
+            {
+                flattened = await Engine.TransformAsync(path, [new System.Text.Json.Nodes.JsonObject { ["op"] = "flatten_form_fields" }], password);
+                path = flattened;
+            }
             // Its own copy, so edits while printing can't close the document under it.
             await Task.Run(() =>
             {
@@ -657,9 +665,13 @@ public sealed partial class MainWindow : IPageHost
             });
             StatusText.Text = total == 1 ? "Sent 1 page to the printer" : $"Sent {total} pages to the printer";
         }
-        catch (Exception error) when (error is IOException or InvalidDataException)
+        catch (Exception error) when (error is IOException or InvalidDataException or EngineException)
         {
             StatusText.Text = $"Printing failed: {error.Message}";
+        }
+        finally
+        {
+            if (flattened is not null) TryDelete(flattened);
         }
     }
 

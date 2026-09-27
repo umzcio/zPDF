@@ -24,6 +24,14 @@ internal static partial class Native
     [LibraryImport(Lib)] public static partial int FPDFBitmap_GetStride(IntPtr bitmap);
     [LibraryImport(Lib)]
     public static partial void FPDF_RenderPageBitmap(IntPtr bitmap, IntPtr page, int x, int y, int width, int height, int rotate, int flags);
+    // Form fields: PDFium draws text/choice field appearances only through its form environment.
+    [LibraryImport(Lib)] public static partial IntPtr FPDFDOC_InitFormFillEnvironment(IntPtr document, IntPtr formInfo);
+    [LibraryImport(Lib)] public static partial void FPDFDOC_ExitFormFillEnvironment(IntPtr handle);
+    [LibraryImport(Lib)] public static partial void FORM_OnAfterLoadPage(IntPtr page, IntPtr handle);
+    [LibraryImport(Lib)] public static partial void FORM_OnBeforeClosePage(IntPtr page, IntPtr handle);
+    [LibraryImport(Lib)] public static partial void FPDF_SetFormFieldHighlightAlpha(IntPtr handle, byte alpha);
+    [LibraryImport(Lib)]
+    public static partial void FPDF_FFLDraw(IntPtr handle, IntPtr bitmap, IntPtr page, int x, int y, int width, int height, int rotate, int flags);
 }
 
 /// <summary>The PDF has a password and none (or the wrong one) was given.</summary>
@@ -42,6 +50,8 @@ public sealed partial class PdfDocument : IDisposable
 
     private IntPtr _handle;
     private IntPtr _data;
+    private IntPtr _formInfo;  // FPDF_FORMFILLINFO (version 2, no callbacks), alive as long as _form
+    private IntPtr _form;      // the form environment: draws form field appearances
 
     public int PageCount { get; }
 
@@ -50,6 +60,12 @@ public sealed partial class PdfDocument : IDisposable
         _handle = handle;
         _data = data;
         PageCount = Native.FPDF_GetPageCount(handle);
+        // A zeroed FPDF_FORMFILLINFO with only its version set (no callbacks), as pypdfium2 does.
+        _formInfo = Marshal.AllocHGlobal(1024);
+        unsafe { new Span<byte>((void*)_formInfo, 1024).Clear(); }
+        Marshal.WriteInt32(_formInfo, 2);
+        _form = Native.FPDFDOC_InitFormFillEnvironment(handle, _formInfo);
+        if (_form != IntPtr.Zero) Native.FPDF_SetFormFieldHighlightAlpha(_form, 0);  // zPDF draws its own highlight
     }
 
     public static PdfDocument Open(string path, string? password = null)
@@ -104,6 +120,12 @@ public sealed partial class PdfDocument : IDisposable
                 {
                     Native.FPDFBitmap_FillRect(bitmap, 0, 0, width, height, 0xFFFFFFFF);
                     Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, RenderAnnotations | RenderLcdText);
+                    if (_form != IntPtr.Zero)
+                    {
+                        Native.FORM_OnAfterLoadPage(page, _form);
+                        Native.FPDF_FFLDraw(_form, bitmap, page, 0, 0, width, height, 0, RenderAnnotations | RenderLcdText);
+                        Native.FORM_OnBeforeClosePage(page, _form);
+                    }
                     var stride = Native.FPDFBitmap_GetStride(bitmap);
                     var pixels = new byte[width * height * 4];
                     var buffer = Native.FPDFBitmap_GetBuffer(bitmap);
@@ -130,6 +152,8 @@ public sealed partial class PdfDocument : IDisposable
     {
         lock (Gate)
         {
+            if (_form != IntPtr.Zero) { Native.FPDFDOC_ExitFormFillEnvironment(_form); _form = IntPtr.Zero; }
+            if (_formInfo != IntPtr.Zero) { Marshal.FreeHGlobal(_formInfo); _formInfo = IntPtr.Zero; }
             if (_handle != IntPtr.Zero) { Native.FPDF_CloseDocument(_handle); _handle = IntPtr.Zero; }
             if (_data != IntPtr.Zero) { Marshal.FreeHGlobal(_data); _data = IntPtr.Zero; }
         }
