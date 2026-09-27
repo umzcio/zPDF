@@ -12,7 +12,7 @@ using Windows.UI;
 
 namespace zPDF;
 
-public enum CommentTool { Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact }
+public enum CommentTool { Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox }
 
 /// <summary>A comment as the engine reports it (comment_threads).</summary>
 public sealed record CommentRecord(int Page, int Index, string Subtype, double[] Rect, string Author, string Contents,
@@ -129,6 +129,7 @@ public sealed partial class MainWindow
 
     private void SetTool(CommentTool tool)
     {
+        if (tool == CommentTool.Select) { _placing = null; _placingDate = null; _signing = null; }
         _tool = tool;
         foreach (var child in ToolStrip.Children)
             if (child is ToggleButton { Tag: string name } button) button.IsChecked = name == tool.ToString();
@@ -198,7 +199,7 @@ public sealed partial class MainWindow
             CommentTool.Line or CommentTool.Arrow => DraftShape.Line,
             _ => DraftShape.Rectangle,
         };
-        if (_tool is not (CommentTool.Text or CommentTool.Stamp)) _drawSlot.SetDraft(new Draft(shape, _drawPoints.ToList(), CurrentColor));
+        if (_tool is not (CommentTool.Text or CommentTool.Stamp or CommentTool.Place)) _drawSlot.SetDraft(new Draft(shape, _drawPoints.ToList(), CurrentColor));
         return true;
     }
 
@@ -222,6 +223,8 @@ public sealed partial class MainWindow
         var points = _drawPoints.ToList();
         if (points.Count == 1) points.Add(point);
         if (_tool == CommentTool.Redact) { RedactPointerReleased(target, new Rect(points[0], points[^1])); return true; }
+        if (_tool == CommentTool.Place) { _ = PlaceAtAsync(target.Index, points[^1]); return true; }
+        if (_tool == CommentTool.SignBox) { _ = FinishSignBoxAsync(target.Index, new Rect(points[0], points[^1])); return true; }
         _ = CreateCommentAsync(target.Index, points);
         return true;
     }

@@ -23,6 +23,9 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
     <!-- Same PDFium build as the Mac app's engine (pypdfium2 5.13.0 = 153.0.7999). -->
     <PackageReference Include="bblanchon.PDFium.Win32" Version="153.0.7999" />
+    <!-- Signature images (typed, drawn, marks) and per-user protection of stored digital IDs. -->
+    <PackageReference Include="System.Drawing.Common" Version="10.0.*" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.*" />
   </ItemGroup>
   <!-- The bundled engine runtime (windows/scripts/prepare_runtime.py), when prepared.
        Copied after the build rather than as Content, so resource indexing skips it. -->

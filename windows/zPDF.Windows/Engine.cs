@@ -92,6 +92,10 @@ public sealed class Engine : IDisposable
         return destination;
     }
 
+    /// <summary>A digital-ID helper that involves no document (create/inspect identities).</summary>
+    public Task<JsonNode> CryptoAsync(string name, JsonObject parameters) =>
+        CallAsync("crypto", new JsonObject { ["name"] = name, ["params"] = parameters });
+
     /// <summary>A read-only document query (e.g. comment_threads).</summary>
     public Task<JsonNode> QueryAsync(string source, string name, JsonObject? parameters = null, string? password = null)
     {

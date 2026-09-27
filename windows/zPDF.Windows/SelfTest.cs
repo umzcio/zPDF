@@ -57,6 +57,23 @@ internal static class SelfTest
         var field = form["fields"]!.AsArray().First(f => f!["name"]!.GetValue<string>() == "Last Name Family Name from Section 1");
         Console.WriteLine($"form: {form["fields"]!.AsArray().Count} fields; filled value = '{field!["value"]}'");
         File.Delete(filled);
+        // Fill & Sign image and a digital signature, end to end.
+        var png = SignatureArt.Typed("Jane Doe", SignatureArt.InstalledFonts().FirstOrDefault() ?? "Segoe Script", System.Drawing.Color.Navy);
+        var stamped = await engine.TransformAsync(input, [new JsonObject
+        {
+            ["op"] = "place_image_stamp", ["page"] = 0, ["rect"] = new JsonArray(360, 420, 540, 460),
+            ["image"] = Convert.ToBase64String(png), ["kind"] = "signature",
+        }]);
+        var id = await engine.CryptoAsync("create_identity", new JsonObject { ["name"] = "Self Test", ["password"] = "selftest" });
+        var signed = await engine.TransformAsync(stamped, [new JsonObject
+        {
+            ["op"] = "sign", ["identity"] = new JsonObject { ["p12"] = id["p12"]!.GetValue<string>(), ["password"] = "selftest" },
+            ["page"] = 0, ["rect"] = new JsonArray(40, 40, 220, 94), ["reason"] = "Self-test",
+        }]);
+        var report = await engine.QueryAsync(signed, "signatures");
+        var sig = report["signatures"]!.AsArray().First(x => x!["signed"]?.GetValue<bool>() == true)!;
+        Console.WriteLine($"signature image {SignatureArt.Size(png)}; digital signature by {sig["name"]}: integrity={sig["integrity"]} covers={sig["covers_document"]}");
+        File.Delete(stamped); File.Delete(signed);
         var saved = Path.Combine(folder, "watermarked.pdf");
         var receipt = await engine.PublishAsync(edited, saved, overwrite: true);
         File.Delete(edited);

@@ -84,6 +84,30 @@
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
+            <AppBarButton x:Name="SignMenuButton" Label="Sign" IsEnabled="False">
+                <AppBarButton.Icon><FontIcon Glyph="&#xEE56;" /></AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Add Signature" Click="AddSignature_Click" />
+                        <MenuFlyoutItem Text="Add Initials" Click="AddInitials_Click" />
+                        <MenuFlyoutItem Text="New Signature…" Tag="signature" Click="NewSignature_Click" />
+                        <MenuFlyoutItem Text="New Initials…" Tag="initials" Click="NewSignature_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Add Text" Click="AddFillText_Click" />
+                        <MenuFlyoutItem Text="Add Date" Click="AddDate_Click" />
+                        <MenuFlyoutItem Text="Add Checkmark ✓" Tag="✓" Click="AddMark_Click" />
+                        <MenuFlyoutItem Text="Add Cross ✗" Tag="✗" Click="AddMark_Click" />
+                        <MenuFlyoutItem Text="Add Dot ●" Tag="●" Click="AddMark_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Sign with Digital ID…" Click="SignDigital_Click" />
+                        <MenuFlyoutItem Text="Certify Document…" Click="Certify_Click" />
+                        <MenuFlyoutItem Text="Validate Signatures…" Click="ValidateSignatures_Click" />
+                        <MenuFlyoutItem Text="Digital IDs…" Click="ManageIds_Click" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Clear Saved Signatures" Click="ClearSavedSignatures_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
             <AppBarButton x:Name="ProtectMenuButton" Label="Protect" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE72E;" /></AppBarButton.Icon>
                 <AppBarButton.Flyout>
