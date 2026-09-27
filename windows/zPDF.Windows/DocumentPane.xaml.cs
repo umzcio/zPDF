@@ -84,6 +84,8 @@ public sealed partial class DocumentPane : UserControl
     /// <summary>Asks about unsaved changes before the tab or window closes. True to close.</summary>
     public Task<bool> ConfirmCloseAsync() => ConfirmDiscardAsync();
 
+    public void FocusDocument() => DispatcherQueue.TryEnqueue(() => PageScroller.Focus(FocusState.Programmatic));
+
     /// <summary>The tab closed: stop work and delete the working revisions.</summary>
     public void Release()
     {
@@ -131,6 +133,7 @@ public sealed partial class DocumentPane : UserControl
         HighlightFieldsButton.IsOn = _highlightFields;
         Show(opened.Document, keepPosition: false);
         NoteOpenedSecurity();
+        PageScroller.Focus(FocusState.Programmatic);  // the keyboard reads the document, not the tab strip
     });
 
     private void Root_DragOver(object sender, DragEventArgs e)
@@ -498,7 +501,7 @@ public sealed partial class DocumentPane : UserControl
             _rebuilding = false;
         }
         UpdateStatus();
-        QuickTools.Visibility = IsFullScreen || OrganizeGrid.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        UpdateQuickTools();
         _ = RenderThumbnailsAsync(document);
         _ = RefreshCommentsAsync();
         _ = RefreshFieldsAsync();
@@ -671,6 +674,9 @@ public sealed partial class DocumentPane : UserControl
         if (_page < _pageSizes.Length) PageSizeText.Text = $"{_pageSizes[_page].Width / 72:0.00} × {_pageSizes[_page].Height / 72:0.00} in";
         UpdateReadyText();
         DocumentTitle = _sourcePath is null ? "New Tab" : $"{(IsEdited ? "• " : "")}{Path.GetFileName(_sourcePath)}";
+        // What Narrator says for the document view: the file and where you are in it.
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(PageScroller,
+            $"{(_sourcePath is null ? "Document" : Path.GetFileName(_sourcePath))}, {PageText.Text.ToLowerInvariant()}");
         Host.PaneChanged(this);
         SyncThumbnailSelection();
         UpdateCommands();
@@ -738,7 +744,7 @@ public sealed partial class DocumentPane : UserControl
         RedoItem.IsEnabled = _redo.Count > 0 && !HasPendingFields;
         PreviousButton.IsEnabled = open && _page > 0;
         NextButton.IsEnabled = open && _page < _document!.PageCount - 1;
-        QuickTools.Visibility = open && !IsFullScreen ? Visibility.Visible : Visibility.Collapsed;
+        UpdateQuickTools();
         AllToolsButton.IsEnabled = open;
     }
 

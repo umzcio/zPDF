@@ -192,6 +192,9 @@ public sealed partial class DocumentPane
                 MinHeight = 0, MinWidth = 0, Padding = new Thickness(3, 1, 3, 1),
                 FontSize = Math.Clamp((widget.Field.FontSize > 0 ? widget.Field.FontSize : Math.Min(11, rect.Height * 0.7)) * slot.Width / slot.PointWidth, 8, 48),
             };
+            // A full accent outline while typing (the default focus cue is a thin underline).
+            box.Resources["TextControlBorderBrushFocused"] = ThemeBrushes.Get(this, "ZAccent");
+            box.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(2);
             if (widget.Field.MaxLength is { } max) box.MaxLength = max;
             box.KeyDown += Editor_KeyDown;
             box.LostFocus += (_, _) => DispatcherQueue.TryEnqueue(() => { if (_editing == widget) CommitEditor(); });
@@ -235,7 +238,17 @@ public sealed partial class DocumentPane
         var index = order.FindIndex(w => w.Field == from.Field);
         CommitEditor();
         if (order.Count == 0) return;
-        var next = order[(Math.Max(0, index) + step + order.Count) % order.Count];
+        var target = Math.Max(0, index) + step;
+        if (target < 0 || target >= order.Count)
+        {
+            // Past the last (or before the first) field: leave the form, so the keyboard isn't trapped.
+            _focusedToggle = null;
+            RefreshMarks();
+            PageScroller.Focus(FocusState.Keyboard);
+            if (step > 0) FocusManager.TryMoveFocus(FocusNavigationDirection.Next, new FindNextElementOptions { SearchRoot = XamlRoot.Content });
+            return;
+        }
+        var next = order[target];
         EnsureVisible(next);
         if (next.Field.Kind is "checkbox" or "radio") FocusToggle(next);
         else OpenEditor(next);
@@ -275,6 +288,21 @@ public sealed partial class DocumentPane
             FinishMeasurement();
             e.Handled = true;
             return;
+        }
+        // Tab from the page itself goes into the document's form fields (from the current page).
+        if (e.Key == VirtualKey.Tab && _focusedToggle is null && _editing is null && _document is not null
+            && ReferenceEquals(FocusManager.GetFocusedElement(XamlRoot), PageScroller) && TabOrder() is { Count: > 0 } order)
+        {
+            var back = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            if (!back)
+            {
+                var first = order.FirstOrDefault(w => w.Page >= _page) ?? order[0];
+                EnsureVisible(first);
+                if (first.Field.Kind is "checkbox" or "radio") FocusToggle(first);
+                else OpenEditor(first);
+                e.Handled = true;
+                return;
+            }
         }
         if (_focusedToggle is null || _editing is not null || FindBox.FocusState != FocusState.Unfocused) return;
         var widget = _focusedToggle = LiveWidget(_focusedToggle);

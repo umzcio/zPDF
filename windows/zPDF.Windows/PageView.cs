@@ -77,6 +77,8 @@ public sealed partial class PageView : Grid
         BorderThickness = new Thickness(1);
         BorderBrush = (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"];
         Children.Add(_image);
+        // The page itself is the accessible element (PageViewPeer); its bitmap adds nothing.
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAccessibilityView(_image, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         Children.Add(_overlay);
         Children.Add(_editorLayer);
         PointerPressed += (_, e) => Forward(e, (h, s, p) => h.PagePointerPressed(s, p, e), capture: true);

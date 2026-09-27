@@ -36,6 +36,18 @@ public sealed partial class HomeView : UserControl
     }
 
     private void Open_Click(object sender, RoutedEventArgs e) => OpenFileRequested?.Invoke();
+
+    /// <summary>F10: to the menu bar (Windows convention).</summary>
+    private void MenuBar_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (HomeMenu.Items.Count > 0) HomeMenu.Items[0].Focus(FocusState.Keyboard);
+        args.Handled = true;
+    }
+
+    private void Cards_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is FrameworkElement { Tag: string path }) OpenRequested?.Invoke(path);
+    }
     private void Combine_Click(object sender, RoutedEventArgs e) => CombineRequested?.Invoke();
 
     private void Filter_Click(object sender, RoutedEventArgs e)
@@ -106,14 +118,15 @@ public sealed partial class HomeView : UserControl
         var body = new StackPanel();
         body.Children.Add(well);
         body.Children.Add(footer);
-        var card = new Button
+        // Not a button: the grid item is the one focus stop, and Enter, Space or a click opens it
+        // (Cards_ItemClick). The star is its own button inside.
+        var card = new Border
         {
-            Width = 190, Padding = new Thickness(0), CornerRadius = new CornerRadius(10), HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background = ThemeBrushes.Get(this, "ZSurface"), BorderBrush = ThemeBrushes.Get(this, "ZHairline"), BorderThickness = new Thickness(1), Content = body,
+            Width = 190, CornerRadius = new CornerRadius(10), Tag = path,
+            Background = ThemeBrushes.Get(this, "ZSurface"), BorderBrush = ThemeBrushes.Get(this, "ZHairline"), BorderThickness = new Thickness(1), Child = body,
         };
         ToolTipService.SetToolTip(card, path);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"Open {Path.GetFileName(path)}, last opened {Relative(opened)}, {size}");
-        card.Click += (_, _) => OpenRequested?.Invoke(path);
         return card;
     }
 

@@ -197,7 +197,7 @@ public sealed partial class DocumentPane
         var shown = on && _document is not null;
         OrganizeGrid.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
         PageScroller.Visibility = shown ? Visibility.Collapsed : Visibility.Visible;
-        QuickTools.Visibility = shown || _document is null || IsFullScreen ? Visibility.Collapsed : Visibility.Visible;  // it would cover the grid
+        UpdateQuickTools();
         if (!shown) return;
         OrganizeGrid.SelectedItems.Clear();
         if (_page < _thumbnails.Count)
@@ -206,6 +206,12 @@ public sealed partial class DocumentPane
             OrganizeGrid.ScrollIntoView(_thumbnails[_page]);
         }
     }
+
+    /// <summary>The floating quick tools: with a document, out of full screen, and not over the
+    /// Organize grid (collapsed, so its buttons also leave the Tab order).</summary>
+    private void UpdateQuickTools(bool? fullScreen = null) =>
+        QuickTools.Visibility = _document is not null && !(fullScreen ?? IsFullScreen) && OrganizeGrid.Visibility != Visibility.Visible
+            ? Visibility.Visible : Visibility.Collapsed;
 
     private void OrganizeGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {

@@ -111,7 +111,7 @@ public sealed partial class DocumentPane
             ToolListItems.Children.Add(Section(group));
             foreach (var tool in tools)
             {
-                var row = new Button { Style = (Style)Application.Current.Resources["ZRow"], MinHeight = 38 };
+                var row = new Button { Style = (Style)Application.Current.Resources["ZRow"], MinHeight = 38, Tag = tool.Id };
                 var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
                 content.Children.Add(new FontIcon { Glyph = tool.Glyph, FontSize = 17, Width = 24, Foreground = ThemeBrushes.Get(this, "ZAccent") });
                 content.Children.Add(new TextBlock { Text = tool.Name, FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
@@ -161,10 +161,21 @@ public sealed partial class DocumentPane
     }
 
     /// <summary>Opens a tool: its panel replaces the tool list in the drawer (Mac AppState.openTool).</summary>
+    private string? _lastToolId;
+
     private void OpenTool(string id)
     {
         if (_document is null || Tools.FirstOrDefault(t => t.Id == id) is not { } tool) return;
+        _lastToolId = id;
         tool.Open();
+    }
+
+    /// <summary>Esc in a tool panel goes back to the list of tools.</summary>
+    private void ToolsDrawer_PreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Escape || ToolPanelHost.Visibility != Visibility.Visible || DialogOpen()) return;
+        ShowToolList();
+        e.Handled = true;
     }
 
     private void OpenToolMenu_Click(object sender, RoutedEventArgs e)
@@ -193,9 +204,20 @@ public sealed partial class DocumentPane
     {
         LeaveToolModes();
         _openTool = null;
+        var wasInPanel = ToolPanelHost.Visibility == Visibility.Visible && IsFocusWithin(ToolsDrawer);
         ToolPanelHost.Visibility = Visibility.Collapsed;
         ToolList.Visibility = ToolsDrawer.Visibility = Visibility.Visible;
         SetDrawerShown(true);
+        // Back from a tool: focus returns to that tool in the list (not to the page).
+        if (wasInPanel)
+            DispatcherQueue.TryEnqueue(() => ((Control?)ToolListItems.Children.OfType<Button>().FirstOrDefault(b => Equals(b.Tag, _lastToolId)) ?? ToolSearchBox).Focus(FocusState.Programmatic));
+    }
+
+    private bool IsFocusWithin(DependencyObject root)
+    {
+        for (var element = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject; element is not null; element = VisualTreeHelper.GetParent(element))
+            if (element == root) return true;
+        return false;
     }
 
     private void BackToTools_Click(object sender, RoutedEventArgs e) => ShowToolList();
@@ -228,6 +250,9 @@ public sealed partial class DocumentPane
         ToolPanelHost.Visibility = ToolsDrawer.Visibility = Visibility.Visible;
         SetDrawerShown(true);
         if (alsoPanel is not null) ShowDocPanel(alsoPanel, toggle: false);
+        // Opened from the keyboard (focus in the list, now collapsed): continue in the panel.
+        if (FocusManager.GetFocusedElement(XamlRoot) is not UIElement { Visibility: Visibility.Visible } focused || IsFocusWithin(ToolsDrawer) || ReferenceEquals(focused, PageScroller))
+            DispatcherQueue.TryEnqueue(() => BackToToolsButton.Focus(FocusState.Programmatic));
     }
 
     private void ShowGenerated(string title, IEnumerable<UIElement> content, string? alsoPanel = null)

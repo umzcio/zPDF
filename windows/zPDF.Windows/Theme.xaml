@@ -53,6 +53,20 @@
             <SolidColorBrush x:Key="ZCanvas" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="ZStar" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="ZOnAccent" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <!-- Dialogs: one system window colour (the default title area stays a light layer). -->
+            <SolidColorBrush x:Key="ContentDialogBackground" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="ContentDialogTopOverlay" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="ContentDialogBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="ContentDialogForeground" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <!-- Grid selection (Organize, Home cards): the page image covers the item, so the
+                 highlight shows as a wide system-highlight frame around it. -->
+            <SolidColorBrush x:Key="GridViewItemBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="GridViewItemSelectedBorderBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="GridViewItemSelectedPointerOverBorderBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="GridViewItemSelectedPressedBorderBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="GridViewItemForegroundSelected" Color="{ThemeResource SystemColorHighlightTextColor}" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 

@@ -661,6 +661,13 @@ public sealed partial class DocumentPane : IPageHost
         args.Handled = true;
     }
 
+    /// <summary>F10: to the menu bar (Windows convention).</summary>
+    private void MenuBar_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (AppMenu.Visibility == Visibility.Visible && AppMenu.Items.Count > 0) AppMenu.Items[0].Focus(FocusState.Keyboard);
+        args.Handled = true;
+    }
+
     private void FullScreen_Click(object sender, RoutedEventArgs e) => SetFullScreen(!IsFullScreen);
 
     /// <summary>Reading mode: the page view only; F11 or Esc returns.</summary>
@@ -671,7 +678,7 @@ public sealed partial class DocumentPane : IPageHost
                                   : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
         var chrome = on ? Visibility.Collapsed : Visibility.Visible;
         AppMenu.Visibility = Toolbar.Visibility = StatusBar.Visibility = RailColumn.Visibility = chrome;
-        QuickTools.Visibility = on || _document is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateQuickTools(fullScreen: on);
         if (on)
         {
             _chromeBeforeFullScreen = (ToolsDrawer.Visibility, Sidebar.Visibility);

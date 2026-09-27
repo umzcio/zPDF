@@ -162,6 +162,7 @@ public sealed partial class MainWindow : Window
         pane.Release();
         Tabs.TabItems.Remove(tab);
         if (Tabs.TabItems.Count == 0) ShowHome();
+        else ActivePane?.FocusDocument();  // not the tab strip
     }
 
     private TabViewItem? TabOf(DocumentPane pane) => Tabs.TabItems.OfType<TabViewItem>().FirstOrDefault(t => ReferenceEquals(t.Tag, pane));

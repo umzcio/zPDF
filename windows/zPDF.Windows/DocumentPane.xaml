@@ -28,6 +28,7 @@
             <KeyboardAccelerator Modifiers="Control" Key="End" Invoked="End_Invoked" />
             <KeyboardAccelerator Key="Escape" Invoked="Escape_Invoked" />
             <KeyboardAccelerator Key="F11" Invoked="FullScreen_Invoked" />
+            <KeyboardAccelerator Key="F10" Invoked="MenuBar_Invoked" />
             <KeyboardAccelerator Key="Delete" Invoked="PageDelete_Invoked" />
             <KeyboardAccelerator Key="Enter" Invoked="PageEnter_Invoked" />
             <KeyboardAccelerator Key="Space" Invoked="Space_Invoked" />
@@ -35,7 +36,7 @@
 
         <!-- ============================================================ menu bar -->
         <MenuBar x:Name="AppMenu" Background="{ThemeResource ZBar}" Height="32" Padding="4,0">
-            <MenuBarItem Title="File">
+            <MenuBarItem Title="File" AccessKey="F">
                 <MenuFlyoutItem x:Name="OpenItem" Text="Open…" Click="Open_Click">
                     <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="O" /></MenuFlyoutItem.KeyboardAccelerators>
                 </MenuFlyoutItem>
@@ -88,7 +89,7 @@
                     <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="W" /></MenuFlyoutItem.KeyboardAccelerators>
                 </MenuFlyoutItem>
             </MenuBarItem>
-            <MenuBarItem x:Name="EditMenu" Title="Edit" IsEnabled="False">
+            <MenuBarItem x:Name="EditMenu" Title="Edit" AccessKey="E" IsEnabled="False">
                 <MenuFlyoutItem x:Name="UndoItem" Text="Undo" Click="Undo_Click">
                     <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Modifiers="Control" Key="Z" /></MenuFlyoutItem.KeyboardAccelerators>
                 </MenuFlyoutItem>
@@ -118,7 +119,7 @@
                     <MenuFlyoutItem Text="Remove Hidden Information…" Click="RemoveHidden_Click" />
                 </MenuFlyoutSubItem>
             </MenuBarItem>
-            <MenuBarItem x:Name="ViewMenu" Title="View" IsEnabled="False">
+            <MenuBarItem x:Name="ViewMenu" Title="View" AccessKey="V" IsEnabled="False">
                 <MenuFlyoutItem Text="All Tools" Click="AllTools_Click" />
                 <MenuFlyoutSeparator />
                 <MenuFlyoutItem Text="Zoom In" Click="ZoomIn_Click">
@@ -151,7 +152,7 @@
                 <MenuFlyoutItem Text="Attachments Panel" Tag="Attachments" Click="DocPanelMenu_Click" />
                 <MenuFlyoutItem Text="Layers Panel" Tag="Layers" Click="DocPanelMenu_Click" />
             </MenuBarItem>
-            <MenuBarItem x:Name="NavigateMenu" Title="Navigate" IsEnabled="False">
+            <MenuBarItem x:Name="NavigateMenu" Title="Navigate" AccessKey="N" IsEnabled="False">
                 <MenuFlyoutItem Text="Previous Page" Click="Previous_Click" />
                 <MenuFlyoutItem Text="Next Page" Click="Next_Click" />
                 <MenuFlyoutItem Text="First Page" Click="FirstPage_Click" />
@@ -162,7 +163,7 @@
                 <MenuFlyoutItem Text="Named Destinations…" Click="NamedDestinations_Click" />
                 <MenuFlyoutItem Text="Articles &amp; 3D Content…" Click="ArticlesAndMedia_Click" />
             </MenuBarItem>
-            <MenuBarItem x:Name="CommentMenu" Title="Comment" IsEnabled="False">
+            <MenuBarItem x:Name="CommentMenu" Title="Comment" AccessKey="C" IsEnabled="False">
                 <MenuFlyoutItem Text="Comment Tools" Tag="comment" Click="OpenToolMenu_Click" />
                 <MenuFlyoutItem Text="Show Comment List" Tag="Comments" Click="DocPanelMenu_Click" />
                 <MenuFlyoutSeparator />
@@ -171,7 +172,7 @@
                 <MenuFlyoutItem Text="Compare Comments…" Click="CompareComments_Click" />
                 <MenuFlyoutItem Text="Flatten Comments…" Click="FlattenComments_Click" />
             </MenuBarItem>
-            <MenuBarItem x:Name="FormsMenu" Title="Forms" IsEnabled="False">
+            <MenuBarItem x:Name="FormsMenu" Title="Forms" AccessKey="O" IsEnabled="False">
                 <MenuFlyoutItem Text="Fill &amp; Sign" Tag="fillSign" Click="OpenToolMenu_Click" />
                 <MenuFlyoutItem Text="Prepare Form" Tag="prepareForm" Click="OpenToolMenu_Click" />
                 <MenuFlyoutItem Text="Protect" Tag="protect" Click="OpenToolMenu_Click" />
@@ -189,7 +190,7 @@
                 <MenuFlyoutItem Text="Clear Form" Click="ResetForm_Click" />
                 <MenuFlyoutItem Text="Flatten Form Fields" Click="FlattenForm_Click" />
             </MenuBarItem>
-            <MenuBarItem x:Name="DocumentMenu" Title="Document" IsEnabled="False">
+            <MenuBarItem x:Name="DocumentMenu" Title="Document" AccessKey="D" IsEnabled="False">
                 <MenuFlyoutSubItem Text="Insert Pages">
                     <MenuFlyoutItem Text="Blank Page" Click="InsertBlank_Click" />
                     <MenuFlyoutItem Text="From File…" Click="InsertFromFile_Click" />
@@ -226,7 +227,7 @@
                 <MenuFlyoutSeparator />
                 <MenuFlyoutItem Text="Compare Files…" Click="Compare_Click" />
             </MenuBarItem>
-            <MenuBarItem Title="Help">
+            <MenuBarItem Title="Help" AccessKey="H">
                 <MenuFlyoutItem Text="Keyboard Shortcuts" Click="KeyboardShortcuts_Click">
                     <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Key="F1" /></MenuFlyoutItem.KeyboardAccelerators>
                 </MenuFlyoutItem>
@@ -359,7 +360,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- ======================== All tools drawer (Mac ToolsView / InspectorHost) -->
-            <Grid x:Name="ToolsDrawer" Width="300" Visibility="Collapsed" Background="{ThemeResource ZSidebar}"
+            <Grid x:Name="ToolsDrawer" Width="300" Visibility="Collapsed" Background="{ThemeResource ZSidebar}" PreviewKeyDown="ToolsDrawer_PreviewKeyDown"
                   BorderBrush="{ThemeResource ZHairline}" BorderThickness="0,0,1,0">
                 <!-- The tool list -->
                 <Grid x:Name="ToolList" RowSpacing="8" Padding="12,10,12,0">
@@ -407,6 +408,16 @@
                             <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
                             <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
                         </ResourceDictionary>
+                        <ResourceDictionary x:Key="HighContrast">
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                        </ResourceDictionary>
                       </ResourceDictionary.ThemeDictionaries>
                     </ResourceDictionary>
                     </Grid.Resources>
@@ -416,7 +427,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <Grid>
-                        <Button Click="BackToTools_Click" Padding="8,4" AutomationProperties.Name="Back to all tools">
+                        <Button x:Name="BackToToolsButton" Click="BackToTools_Click" Padding="8,4" AutomationProperties.Name="Back to all tools">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE76B;" FontSize="10" />
                                 <TextBlock Text="All tools" FontSize="12" />
@@ -923,6 +934,16 @@
                             <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource SystemAccentColorLight2}" />
                             <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
                             <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="HighContrast">
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
                         </ResourceDictionary>
                       </ResourceDictionary.ThemeDictionaries>
                     </ResourceDictionary>

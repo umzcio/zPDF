@@ -4,6 +4,9 @@
     <!-- Home, as on the Mac (zPDF/Views/Home/HomeView.swift): a Files column (Recent,
          Starred), a greeting, Open File / Combine PDFs, and recent-file cards. -->
     <Grid x:Name="HomeRoot" Background="{ThemeResource ZWindow}">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="F10" Invoked="MenuBar_Invoked" />
+        </Grid.KeyboardAccelerators>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="190" />
             <ColumnDefinition Width="*" />
@@ -13,16 +16,16 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <!-- The app's menus on Home too (the Mac's menu bar is always there). -->
-        <MenuBar Grid.ColumnSpan="2" Background="{ThemeResource ZBar}" Height="32" Padding="4,0"
+        <MenuBar x:Name="HomeMenu" Grid.ColumnSpan="2" Background="{ThemeResource ZBar}" Height="32" Padding="4,0"
                  BorderBrush="{ThemeResource ZHairline}" BorderThickness="0,0,0,1">
-            <MenuBarItem Title="File">
+            <MenuBarItem Title="File" AccessKey="F">
                 <MenuFlyoutItem Text="Open…" Click="Open_Click" />
                 <MenuFlyoutItem Text="Combine PDFs…" Click="Combine_Click" />
                 <MenuFlyoutItem Text="New Window" Tag="newWindow" Click="Command_Click" />
                 <MenuFlyoutSeparator />
                 <MenuFlyoutItem Text="Preferences…" Tag="preferences" Click="Command_Click" />
             </MenuBarItem>
-            <MenuBarItem Title="Help">
+            <MenuBarItem Title="Help" AccessKey="H">
                 <MenuFlyoutItem Text="Keyboard Shortcuts" Tag="shortcuts" Click="Command_Click" />
                 <MenuFlyoutItem Text="Report a Bug…" Tag="bug" Click="Command_Click" />
                 <MenuFlyoutItem Text="Check for Updates…" Tag="updates" Click="Command_Click" />
@@ -56,6 +59,16 @@
                         <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
                         <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.5" />
                     </ResourceDictionary>
+                        <ResourceDictionary x:Key="HighContrast">
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                            <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                        </ResourceDictionary>
                   </ResourceDictionary.ThemeDictionaries>
                 </ResourceDictionary>
             </StackPanel.Resources>
@@ -97,11 +110,12 @@
                     <Button Click="Combine_Click" Content="Combine PDFs…" FontSize="12.5" />
                 </StackPanel>
                 <TextBlock x:Name="ListTitle" Text="Recent files" FontSize="14" FontWeight="SemiBold" />
-                <GridView x:Name="Cards" SelectionMode="None" IsItemClickEnabled="False" Padding="0">
+                <GridView x:Name="Cards" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Cards_ItemClick" Padding="0" AutomationProperties.Name="Recent files">
                     <GridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
                             <Setter Property="Margin" Value="0,0,16,16" />
                             <Setter Property="Padding" Value="0" />
+                            <Setter Property="CornerRadius" Value="10" />
                         </Style>
                     </GridView.ItemContainerStyle>
                 </GridView>
