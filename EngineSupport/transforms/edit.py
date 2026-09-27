@@ -27,7 +27,7 @@ from transforms.content import (add_content, add_resource, fmt, image_xobject, m
                                 resources, rotation, visual_matrix, select_pages, INVOCATION)
 from transforms.fonts import EmbeddedFont, STYLE_FONTS, fallback_font
 from transforms.interpret import (Plan, walk_page, rewrite_page, page_digest, quad_bbox, safe_invert, instr,
-                                  full_state_ops, num, IDENTITY)
+                                  full_state_ops, num, IDENTITY, Walker)
 
 OVERLAY_KINDS = ("Watermark", "HeaderFooter", "Background", "Bates")
 
@@ -851,9 +851,14 @@ def replace_text(ctx, find, replace="", match_case=False, whole_word=False, rege
 # ---------------------------------------------------------------- objects
 
 class ObjectPlan(Plan):
-    def __init__(self, actions):
+    def __init__(self, actions, clips=None):
         self.actions = actions
+        self.clips = clips or {}   # clip site -> user-space matrix (clips moved with their object)
         self.found = {}
+
+    def clip(self, site, ops):
+        matrix = self.clips.get(site)
+        return _transform_path(ops, matrix) if matrix is not None else None
 
     def _action(self, item):
         if not item.top_level:
@@ -883,11 +888,11 @@ def _check(pdf, page, digest):
     return page_obj
 
 
-def _run_objects(ctx, page, digest, ids, make_action):
+def _run_objects(ctx, page, digest, ids, make_action, clips=None):
     pdf = ctx.pdf
     page_obj = _check(pdf, page, digest)
     require(isinstance(ids, list) and ids, "INVALID_ARGUMENT", "Select an object first.")
-    plan = ObjectPlan({i: make_action for i in ids})
+    plan = ObjectPlan({i: make_action for i in ids}, clips)
     walker, _ = rewrite_page(pdf, page_obj, plan, {}, exclude_kinds=OVERLAY_KINDS)
     missing = [i for i in ids if i not in plan.found]
     require(not missing, "STALE_CONTENT", "The page changed. Select the object again.")
@@ -898,6 +903,63 @@ def _conjugate(ctm, t):
     inv = safe_invert(ctm)
     require(inv is not None, "INVALID_ARGUMENT", "That object cannot be transformed.")
     return multiply(multiply(ctm, t), inv)
+
+
+def _transform_path(ops, m):
+    """Path instructions with their coordinates mapped by the user-space matrix `m`."""
+    a, b, c, d, e, f = m
+    def pt(x, y):
+        return [round(a * x + c * y + e, 4), round(b * x + d * y + f, 4)]
+    out = []
+    for ins in ops:
+        name = str(ins.operator)
+        vals = [float(v) for v in ins.operands]
+        if name == "re" and len(vals) == 4:
+            x, y, w, h = vals
+            if abs(b) < 1e-9 and abs(c) < 1e-9:
+                out.append(instr([round(a * x + e, 4), round(d * y + f, 4), round(a * w, 4), round(d * h, 4)], "re"))
+            else:
+                out += [instr(pt(x, y), "m"), instr(pt(x + w, y), "l"), instr(pt(x + w, y + h), "l"), instr(pt(x, y + h), "l"), instr([], "h")]
+        elif name in ("m", "l", "c", "v", "y") and len(vals) % 2 == 0:
+            out.append(instr([v for i in range(0, len(vals), 2) for v in pt(vals[i], vals[i + 1])], name))
+        else:
+            out.append(ins)
+    return out
+
+
+def _own_clips(pdf, page, targets):
+    """Clips set just to frame the objects being transformed (e.g. Acrobat's image
+    clip `re W n` right before the image): {site: matrix}, for those clips no other
+    content on the page draws through. Moving the object moves its frame too."""
+    _, walker = page_walk(pdf, page, {})
+    users = {}
+    for item in walker.items:
+        for entry in item.state.clips if item.state is not None else []:
+            users.setdefault(id(entry[1]), set()).add(object_id(item))
+    clips = {}
+    for item in walker.items:
+        key = object_id(item)
+        if key not in targets or not item.top_level or item.state is None:
+            continue
+        for ctm, ops, _ in item.state.clips:
+            site = walker.clip_sites.get(id(ops))
+            if site is None or not users.get(id(ops), set()) <= {key} or item.bbox is None:
+                continue
+            # Only a tight frame around the object (text shares no state record, so be strict).
+            points = []
+            for ins in ops:
+                Walker._path_points(str(ins.operator), list(ins.operands), ctm, points)
+            if not points:
+                continue
+            x0, y0, x1, y1 = quad_bbox(points)
+            bx0, by0, bx1, by1 = item.bbox
+            if x0 < bx0 - 2 or y0 < by0 - 2 or x1 > bx1 + 2 or y1 > by1 + 2:
+                continue
+            m = _conjugate(ctm, targets[key])
+            if site[0] in clips and clips[site[0]] != m:
+                continue
+            clips[site[0]] = m
+    return clips
 
 
 @op("object_transform")
@@ -918,7 +980,9 @@ def object_transform(ctx, page, ids=None, matrix=None, digest=None, items=None):
         t = mapping[object_id(item)]
         m = _conjugate(item.ctm if item.kind != "path" else item.state.ctm, t)
         return ("wrap", [instr([], "q"), instr([round(v, 6) for v in m], "cm")], [instr([], "Q")])
-    _, plan, _ = _run_objects(ctx, page, digest, list(mapping), action)
+    _check(ctx.pdf, page, digest)
+    clips = _own_clips(ctx.pdf, page, mapping)
+    _, plan, _ = _run_objects(ctx, page, digest, list(mapping), action, clips)
     return {"objects": len(plan.found)}
 
 

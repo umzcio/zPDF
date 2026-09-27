@@ -136,23 +136,40 @@ public sealed partial class DocumentPane
         var all = new CheckBox { Content = "Also pages that already have text" };
         var scope = Choice("Pages", ["All pages", "Current page", "Selected pages"]);
         var note = new TextBlock { Text = $"Recognizes text in scanned pages with Windows ({engine.RecognizerLanguage.DisplayName}) and adds an invisible, searchable text layer.", TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
-        if (!await AskAsync("Recognize Text (OCR)", Stack(note, scope, all), "Recognize")) return;
+        var straighten = new CheckBox { Content = "Straighten crooked scans", IsChecked = true };
+        var clean = new CheckBox { Content = "Clean up scans (white background, remove specks)" };
+        var cleanNote = Note("Straightening and cleanup replace the scanned image on pages without text; pages with real text are never changed.");
+        if (!await AskAsync("Recognize Text (OCR)", Stack(note, scope, all, straighten, clean, cleanNote), "Recognize")) return;
         var pages = scope.SelectedIndex switch { 1 => [_page], 2 => TargetPages(), _ => Enumerable.Range(0, document.PageCount).ToList() };
         var password = _password;
         await Run("Recognizing text…", async () =>
         {
             var results = new JsonArray();
+            var replacements = new JsonArray();
+            var scans = new List<string>();
             using var copy = PdfDocument.Open(path, password);
             var done = 0;
             foreach (var page in pages)
             {
                 StatusText.Text = $"Recognizing page {page + 1} ({++done} of {pages.Count})…";
-                if (all.IsChecked != true && await InfoAsync(page) is { } existing && existing.Boxes.Count(b => !b.IsEmpty) > 20) continue;
+                var hasText = await InfoAsync(page) is { } existing && existing.Boxes.Count(b => !b.IsEmpty) > 20;
+                if (all.IsChecked != true && hasText) continue;
                 var (width, height) = copy.PageSize(page);
                 var scale = Math.Min(300 / 72.0, (OcrEngine.MaxImageDimension - 1) / Math.Max(width, height));
                 var image = await Task.Run(() => copy.Render(page, scale));
                 using var bitmap = SoftwareBitmap.CreateCopyFromBuffer(image.Pixels.AsBuffer(), BitmapPixelFormat.Bgra8, image.Width, image.Height, BitmapAlphaMode.Ignore);
                 var ocr = await engine.RecognizeAsync(bitmap);
+                var skew = straighten.IsChecked == true ? ocr.TextAngle : null;
+                if (!hasText && (clean.IsChecked == true || skew is { } a && Math.Abs(a) >= 0.1 && Math.Abs(a) <= 15))
+                {
+                    // Replace the scan with a straightened/cleaned image, then read that instead.
+                    var cleaned = await Task.Run(() => ScanCleanup.Clean(image, skew, clean.IsChecked == true, clean.IsChecked == true));
+                    var file = await Task.Run(() => ScanCleanup.SaveJpeg(cleaned, scale * 72));
+                    scans.Add(file);
+                    replacements.Add(new JsonObject { ["page"] = page, ["path"] = file });
+                    using var cleanedBitmap = SoftwareBitmap.CreateCopyFromBuffer(cleaned.Pixels.AsBuffer(), BitmapPixelFormat.Bgra8, cleaned.Width, cleaned.Height, BitmapAlphaMode.Ignore);
+                    ocr = await engine.RecognizeAsync(cleanedBitmap);
+                }
                 var lines = new JsonArray();
                 foreach (var line in ocr.Lines)
                 {
@@ -170,11 +187,19 @@ public sealed partial class DocumentPane
                 }
                 if (lines.Count > 0) results.Add(new JsonObject { ["page"] = page, ["lines"] = lines });
             }
-            if (results.Count == 0) { StatusText.Text = "No text was found to recognize (the pages already have text, or are blank)."; return; }
-            var edited = await Engine.TransformAsync(CurrentPath!, [new JsonObject { ["op"] = "ocr_text_layer", ["pages"] = results }], _password);
-            PushRevision(edited);
-            Show(PdfDocument.Open(edited, _password), keepPosition: true);
-            StatusText.Text = $"Recognized text on {results.Count} page{(results.Count == 1 ? "" : "s")}. It's searchable and selectable now.";
+            if (results.Count == 0 && replacements.Count == 0) { StatusText.Text = "No text was found to recognize (the pages already have text, or are blank)."; return; }
+            var ops = new JsonArray();
+            if (replacements.Count > 0) ops.Add(new JsonObject { ["op"] = "replace_page_image", ["pages"] = replacements });
+            if (results.Count > 0) ops.Add(new JsonObject { ["op"] = "ocr_text_layer", ["pages"] = results });
+            try
+            {
+                var edited = await Engine.TransformAsync(CurrentPath!, ops, _password);
+                PushRevision(edited);
+                Show(PdfDocument.Open(edited, _password), keepPosition: true);
+            }
+            finally { foreach (var scan in scans) TryDelete(scan); }
+            var cleanedText = replacements.Count > 0 ? $" {replacements.Count} scan{(replacements.Count == 1 ? " was" : "s were")} straightened or cleaned." : "";
+            StatusText.Text = $"Recognized text on {results.Count} page{(results.Count == 1 ? "" : "s")}. It's searchable and selectable now.{cleanedText}";
         }, keepStatus: true);
     }
 

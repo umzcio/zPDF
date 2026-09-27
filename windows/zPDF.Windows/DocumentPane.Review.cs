@@ -247,6 +247,44 @@ public sealed partial class DocumentPane
         return (1.0 / 72, "in", "1 in = 1 in");
     }
 
+    // Snapping: measure points jump to line ends, midpoints and crossings of the page's
+    // vector art within a few screen pixels (like the Mac app).
+    private readonly Dictionary<int, List<Point>?> _snapPoints = [];  // view points; null while loading
+
+    private bool IsMeasuring => _tool is CommentTool.MeasureDistance or CommentTool.MeasurePerimeter or CommentTool.MeasureArea;
+
+    private Point SnapMeasure(PageSlot slot, Point point)
+    {
+        if (!IsMeasuring) return point;
+        if (!_snapPoints.TryGetValue(slot.Index, out var points))
+        {
+            _snapPoints[slot.Index] = null;
+            _ = LoadSnapPointsAsync(slot.Index);
+            return point;
+        }
+        if (points is null || points.Count == 0) return point;
+        var tolerance = 8 / Math.Max(0.1, slot.Width / slot.PointWidth);
+        var best = point;
+        var nearest = tolerance;
+        foreach (var candidate in points)
+            if (Distance(candidate, point) is var d && d <= nearest) { nearest = d; best = candidate; }
+        return best;
+    }
+
+    private async Task LoadSnapPointsAsync(int page)
+    {
+        try
+        {
+            var result = await Engine.QueryAsync(CurrentPath!, "vector_snap_points", new JsonObject { ["page"] = page, ["max_points"] = 6000 }, _password);
+            if (await InfoAsync(page) is not { } info) { _snapPoints.Remove(page); return; }
+            _snapPoints[page] = new[] { "endpoints", "intersections", "midpoints" }
+                .SelectMany(key => result[key]?.AsArray() ?? [])
+                .OfType<JsonArray>().Where(p => p.Count == 2)
+                .Select(p => info.ToView(p[0]!.GetValue<double>(), p[1]!.GetValue<double>())).ToList();
+        }
+        catch (EngineException) { _snapPoints[page] = []; }
+    }
+
     /// <summary>Measure tools: distance is a drag; perimeter and area are clicks, Enter to finish.</summary>
     private bool MeasurePointerReleased(PageSlot slot, Point from, Point to)
     {

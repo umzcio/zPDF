@@ -113,6 +113,25 @@ internal static class SelfTest
             var result = await ocr.RecognizeAsync(bitmap);
             var words = result.Lines.SelectMany(l => l.Words).ToList();
             Console.WriteLine($"ocr ({ocr.RecognizerLanguage.LanguageTag}): {result.Lines.Count} lines, {words.Count} words; first: {string.Join(" ", words.Take(4).Select(w => w.Text))}");
+
+            // Scan cleanup: tilt the page 3°, let OCR measure it, straighten, whiten, despeckle,
+            // then replace the page image through the engine.
+            async Task<double?> AngleOf(RenderedPage page)
+            {
+                using var b = Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromBuffer(
+                    System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(page.Pixels),
+                    Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, page.Width, page.Height, Windows.Graphics.Imaging.BitmapAlphaMode.Ignore);
+                return (await ocr.RecognizeAsync(b)).TextAngle;
+            }
+            var tilted = ScanCleanup.Clean(image, -3, whiten: false, despeckle: false);
+            var measured = await AngleOf(tilted);
+            var straight = ScanCleanup.Clean(tilted, measured, whiten: true, despeckle: true);
+            var after = await AngleOf(straight);
+            var jpeg = ScanCleanup.SaveJpeg(straight, 144);
+            var replaced = await engine.TransformAsync(input, [new JsonObject { ["op"] = "replace_page_image", ["pages"] = new JsonArray(new JsonObject { ["page"] = 0, ["path"] = jpeg }) }]);
+            Console.WriteLine($"scan cleanup: tilted angle {measured:0.00}°, after straightening {after:0.00}°; page image replaced ({new FileInfo(replaced).Length / 1024} KB)");
+            File.Delete(jpeg);
+            File.Delete(replaced);
         }
         var saved = Path.Combine(folder, "watermarked.pdf");
         var receipt = await engine.PublishAsync(edited, saved, overwrite: true);

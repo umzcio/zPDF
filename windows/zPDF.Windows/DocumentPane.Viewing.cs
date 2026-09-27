@@ -84,6 +84,7 @@ public sealed partial class DocumentPane : IPageHost
     {
         ResetContent();
         _links.Clear();
+        _snapPoints.Clear();
         _editing = null;
         _editorSlot = null;
         _focusedToggle = null;
@@ -124,6 +125,7 @@ public sealed partial class DocumentPane : IPageHost
     public void PagePointerPressed(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
         if (!e.GetCurrentPoint(null).Properties.IsLeftButtonPressed) return;
+        point = SnapMeasure(slot, point);
         if (PreparePointerPressed(slot, point)) { e.Handled = true; return; }
         if (ContentPointerPressed(slot, point)) { e.Handled = true; return; }
         if (FieldPointerPressed(slot, point)) { e.Handled = true; return; }
@@ -147,6 +149,7 @@ public sealed partial class DocumentPane : IPageHost
 
     public void PagePointerMoved(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        point = SnapMeasure(slot, point);
         if (PreparePointerMoved(slot, point)) return;
         if (ContentPointerMoved(slot, point)) return;
         if (CommentPointerMoved(slot, point)) return;
@@ -170,6 +173,7 @@ public sealed partial class DocumentPane : IPageHost
 
     public async void PagePointerReleased(PageSlot slot, Point point, PointerRoutedEventArgs e)
     {
+        point = SnapMeasure(slot, point);
         if (PreparePointerReleased(slot, point)) return;
         if (ContentPointerReleased(slot, point)) return;
         var markup = _tool is CommentTool.Highlight or CommentTool.Underline or CommentTool.StrikeOut;

@@ -211,6 +211,25 @@ class ReplaceTests(Base):
         self.assertIn("Arial-BoldMT", result["results"][0]["substituted"])
         self.assertIn("Section 1. Worker Information", text_of(out))
 
+    def test_scaling_an_image_scales_its_own_clip(self):
+        # Acrobat frames images with a clip (`re W n`) just before them; scaling the image
+        # must scale that frame too, or the enlarged image is cut to the old box.
+        src = self.fixture("uscis-i9.pdf")
+        page = transforms.inspect(src, "page_content", {"pages": [0]})["pages"][0]
+        image = next(o for o in page["objects"] if o["kind"] == "image")
+        x0, y0, x1, y1 = image["bbox"]
+        out, _ = self.run_ops(src, [{"op": "object_transform", "page": 0, "ids": [image["id"]], "digest": page["digest"],
+                                     "matrix": [2, 0, 0, 2, -x0, -y1]}])
+        import pypdfium2
+
+        def region(path):
+            rendered = pypdfium2.PdfDocument(str(path))[0]
+            height = rendered.get_height()
+            pixels = rendered.render(scale=1).to_pil().convert("L")
+            # The lower-right quarter of the doubled image lies outside the old frame.
+            return list(pixels.crop((int(x1 + 4), int(height - y0 + 4), int(2 * x1 - x0 - 4), int(height - 2 * y0 + y1 - 4))).getdata())
+        self.assertNotEqual(region(out), region(src), "the enlarged image is clipped to its old frame")
+
     def test_replace_regex(self):
         src = text_pdf(self.tmp / "p.pdf", b"BT /F1 12 Tf 72 700 Td (Call 555-123-4567 now) Tj ET")
         out, _ = self.run_ops(src, [{"op": "replace_text", "find": r"(\d{3})-(\d{3})-(\d{4})",

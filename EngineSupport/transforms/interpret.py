@@ -244,6 +244,11 @@ class Plan:
         """(resource Name, EmbeddedFont) for text the glyph's font cannot encode."""
         return None
 
+    def clip(self, site, ops):
+        """Replacement instructions for a clip-only path (`re W n`) set at `site`
+        ((stream, start) in the page's own content), or None to keep it."""
+        return None
+
 
 # ---------------------------------------------------------------- walker
 
@@ -282,6 +287,7 @@ class Walker:
         self.exclude_kinds = set(exclude_kinds)
         self.glyphs = []
         self.items = []
+        self.clip_sites = {}   # id(clip ops) -> ((stream, start), ops): clips set in the page's own content
         self.text_objects = []
         self.glyph_counter = 0
         self.item_counter = 0
@@ -386,9 +392,18 @@ class Walker:
                     self.item_counter += 1
                     self.items.append(item)
                     action = plan.path(item)
+                site = None
                 if path_clip:
                     state.clips = state.clips + [(state.ctm, clip_ops, path_clip)]
-                if rewrite:
+                    if op == "n" and top_level and self.form_depth == 0:
+                        site = (stream_index, path_start if path_start is not None else index)
+                        self.clip_sites[id(clip_ops)] = (site, clip_ops)
+                replacement = plan.clip(site, path_ops) if rewrite and site is not None and plan is not None else None
+                if replacement is not None:
+                    out.extend(replacement)
+                    emit(ins)
+                    changed = True
+                elif rewrite:
                     if action in ("remove", "omit") and not path_clip:
                         changed = True
                     elif action == "remove" and path_clip:
