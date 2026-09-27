@@ -283,5 +283,88 @@ class InterchangeTests(Base):
         self.assertFalse(any(s in remaining for s in ("/Square", "/Ink", "/Highlight", "/FreeText", "/Stamp")))
 
 
+class CommentEditTests(Base):
+    """comment_edits: comments from plain JSON (the Windows app has no PDFKit)."""
+
+    def run_edits(self, source, items, name="out.pdf"):
+        out = self.tmp / name
+        result = transforms.run(source, out, [{"op": "comment_edits", "items": items}])
+        return out, result["results"][0]
+
+    def subtypes(self, path, page=0):
+        with pikepdf.open(path) as pdf:
+            return [str(a.Subtype) for a in pdf.pages[page].obj.get("/Annots", [])]
+
+    def test_add_every_kind_with_appearances(self):
+        src = self.blank()
+        quad = [100, 700, 300, 700, 100, 680, 300, 680]
+        items = [
+            {"action": "add", "page": 0, "annot": {"subtype": "Highlight", "quads": quad, "color": [1, 0.9, 0], "author": "Ann"}},
+            {"action": "add", "page": 0, "annot": {"subtype": "Underline", "quads": quad, "color": [0, 0.4, 1]}},
+            {"action": "add", "page": 0, "annot": {"subtype": "StrikeOut", "quads": quad, "color": [1, 0, 0]}},
+            {"action": "add", "page": 0, "annot": {"subtype": "Text", "rect": [400, 700, 424, 724], "contents": "A note", "icon": "Comment"}},
+            {"action": "add", "page": 0, "annot": {"subtype": "FreeText", "rect": [100, 500, 300, 560], "contents": "Typed text", "font_size": 14}},
+            {"action": "add", "page": 0, "annot": {"subtype": "Square", "rect": [100, 300, 200, 400], "color": [1, 0, 0], "width": 2}},
+            {"action": "add", "page": 0, "annot": {"subtype": "Circle", "rect": [250, 300, 350, 400], "color": [0, 0.6, 0], "fill": [0.8, 1, 0.8]}},
+            {"action": "add", "page": 0, "annot": {"subtype": "Line", "line": [100, 250, 300, 200], "line_endings": ["None", "OpenArrow"]}},
+            {"action": "add", "page": 0, "annot": {"subtype": "Ink", "ink": [[100, 100, 120, 130, 150, 110, 180, 140]], "width": 3}},
+            {"action": "add", "page": 0, "annot": {"subtype": "Stamp", "rect": [350, 100, 500, 150], "icon": "Approved"}},
+        ]
+        out, result = self.run_edits(src, items)
+        self.assertEqual(result["added"], len(items))
+        self.assertEqual(self.subtypes(out), ["/Highlight", "/Underline", "/StrikeOut", "/Text", "/FreeText",
+                                              "/Square", "/Circle", "/Line", "/Ink", "/Stamp"])
+        with pikepdf.open(out) as pdf:
+            for annot in pdf.pages[0].obj.Annots:
+                self.assertIn("/AP", annot, str(annot.Subtype))
+                self.assertIn("/NM", annot)
+                self.assertIn("/M", annot)
+            first = pdf.pages[0].obj.Annots[0]
+            self.assertEqual(str(first.T), "Ann")
+            self.assertEqual([float(v) for v in first.Rect], [100, 680, 300, 700])
+        threads = transforms.inspect(out, "comment_threads")["pages"][0]
+        self.assertEqual(len(threads), len(items))
+        # PDFium opens and renders it.
+        doc = pdfium.PdfDocument(str(out))
+        doc[0].render(draw_annots=True)
+        doc.close()
+
+    def test_update_reply_status_and_delete(self):
+        src = self.blank()
+        out, _ = self.run_edits(src, [{"action": "add", "page": 0, "annot": {"subtype": "Square", "rect": [100, 100, 200, 200]}}])
+        out2, result = self.run_edits(out, [
+            {"action": "update", "page": 0, "index": 0, "annot": {"rect": [150, 150, 300, 260], "color": [0, 0, 1], "contents": "Moved"}},
+            {"action": "reply", "page": 0, "index": 0, "annot": {"contents": "Looks good", "author": "Bo"}},
+            {"action": "status", "page": 0, "index": 0, "state": "Accepted", "author": "Bo"},
+        ], name="o2.pdf")
+        self.assertEqual((result["updated"], result["added"]), (1, 2))
+        with pikepdf.open(out2) as pdf:
+            annots = pdf.pages[0].obj.Annots
+            square, reply, status = annots[0], annots[1], annots[2]
+            self.assertEqual([float(v) for v in square.Rect], [150, 150, 300, 260])
+            self.assertEqual(str(square.Contents), "Moved")
+            self.assertEqual([float(v) for v in square.C], [0, 0, 1])
+            self.assertEqual(reply.IRT.objgen, square.objgen)
+            self.assertEqual(str(reply.Contents), "Looks good")
+            self.assertEqual(status.IRT.objgen, square.objgen)
+            self.assertEqual(str(status.State), "Accepted")
+            self.assertEqual(str(status.StateModel), "Review")
+        # Deleting the parent removes its reply thread too.
+        out3, result3 = self.run_edits(out2, [{"action": "delete", "page": 0, "index": 0}], name="o3.pdf")
+        self.assertEqual(result3["removed"], 3)
+        self.assertEqual(self.subtypes(out3), [])
+
+    def test_rejects_bad_items(self):
+        src = self.blank()
+        from engine.errors import EngineError
+        for item in ({"action": "add", "page": 9, "annot": {"subtype": "Square", "rect": [0, 0, 10, 10]}},
+                     {"action": "add", "page": 0, "annot": {"subtype": "Widget", "rect": [0, 0, 10, 10]}},
+                     {"action": "update", "page": 0, "index": 5, "annot": {}},
+                     {"action": "explode", "page": 0}):
+            with self.assertRaises(EngineError) as caught:
+                self.run_edits(src, [item])
+            self.assertIn(caught.exception.code, ("INVALID_ARGUMENT", "STALE_PAGE"), item)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

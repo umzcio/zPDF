@@ -1074,6 +1074,190 @@ def _existing_names(pdf):
     return {str(a.NM) for p in pdf.pages for a in p.obj.get("/Annots", []) if "/NM" in a}
 
 
+# ---------------------------------------------------------------- JSON edits
+
+EDITABLE = {"Highlight", "Underline", "StrikeOut", "Squiggly", "Text", "FreeText", "Square", "Circle", "Line",
+            "Ink", "Polygon", "PolyLine", "Stamp", "Caret"}
+REVIEW_STATES = ("Accepted", "Rejected", "Cancelled", "Completed", "None")
+
+
+def _numbers(values, count=None):
+    require(isinstance(values, list) and all(isinstance(v, (int, float)) for v in values)
+            and (count is None or len(values) == count), "INVALID_ARGUMENT", "Invalid comment geometry.")
+    return [float(v) for v in values]
+
+
+def _bounds(points, pad=0.0):
+    xs, ys = points[0::2], points[1::2]
+    return [min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad]
+
+
+def _apply_fields(pdf, annot, subtype, fields):
+    """Sets an annotation's geometry, colours and text from plain JSON."""
+    width = float(fields.get("width", annot.get("/BS", {}).get("/W", 1) if "/BS" in annot else 1))
+    if "width" in fields:
+        annot.BS = Dictionary(W=max(0.0, width), S=Name.S)
+    if "quads" in fields:
+        quads = _numbers(fields["quads"])
+        require(len(quads) >= 8 and len(quads) % 8 == 0, "INVALID_ARGUMENT", "Invalid text markup geometry.")
+        annot.QuadPoints = Array(quads)
+        annot.Rect = Array(_bounds(quads))
+    if "line" in fields:
+        line = _numbers(fields["line"], 4)
+        annot.L = Array(line)
+        annot.Rect = Array(_bounds(line, pad=width * 2 + 8))
+    if "ink" in fields:
+        require(isinstance(fields["ink"], list) and fields["ink"], "INVALID_ARGUMENT", "Invalid ink strokes.")
+        strokes = [_numbers(stroke) for stroke in fields["ink"]]
+        require(all(len(st) >= 2 and len(st) % 2 == 0 for st in strokes), "INVALID_ARGUMENT", "Invalid ink strokes.")
+        annot.InkList = Array([Array(st) for st in strokes])
+        annot.Rect = Array(_bounds([c for st in strokes for c in st], pad=width + 2))
+    if "vertices" in fields:
+        vertices = _numbers(fields["vertices"])
+        require(len(vertices) >= 4 and len(vertices) % 2 == 0, "INVALID_ARGUMENT", "Invalid shape geometry.")
+        annot.Vertices = Array(vertices)
+        annot.Rect = Array(_bounds(vertices, pad=width + 2))
+    if "rect" in fields:
+        x0, y0, x1, y1 = _numbers(fields["rect"], 4)
+        new = [min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)]
+        old = _rect(annot) if "/Rect" in annot else new
+        # Moving/resizing the box moves the geometry inside it.
+        if old != new and old[2] > old[0] and old[3] > old[1] and not ({"quads", "line", "ink", "vertices"} & fields.keys()):
+            sx, sy = (new[2] - new[0]) / (old[2] - old[0]), (new[3] - new[1]) / (old[3] - old[1])
+            for key in ("/QuadPoints", "/L", "/Vertices"):
+                if key in annot:
+                    pts = [_num(v) for v in annot[key]]
+                    annot[key] = Array([(new[0] + (v - old[0]) * sx) if i % 2 == 0 else (new[1] + (v - old[1]) * sy)
+                                        for i, v in enumerate(pts)])
+            if "/InkList" in annot:
+                annot.InkList = Array([Array([(new[0] + (_num(v) - old[0]) * sx) if i % 2 == 0 else (new[1] + (_num(v) - old[1]) * sy)
+                                              for i, v in enumerate(stroke)]) for stroke in annot.InkList])
+        annot.Rect = Array(new)
+    colour = fields.get("color")
+    fill = fields.get("fill")
+    if subtype == "FreeText":
+        # FreeText: /C is the background; the text colour and size live in /DA.
+        size = float(fields.get("font_size", _parse_da(_text(annot.get("/DA")))[0] or 12))
+        text = _numbers(colour, 3) if colour is not None else (_parse_da(_text(annot.get("/DA")))[1] or [0, 0, 0])
+        annot.DA = pikepdf.String(f"{_fmt(*text)} rg /Helv {_fmt(size)} Tf")
+        if fill is not None:
+            annot.C = Array(_numbers(fill, 3)) if fill else Array()
+        if "width" not in fields and "/BS" not in annot:
+            annot.BS = Dictionary(W=0, S=Name.S)
+    else:
+        if colour is not None:
+            annot.C = Array(_numbers(colour, 3))
+        if fill is not None:
+            if fill:
+                annot.IC = Array(_numbers(fill, 3))
+            elif "/IC" in annot:
+                del annot["/IC"]
+    if "line_endings" in fields:
+        ends = fields["line_endings"]
+        require(isinstance(ends, list) and len(ends) == 2, "INVALID_ARGUMENT", "Invalid line endings.")
+        annot.LE = Array([Name("/" + str(e)) for e in ends])
+    if "opacity" in fields:
+        opacity = max(0.05, min(1.0, float(fields["opacity"])))
+        if opacity < 0.999:
+            annot.CA = opacity
+        elif "/CA" in annot:
+            del annot["/CA"]
+    for key, name in (("contents", "/Contents"), ("author", "/T"), ("subject", "/Subj")):
+        if key in fields:
+            if fields[key]:
+                annot[name] = pikepdf.String(str(fields[key]))
+            elif name in annot:
+                del annot[name]
+    if fields.get("icon"):
+        annot.Name = Name("/" + str(fields["icon"]))
+    annot.M = pikepdf.String(_pdf_date())
+
+
+def _new_annotation(pdf, page, subtype, fields):
+    import uuid
+    annot = pdf.make_indirect(Dictionary(Type=Name.Annot, Subtype=Name("/" + subtype), F=4, P=page.obj,
+                                         NM=pikepdf.String("zpdf-" + uuid.uuid4().hex),
+                                         CreationDate=pikepdf.String(_pdf_date())))
+    if subtype == "Text":
+        annot.Name = Name.Comment
+    if subtype == "Stamp":
+        annot.Name = Name.Draft
+    _apply_fields(pdf, annot, subtype, fields)
+    require("/Rect" in annot, "INVALID_ARGUMENT", "A comment needs a position.")
+    return annot
+
+
+def _rebuild(pdf, annot):
+    if "/AP" in annot:
+        del annot["/AP"]
+    build_appearance(pdf, annot)
+
+
+@op("comment_edits")
+def comment_edits(ctx, items):
+    """Adds, updates, replies to, sets the review status of and deletes comments from
+    plain JSON (the Windows app has no PDFKit to write annotations). Items refer to
+    annotations by page and index as the document was before this call; deletions
+    run last and take their replies and popups with them."""
+    pdf = ctx.pdf
+    require(isinstance(items, list) and items, "INVALID_ARGUMENT", "Nothing to change.")
+    original = [list(page.obj.get("/Annots", [])) for page in pdf.pages]
+
+    def target(item):
+        page, index = item.get("page"), item.get("index")
+        require(isinstance(page, int) and 0 <= page < len(pdf.pages), "STALE_PAGE", "That page no longer exists.")
+        require(isinstance(index, int) and 0 <= index < len(original[page]), "INVALID_ARGUMENT",
+                "That comment no longer exists.")
+        annot = original[page][index]
+        require(_is_comment(annot), "INVALID_ARGUMENT", "That annotation isn't a comment.")
+        return pdf.pages[page], annot
+
+    added = updated = 0
+    deleting = []
+    for item in items:
+        require(isinstance(item, dict), "INVALID_ARGUMENT", "Invalid comment change.")
+        action, fields = item.get("action"), item.get("annot") or {}
+        require(isinstance(fields, dict), "INVALID_ARGUMENT", "Invalid comment change.")
+        if action == "add":
+            page = item.get("page")
+            require(isinstance(page, int) and 0 <= page < len(pdf.pages), "STALE_PAGE", "That page no longer exists.")
+            subtype = str(fields.get("subtype", ""))
+            require(subtype in EDITABLE, "INVALID_ARGUMENT", "zPDF can't create that kind of comment.")
+            annot = _new_annotation(pdf, pdf.pages[page], subtype, fields)
+            _rebuild(pdf, annot)
+            generic._annots(pdf.pages[page]).append(annot)
+            added += 1
+        elif action == "update":
+            page, annot = target(item)
+            _apply_fields(pdf, annot, _name(annot.get("/Subtype")) or "", fields)
+            _rebuild(pdf, annot)
+            updated += 1
+        elif action in ("reply", "status"):
+            page, parent = target(item)
+            reply = _new_annotation(pdf, page, "Text", {"rect": _rect(parent), "author": item.get("author") or fields.get("author", ""),
+                                                        "contents": fields.get("contents", "")})
+            reply.IRT = parent
+            reply.F = 4 | 2 if action == "status" else 4 | 2 | 32  # hidden: shown in the comment list, not on the page
+            if action == "status":
+                state = str(item.get("state", ""))
+                require(state in REVIEW_STATES, "INVALID_ARGUMENT", "Unknown review status.")
+                reply.State = pikepdf.String(state)
+                reply.StateModel = pikepdf.String("Review")
+                reply.Contents = pikepdf.String(f"{state} set by {reply.get('/T', '')}".strip())
+            else:
+                reply.RT = Name.R
+            generic._annots(page).append(reply)
+            added += 1
+        elif action == "delete":
+            deleting.append(target(item)[1])
+        else:
+            require(False, "INVALID_ARGUMENT", "Unknown comment change.")
+    for annot in deleting:
+        annot[generic.DELETE] = True
+    removed = generic._remove_marked(pdf) if deleting else 0
+    return {"added": added, "updated": updated, "removed": removed}
+
+
 @op("import_comments")
 def import_comments(ctx, path, format=None, replace_existing=False):
     """Add comments from an FDF, XFDF or PDF file. Comments whose /NM already
