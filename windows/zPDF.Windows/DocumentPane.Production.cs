@@ -97,30 +97,35 @@ public sealed partial class DocumentPane
             PrimaryButtonText = fixes.Count > 0 ? "Apply Fixes" : "", DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        var chosen = fixes.Where(f => f.Box.IsChecked == true).ToList();
+        var chosen = fixes.Where(f => f.Box.IsChecked == true).Select(f => ((string)f.Box.Content, f.Ops)).ToList();
         if (chosen.Count == 0) return;
-        // All fixes in one step; if one fails, the others still apply (one at a time).
-        await Run("Applying preflight fixes…", async () =>
+        await ApplyFixesAsync("Applying preflight fixes…", chosen, "Fixes applied. Run Preflight again to confirm, then save.");
+    }
+
+    /// <summary>Several independent fixes as one undo step. If one fails, the others are
+    /// still applied (one at a time), and the status says which failed and why.</summary>
+    private Task<bool> ApplyFixesAsync(string status, List<(string Label, JsonArray Ops)> fixes, string done) =>
+        Run(status, async () =>
         {
             var failed = new List<string>();
             var current = CurrentPath!;
             try
             {
                 var all = new JsonArray();
-                foreach (var (_, fixOps) in chosen) foreach (var op in fixOps) all.Add(op!.DeepClone());
+                foreach (var (_, ops) in fixes) foreach (var op in ops) all.Add(op!.DeepClone());
                 current = await Engine.TransformAsync(current, all, _password);
             }
             catch (EngineException)
             {
-                foreach (var (box, fixOps) in chosen)
+                foreach (var (label, ops) in fixes)
                 {
                     try
                     {
-                        var next = await Engine.TransformAsync(current, (JsonArray)fixOps.DeepClone(), _password);
+                        var next = await Engine.TransformAsync(current, (JsonArray)ops.DeepClone(), _password);
                         if (current != CurrentPath) TryDelete(current);
                         current = next;
                     }
-                    catch (EngineException error) { failed.Add($"{box.Content}: {error.Message}"); }
+                    catch (EngineException error) { failed.Add($"{label}: {error.Message}"); }
                 }
             }
             if (current != CurrentPath)
@@ -128,10 +133,10 @@ public sealed partial class DocumentPane
                 PushRevision(current);
                 Show(PdfDocument.Open(current, _password), keepPosition: true);
             }
-            StatusText.Text = failed.Count == 0 ? "Fixes applied. Run Preflight again to confirm, then save."
-                : $"{chosen.Count - failed.Count} of {chosen.Count} fixes applied. Not applied — {string.Join("; ", failed)}";
+            StatusText.Text = failed.Count == 0 ? done
+                : failed.Count == fixes.Count ? $"No fixes could be applied — {string.Join("; ", failed)}"
+                : $"{fixes.Count - failed.Count} of {fixes.Count} fixes applied. Not applied — {string.Join("; ", failed)}";
         }, keepStatus: true);
-    }
 
     // ---------------------------------------------------------------- output preview
 
@@ -542,5 +547,29 @@ public sealed partial class DocumentPane
         var (folder, name, extension) = (Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path), Path.GetExtension(path));
         for (var n = 2; ; n++)
             if (Path.Combine(folder, $"{name} {n}{extension}") is var candidate && !File.Exists(candidate)) return candidate;
+    }
+
+    // ---------------------------------------------------------------- print a selected area
+
+    private void PrintArea_Click(object sender, RoutedEventArgs e)
+    {
+        SetTool(CommentTool.PrintArea);
+        ShowTransient("Drag over the area to print (Esc to cancel).");
+    }
+
+    /// <summary>Prints just the dragged area of a page, enlarged to fit the paper.</summary>
+    private async Task PrintAreaAsync(int page, Windows.Foundation.Rect area)
+    {
+        SetTool(CommentTool.Select);
+        if (area.Width < 8 || area.Height < 8 || await InfoAsync(page) is not { } info || CurrentPath is null) return;
+        string? cropped = null;
+        try
+        {
+            await FlushFieldsAsync();
+            cropped = await Engine.TransformAsync(CurrentPath, [new JsonObject { ["op"] = "crop_area", ["page"] = page, ["rect"] = ToJson(PdfRect(info, area)) }], _password);
+            await OutputPrintAsync(cropped);
+        }
+        catch (EngineException error) { StatusText.Text = error.Message; }
+        finally { if (cropped is not null) TryDelete(cropped); }
     }
 }

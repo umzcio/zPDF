@@ -121,12 +121,33 @@ public sealed partial class DocumentPane
         ShowTransient("Password protection will be applied when you save.");
     }
 
-    private void RemoveSecurity_Click(object sender, RoutedEventArgs e)
+    private async void RemoveSecurity_Click(object sender, RoutedEventArgs e)
     {
         if (!_encryptedOriginal && _security is null) { ShowTransient("This document has no security to remove."); return; }
+        if (_encryptedOriginal && _sourcePath is { } source && !await HasPermissionsPasswordAsync(source)) return;
         _security = _encryptedOriginal ? new SecurityChange.Remove() : null;
         UpdateStatus();
         ShowTransient(_encryptedOriginal ? "Security will be removed when you save." : "Password protection cancelled.");
+    }
+
+    /// <summary>Removing security needs the permissions (owner) password, as on the Mac: true
+    /// when the document was opened with it, or the person enters it now.</summary>
+    private async Task<bool> HasPermissionsPasswordAsync(string source)
+    {
+        try
+        {
+            if ((await Engine.QueryAsync(source, "security_info", password: _password))["owner_password_matched"]?.GetValue<bool>() == true) return true;
+        }
+        catch (EngineException) { }
+        var box = new PasswordBox { Header = "Permissions password" };
+        if (!await AskAsync("Remove Security", Stack(Note("Removing security needs the document's permissions password (the one that restricts printing, editing and copying)."), box), "Remove")) return false;
+        try
+        {
+            if ((await Engine.QueryAsync(source, "check_password", password: box.Password))["owner_password_matched"]?.GetValue<bool>() == true) return true;
+        }
+        catch (EngineException) { }
+        StatusText.Text = "That is not this document's permissions password.";
+        return false;
     }
 
     // ---------------------------------------------------------------- redaction

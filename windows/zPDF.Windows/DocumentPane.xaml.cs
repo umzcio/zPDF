@@ -610,7 +610,7 @@ public sealed partial class DocumentPane : UserControl
         for (var i = 0; i < _pageSizes.Length; i++)
         {
             var (w, h) = _pageSizes[i];
-            _thumbnails.Add(new Thumbnail(i, ThumbnailWidth, Math.Round(ThumbnailWidth * h / w)));
+            _thumbnails.Add(new Thumbnail(i, ThumbnailWidth, Math.Round(ThumbnailWidth * h / w), document.PageLabel(i)));
         }
         if (_reselect is { Count: > 1 } reselect)
         {

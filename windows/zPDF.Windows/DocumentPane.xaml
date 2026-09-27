@@ -108,6 +108,9 @@
                         <MenuFlyoutItem Text="Sign with Digital ID…" Click="SignDigital_Click" />
                         <MenuFlyoutItem Text="Certify Document…" Click="Certify_Click" />
                         <MenuFlyoutItem Text="Validate Signatures…" Click="ValidateSignatures_Click" />
+                        <MenuFlyoutItem Text="Add Long-Term Validation…" Click="AddLtv_Click" />
+                        <MenuFlyoutItem Text="View Signed Version…" Click="ViewSignedVersion_Click" />
+                        <MenuFlyoutItem Text="Clear Signature…" Click="ClearSignature_Click" />
                         <MenuFlyoutItem Text="Digital IDs…" Click="ManageIds_Click" />
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Clear Saved Signatures" Click="ClearSavedSignatures_Click" />
@@ -155,13 +158,14 @@
                         <MenuFlyoutItem Text="Save as PDF/A…" Click="ConvertPdfA_Click" />
                         <MenuFlyoutItem Text="Save as PDF/X-4…" Click="ConvertPdfX_Click" />
                         <MenuFlyoutItem Text="Save as PDF/E…" Click="ConvertPdfE_Click" />
+                        <MenuFlyoutItem Text="Standards Status…" Click="StandardsStatus_Click" />
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
             <AppBarButton x:Name="ToolsMenuButton" Label="Tools" IsEnabled="False">
                 <AppBarButton.Icon><FontIcon Glyph="&#xE90F;" /></AppBarButton.Icon>
                 <AppBarButton.Flyout>
-                    <MenuFlyout>
+                    <MenuFlyout Opening="AdvancedFormsMenu_Opening">
                         <MenuFlyoutItem Text="Find &amp; Replace in Content…" Click="FindReplace_Click" />
                         <MenuFlyoutSubItem Text="Comments">
                             <MenuFlyoutItem Text="Import Comments…" Click="ImportComments_Click" />
@@ -169,6 +173,15 @@
                             <MenuFlyoutItem Text="Flatten Comments…" Click="FlattenComments_Click" />
                         </MenuFlyoutSubItem>
                         <MenuFlyoutItem Text="Flatten Form Fields…" Click="FlattenForm_Click" />
+                        <MenuFlyoutSubItem Text="Form Logic">
+                            <MenuFlyoutItem Text="Tab Order…" Click="TabOrder_Click" />
+                            <MenuFlyoutItem Text="Duplicate Field Across Pages…" Click="DuplicateFieldPages_Click" />
+                            <MenuFlyoutItem Text="Calculation Order…" Tag="calculations" Visibility="Collapsed" Click="CalculationOrder_Click" />
+                            <MenuFlyoutItem Text="Recalculate Fields" Tag="calculations" Visibility="Collapsed" Click="RecalculateForm_Click" />
+                            <MenuFlyoutItem Text="Update Barcodes" Tag="barcodes" Visibility="Collapsed" Click="UpdateBarcodes_Click" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutItem Text="Convert to Standard Form…" Tag="xfa" Visibility="Collapsed" Click="ConvertXfaForm_Click" />
+                        <MenuFlyoutItem Text="Document JavaScript…" Click="DocumentJavaScript_Click" />
                         <MenuFlyoutItem Text="Compare with Another PDF…" Click="Compare_Click" />
                         <MenuFlyoutItem Text="Compare Comments…" Click="CompareComments_Click" />
                         <MenuFlyoutSeparator />
@@ -176,6 +189,8 @@
                         <MenuFlyoutItem Text="Autotag Document" Click="Autotag_Click" />
                         <MenuFlyoutItem Text="Alternate Text…" Click="AltText_Click" />
                         <MenuFlyoutItem Text="Reading Order (Current Page)…" Click="ReadingOrder_Click" />
+                        <MenuFlyoutItem Text="Tags…" Click="TagsEditor_Click" />
+                        <MenuFlyoutItem Text="Identify as PDF/UA…" Click="MarkPdfUa_Click" />
                         <MenuFlyoutSeparator />
                         <MenuFlyoutSubItem Text="Print Production">
                             <MenuFlyoutItem Text="Preflight…" Click="Preflight_Click" />
@@ -186,6 +201,7 @@
                             <MenuFlyoutItem Text="Booklet…" Click="Booklet_Click" />
                             <MenuFlyoutItem Text="Multiple Pages per Sheet…" Click="NUp_Click" />
                             <MenuFlyoutItem Text="Poster (Tile Pages)…" Click="Poster_Click" />
+                            <MenuFlyoutItem Text="Print Selected Area…" Click="PrintArea_Click" />
                         </MenuFlyoutSubItem>
                         <MenuFlyoutItem Text="Batch Process Files…" Click="Batch_Click" />
                         <MenuFlyoutSeparator />

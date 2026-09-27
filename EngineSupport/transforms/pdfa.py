@@ -660,11 +660,10 @@ def convert_pdfe(ctx):
     """PDF/E-1 identification with embedded fonts and no encryption."""
     pdf = ctx.pdf
     report = {"version": "PDF/E-1"}
-    embedded, failed = embed_missing_fonts(pdf)
-    report["fonts_embedded"], report["fonts_failed"] = embedded, failed
-    if failed:
-        raise EngineError("FONT_NOT_EMBEDDABLE", "Some fonts could not be embedded, so the file cannot be PDF/E.")
-    report["actions_removed"] = _strip_actions(pdf)
+    _fix_common(pdf, report, "e")  # actions, printable annotations, appearances, fonts
+    if report["fonts_failed"]:
+        names = ", ".join(sorted({f["font"] for f in report["fonts_failed"]}))
+        raise EngineError("FONT_NOT_EMBEDDABLE", f"These fonts could not be embedded, so the file cannot be PDF/E: {names}.")
     _set_xmp(pdf, {"pdfe:ISO_PDFEVersion": "PDF/E-1"})
     ctx.save_options.update(force_version="1.6", encryption=False)
     return report

@@ -15,6 +15,7 @@ public sealed partial class DocumentPane
     private Point _prepareStart;
     private bool _prepareMoving;
     private PageSlot? _preparePressSlot;
+    private bool _prepareHadSelection;  // a field was selected when this press began
 
     private bool IsPreparingForm => _tool == CommentTool.PrepareForm;
 
@@ -41,6 +42,7 @@ public sealed partial class DocumentPane
         _preparePressSlot = slot;
         _prepareStart = point;
         _prepareMoving = false;
+        _prepareHadSelection = _preparedWidget is not null;
         _preparedWidget = PreparableWidgetAt(slot.Index, point);
         RefreshMarks();
         return true;
@@ -84,7 +86,9 @@ public sealed partial class DocumentPane
             });
             return true;
         }
-        // A drag draws a new field; a click places one at a sensible size.
+        // A drag draws a new field; a click places one at a sensible size, unless it only
+        // clears the selection (a click just beside the selected field shouldn't add one).
+        if (!_prepareMoving && _prepareHadSelection) { RefreshMarks(); return true; }
         var box = new Rect(_prepareStart, point);
         if (box.Width < 6 || box.Height < 6)
             box = _newFieldType is "checkbox" or "radio" ? new Rect(point.X, point.Y, 14, 14) : new Rect(point.X, point.Y, 160, 20);
@@ -99,7 +103,9 @@ public sealed partial class DocumentPane
     private FormWidget? PreparableWidgetAt(int page, Point point)
     {
         if (Info(page) is not { } info) return null;
-        return _fields.SelectMany(f => f.Widgets).Where(w => w.Page == page).LastOrDefault(w => WidgetRect(info, w).Contains(point));
+        var widgets = _fields.SelectMany(f => f.Widgets).Where(w => w.Page == page).ToList();
+        return widgets.LastOrDefault(w => WidgetRect(info, w).Contains(point))
+            ?? widgets.LastOrDefault(w => Inflate(WidgetRect(info, w), 3).Contains(point));  // a near miss still selects
     }
 
     private IEnumerable<(int Page, Rect Rect)> PrepareMarks()
@@ -212,7 +218,8 @@ public sealed partial class DocumentPane
         var picker = new FileOpenPicker(AppWindow.Id);
         foreach (var t in new[] { ".xfdf", ".fdf", ".pdf" }) picker.FileTypeFilter.Add(t);
         if (await picker.PickSingleFileAsync() is not { } file) return;
-        await EditDocumentAsync("Importing comments…", new JsonObject { ["op"] = "import_comments", ["path"] = file.Path });
+        if (await EditDocumentAsync("Importing comments…", new JsonObject { ["op"] = "import_comments", ["path"] = file.Path }))
+            StatusText.Text = $"Imported the comments from {Path.GetFileName(file.Path)}. Save to keep them.";
     }
 
     private async void ExportComments_Click(object sender, RoutedEventArgs e)

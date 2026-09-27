@@ -9,6 +9,7 @@ namespace zPDF;
 
 public sealed record AttachmentItem(string Id, string Name, string Description, long Size, int? Page)
 {
+    public override string ToString() => $"{Name}, {Detail}";  // screen readers read list items by ToString
     public string Detail => $"{(Size >= 1 << 20 ? $"{Size / 1048576.0:0.#} MB" : $"{Math.Max(1, Size / 1024)} KB")}{(Page is { } p ? $" · on page {p + 1}" : "")}{(Description.Length > 0 ? $" · {Description}" : "")}";
 }
 
@@ -18,6 +19,7 @@ public sealed class LayerItem(string id, string name, bool visible, int depth)
     public string Name { get; } = name;
     public bool Visible { get; set; } = visible;
     public Thickness Indent => new(depth * 16, 0, 0, 0);
+    public override string ToString() => $"{Name}, {(Visible ? "shown" : "hidden")}";
 }
 
 /// <summary>Links (add, edit, remove), attachments, layers, page labels, page size, PDF/X and PDF/E.</summary>
@@ -222,20 +224,38 @@ public sealed partial class DocumentPane
         var mode = Choice("Content", ["Scale to fit the new size", "Keep its size (add or trim margins)"]);
         var scope = Scope();
         if (!await AskAsync("Resize Pages", Stack(size, mode, scope), "Resize")) return;
-        await EditDocumentAsync("Resizing pages…", new JsonObject
+        if (await EditDocumentAsync("Resizing pages…", new JsonObject
         {
             ["op"] = "resize_pages", ["size"] = new[] { "letter", "legal", "tabloid", "a4", "a3", "a5" }[Math.Max(0, size.SelectedIndex)],
             ["mode"] = mode.SelectedIndex == 1 ? "canvas" : "scale", ["pages"] = ScopePages(scope),
-        });
+        })) StatusText.Text = $"Pages resized to {((string)size.SelectedItem).Split(" (")[0]}. Save to keep the change.";
     }
 
     private async void ConvertPdfX_Click(object sender, RoutedEventArgs e)
     {
         var note = new TextBlock { Text = "PDF/X-4 for commercial printing: fonts embedded, colours with an output intent (Generic CMYK) and page boxes set.", TextWrapping = TextWrapping.Wrap };
         if (!await AskAsync("Save as PDF/X-4", Stack(note), "Convert")) return;
-        await EditDocumentAsync("Converting to PDF/X-4…", new JsonObject { ["op"] = "convert_pdfx", ["version"] = "PDF/X-4" });
+        if (await EditDocumentAsync("Converting to PDF/X-4…", new JsonObject { ["op"] = "convert_pdfx", ["version"] = "PDF/X-4" }))
+            await ReportStandardAsync("PDF/X-4");
     }
 
-    private async void ConvertPdfE_Click(object sender, RoutedEventArgs e) =>
-        await EditDocumentAsync("Converting to PDF/E…", new JsonObject { ["op"] = "convert_pdfe" });
+    private async void ConvertPdfE_Click(object sender, RoutedEventArgs e)
+    {
+        if (await EditDocumentAsync("Converting to PDF/E…", new JsonObject { ["op"] = "convert_pdfe" }))
+            await ReportStandardAsync("PDF/E-1");
+    }
+
+    /// <summary>After a conversion: whether the document now meets `standard` (zPDF's own checks).</summary>
+    private async Task ReportStandardAsync(string standard)
+    {
+        try
+        {
+            var report = await Engine.QueryAsync(CurrentPath!, "validate_standard", new JsonObject { ["standard"] = standard }, _password);
+            var issues = report["issues"]?.AsArray() ?? [];
+            StatusText.Text = report["compliant"]?.GetValue<bool>() == true
+                ? $"The document now conforms to {standard}. Save to keep it."
+                : $"Converted, but {issues.Count} issue{(issues.Count == 1 ? "" : "s")} remain for {standard}: {string.Join("; ", issues.Take(3).Select(IssueText))}";
+        }
+        catch (EngineException error) { StatusText.Text = error.Message; }
+    }
 }

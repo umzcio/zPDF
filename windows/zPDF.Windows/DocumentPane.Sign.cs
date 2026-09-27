@@ -306,11 +306,14 @@ public sealed partial class DocumentPane
         var visible = new CheckBox { Content = "Show the signature on the page (draw its box next)", IsChecked = true };
         var permission = Choice("After certifying, allow", ["Form filling and signing", "Form filling, signing and comments", "No changes"]);
         var timestamp = new CheckBox { Content = "Add a trusted timestamp (needs the internet)" };
-        var content = certify ? Stack(password, reason, location, permission, visible, timestamp) : Stack(password, reason, location, visible, timestamp);
+        var ltv = new CheckBox { Content = "Add long-term validation (keeps the signature verifiable after the certificate expires)" };
+        var content = certify ? Stack(password, reason, location, permission, visible, timestamp, ltv) : Stack(password, reason, location, visible, timestamp, ltv);
         if (!await AskAsync(certify ? "Certify Document" : "Sign with Digital ID", content, visible.IsChecked == true ? "Continue" : "Sign")) return;
         var options = new JsonObject { ["reason"] = reason.Text, ["location"] = location.Text };
         if (certify) options["certify"] = permission.SelectedIndex switch { 1 => 3, 2 => 1, _ => 2 };
         if (timestamp.IsChecked == true) options["timestamp_url"] = "http://timestamp.digicert.com";
+        // LTV fetches revocation data only when the person already chose to go online (timestamp).
+        if (ltv.IsChecked == true) options["_ltv"] = timestamp.IsChecked == true ? "online" : "offline";
         if (visible.IsChecked == true)
         {
             _signing = (id, password.Password, options);
@@ -334,9 +337,23 @@ public sealed partial class DocumentPane
                 ["op"] = "sign", ["identity"] = new JsonObject { ["p12"] = id.P12, ["password"] = password },
                 ["name"] = id.Name,
             };
-            foreach (var (key, value) in options) op[key] = value?.DeepClone();
+            string? ltv = null;
+            foreach (var (key, value) in options)
+                if (key == "_ltv") ltv = value?.GetValue<string>();
+                else op[key] = value?.DeepClone();
             if (page is { } p && rect is not null) { op["page"] = p; op["rect"] = ToJson(rect); }
             var signed = await Engine.TransformAsync(CurrentPath!, [op], _password);
+            if (ltv is not null)
+            {
+                // Validation data goes in an incremental update after the signature.
+                try
+                {
+                    var validated = await Engine.TransformAsync(signed, [new JsonObject { ["op"] = "add_ltv", ["allow_network"] = ltv == "online" }]);
+                    TryDelete(signed);
+                    signed = validated;
+                }
+                catch (EngineException error) { StatusText.Text = $"Signed, but long-term validation wasn't added: {error.Message}"; }
+            }
             await Engine.PublishAsync(signed, destination, overwrite: true);
             TryDelete(signed);
             // Continue with the signed file as the document.

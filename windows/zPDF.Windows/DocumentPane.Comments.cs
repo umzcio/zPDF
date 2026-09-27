@@ -14,7 +14,7 @@ namespace zPDF;
 
 public enum CommentTool
 {
-    Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox,
+    Select, Highlight, Underline, StrikeOut, Text, FreeText, Ink, Square, Circle, Line, Arrow, Stamp, Redact, Place, SignBox, PrintArea,
     MeasureDistance, MeasurePerimeter, MeasureArea, EditContent, AddText, AddImage, PrepareForm, Link,
 }
 
@@ -305,6 +305,7 @@ public sealed partial class DocumentPane
         if (_tool is CommentTool.MeasureDistance or CommentTool.MeasurePerimeter or CommentTool.MeasureArea)
             return MeasurePointerReleased(target, points[0], points[^1]);
         if (_tool == CommentTool.SignBox) { _ = FinishSignBoxAsync(target.Index, new Rect(points[0], points[^1])); return true; }
+        if (_tool == CommentTool.PrintArea) { _ = PrintAreaAsync(target.Index, new Rect(points[0], points[^1])); return true; }
         _ = CreateCommentAsync(target.Index, points);
         return true;
     }

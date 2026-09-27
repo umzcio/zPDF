@@ -396,6 +396,10 @@ def barcode_appearance(pdf, widget, matrix_rows, quiet=2):
         module = min((width - 2 * quiet) / cols, (height - 2 * quiet) / len(rows))
         ox = (width - module * cols) / 2
         oy = (height - module * len(rows)) / 2
+        if not (mk is not None and "/BG" in mk):
+            # Scanners need light behind the code: without a field background, page text
+            # would show between the modules. White code area plus the quiet zone.
+            ops.append(f"1 g {fmt(max(0, ox - quiet), max(0, oy - quiet), min(width, module * cols + 2 * quiet), min(height, module * len(rows) + 2 * quiet))} re f")
         rects = []
         for y, row in enumerate(rows):
             for x, bit in enumerate(row):

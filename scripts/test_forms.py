@@ -144,6 +144,10 @@ class FormAuthoringTests(Base):
         self.assertEqual(info["Clear"]["action"]["kind"], "reset")
         self.assertEqual(info["PrintIt"]["action"]["kind"], "print")
         self.assertEqual(info["Code"]["barcode"]["fields"], ["Name", "Zip"])
+        with pikepdf.open(out) as pdf:
+            code = next(w for w in pdf.pages[1].obj.Annots if str(w.get("/T", "")) == "Code" or str(w.get("/Parent", {}).get("/T", "")) == "Code")
+            # Modules sit on white, so page content can't show through and spoil scanning.
+            self.assertIn(b"1 g", code.AP.N.read_bytes())
         # Every widget has an appearance; no NeedAppearances flag; DR has the standard fonts.
         with pikepdf.open(out) as pdf:
             acro = pdf.Root.AcroForm

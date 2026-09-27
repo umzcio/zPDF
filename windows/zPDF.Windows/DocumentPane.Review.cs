@@ -177,30 +177,28 @@ public sealed partial class DocumentPane
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         var tagged = report["tagged"]?.GetValue<bool>() == true;
-        var ops = new JsonArray();
+        var language = System.Globalization.CultureInfo.CurrentUICulture.Name is { Length: > 0 } lang ? lang : "en-US";
+        var chosen = new List<(string Label, JsonArray Ops)>();
         foreach (var fix in fixes)
         {
-            JsonObject? op = fix switch
+            (string Label, JsonObject Op)? step = fix switch
             {
-                "autotag" => new JsonObject { ["op"] = "autotag", ["replace"] = tagged },
-                "set_language" => new JsonObject { ["op"] = "set_language", ["lang"] = System.Globalization.CultureInfo.CurrentUICulture.Name is { Length: > 0 } lang ? lang : "en-US" },
-                "bookmarks" => new JsonObject { ["op"] = "outline_from_headings", ["replace"] = false },
-                "set_title" => new JsonObject { ["op"] = "set_title", ["title"] = Path.GetFileNameWithoutExtension(_sourcePath) },
-                "tag_annotations" => new JsonObject { ["op"] = "tag_annotations" },
-                "set_page_tab_order" => new JsonObject { ["op"] = "set_page_tab_order", ["order"] = "S" },
-                "field_tooltips" or "field_descriptions" => new JsonObject { ["op"] = "set_field_tooltips" },
+                "autotag" => ("Tag the document", new JsonObject { ["op"] = "autotag", ["replace"] = tagged }),
+                "set_language" => ("Set the language", new JsonObject { ["op"] = "set_language", ["lang"] = language }),
+                "set_title" => ("Set the title", new JsonObject { ["op"] = "set_title", ["title"] = Path.GetFileNameWithoutExtension(_sourcePath) }),
+                "tag_annotations" => ("Tag comments and fields", new JsonObject { ["op"] = "optional", ["step"] = new JsonObject { ["op"] = "tag_annotations" } }),
+                "set_page_tab_order" => ("Tab order", new JsonObject { ["op"] = "set_page_tab_order", ["order"] = "S" }),
+                "field_tooltips" or "field_descriptions" => ("Field descriptions", new JsonObject { ["op"] = "set_field_tooltips" }),
+                // No headings to build bookmarks from is "nothing to do", not a failure.
+                "bookmarks" => ("Bookmarks", new JsonObject { ["op"] = "optional", ["step"] = new JsonObject { ["op"] = "outline_from_headings", ["replace"] = false } }),
                 _ => null,
             };
-            if (op is not null) ops.Add(op);
+            if (step is { } picked && chosen.All(c => c.Label != picked.Label)) chosen.Add((picked.Label, [picked.Op]));
         }
-        if (ops.Count == 0) return;
-        await Run("Fixing accessibility issues…", async () =>
-        {
-            var edited = await Engine.TransformAsync(CurrentPath!, ops, _password);
-            PushRevision(edited);
-            Show(PdfDocument.Open(edited, _password), keepPosition: true);
-            StatusText.Text = $"Fixed {ops.Count} issue{(ops.Count == 1 ? "" : "s")}. Run the check again to review what needs a person.";
-        }, keepStatus: true);
+        if (chosen.Count == 0) return;
+        // Tagging first: later fixes (tagging comments, tab order) work on the new tags.
+        chosen = [.. chosen.OrderBy(c => c.Label == "Tag the document" ? 0 : 1)];
+        await ApplyFixesAsync("Fixing accessibility issues…", chosen, $"Fixed {chosen.Count} issue{(chosen.Count == 1 ? "" : "s")}. Run the check again to review what needs a person.");
     }
 
     private async void Autotag_Click(object sender, RoutedEventArgs e)

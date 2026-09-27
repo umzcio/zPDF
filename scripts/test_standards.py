@@ -258,12 +258,15 @@ class StandardsTests(Base):
         out2, _ = self.run_ops(src, [{"op": "convert_pdfe"}], name="e.pdf")
         self.assertTrue(transforms.inspect(out2, "validate_standard", {"standard": "PDF/E-1"})["compliant"])
 
-    @unittest.skipIf(sys.platform == "win32", "Windows has no ZapfDingbats substitute yet (the I-9's checkboxes use it)")
     def test_real_form_to_pdfa(self):
         src = self.fixture("uscis-i9.pdf")
         out, result = self.run_ops(src, [{"op": "convert_pdfa", "level": "2b"}])
         report = transforms.inspect(out, "validate_standard", {"standard": "PDF/A-2b"})
         self.assertTrue(report["compliant"], report["issues"])
+        # PDF/E shares PDF/A's fixups (the I-9 has hidden, non-printing annotations).
+        out_e, _ = self.run_ops(src, [{"op": "convert_pdfe"}], name="i9-e.pdf")
+        report_e = transforms.inspect(out_e, "validate_standard", {"standard": "PDF/E-1"})
+        self.assertTrue(report_e["compliant"], report_e["issues"])
 
 
 def spot_pdf(path, function="type2"):
