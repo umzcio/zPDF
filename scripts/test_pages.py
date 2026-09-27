@@ -250,6 +250,10 @@ class LabelBoxTests(Base):
         with pikepdf.open(out) as pdf:
             self.assertEqual([float(v) for v in pdf.pages[0].CropBox], [36, 36, 576, 756])
             self.assertEqual([float(v) for v in pdf.pages[0].TrimBox], [18, 18, 594, 774])
+        import transforms
+        boxes = transforms.inspect(out, "page_boxes", {"pages": [0, 1]})["pages"]
+        self.assertEqual((boxes[0]["trim"], boxes[0]["bleed"], boxes[0]["art"]), ([18, 18, 594, 774], [9, 9, 603, 783], None))
+        self.assertIsNone(boxes[1]["trim"])
         out2, _ = self.run_ops(src, [{"op": "resize_pages", "size": "a4", "mode": "scale"}], name="o2.pdf")
         doc = pdfium.PdfDocument(str(out2))
         page = doc[1]

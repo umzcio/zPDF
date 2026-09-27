@@ -89,7 +89,7 @@ def extract_embedded(ctx, name, directory):
     require(name in pdf.attachments, "NOT_FOUND", "That embedded file is no longer in this document.")
     target = Path(directory)
     require(target.is_dir(), "INVALID_ARGUMENT", "The destination folder is unavailable.")
-    safe = "".join(c for c in Path(name).name if c not in "/\\:\0") or "attachment"
+    safe = "".join("_" if c in '/\\:*?"<>|' or ord(c) < 32 else c for c in Path(name).name).strip(" .") or "attachment"
     path = target / safe
     path.write_bytes(pdf.attachments[name].get_file().read_bytes())
     return {"path": str(path)}

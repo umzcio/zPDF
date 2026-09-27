@@ -186,8 +186,14 @@ def crop_pages(ctx, pages=None, box=None, margins=None, remove_white_margins=Fal
 @query("page_boxes")
 def page_boxes(ctx, pages=None):
     pdf = ctx.pdf
+    def own(page, key):
+        # Trim/Bleed/Art as set on the page (None when absent; readers then use the crop box).
+        value = page.obj.get(key)
+        return _intersect(_normal(value), media_box(page)) if value is not None else None
     return {"pages": [{"index": i, "media": media_box(pdf.pages[i]), "crop": crop_box(pdf.pages[i]),
-                       "rotation": rotation(pdf.pages[i])} for i in select_pages(pdf, pages)]}
+                       "trim": own(pdf.pages[i], "/TrimBox"), "bleed": own(pdf.pages[i], "/BleedBox"),
+                       "art": own(pdf.pages[i], "/ArtBox"), "rotation": rotation(pdf.pages[i])}
+                      for i in select_pages(pdf, pages)]}
 
 
 # ---------------------------------------------------------------- overlay settings

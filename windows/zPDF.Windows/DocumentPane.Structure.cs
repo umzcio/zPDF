@@ -502,7 +502,12 @@ public sealed partial class DocumentPane
         var crop = Box("crop");
         double[] Margins(double[] r) =>
             [Math.Max(0, r[0] - media[0]), Math.Max(0, r[1] - media[1]), Math.Max(0, media[2] - r[2]), Math.Max(0, media[3] - r[3])];
-        var values = PageBoxNames.ToDictionary(n => n, n => n == "MediaBox" ? new double[4] : Margins(crop));
+        double[] Existing(string key) => current[key] is JsonArray a ? a.Select(v => v!.GetValue<double>()).ToArray() : crop;
+        var values = PageBoxNames.ToDictionary(n => n, n => n switch
+        {
+            "MediaBox" => new double[4], "TrimBox" => Margins(Existing("trim")), "BleedBox" => Margins(Existing("bleed")),
+            "ArtBox" => Margins(Existing("art")), _ => Margins(crop),
+        });
         var edited = new HashSet<string>();
         var removed = new HashSet<string>();
         var box = Choice("Box", ["Crop box: the visible page area", "Trim box: the finished size after trimming", "Bleed box: the printed area beyond the trim",
@@ -538,7 +543,7 @@ public sealed partial class DocumentPane
         box.SelectionChanged += (_, _) => Load();
         Load();
         var content = Stack(box, Row(edges[3], edges[0]), Row(edges[2], edges[1]), remove, mediaNote, scope,
-                            Note($"Margins are measured inward from the media box of page {_page + 1}. Trim, bleed and art boxes start from its crop box."));
+                            Note($"Margins are measured inward from the media box of page {_page + 1}. Trim, bleed and art boxes the page doesn't have yet start from its crop box."));
         if (!await AskAsync("Set Page Boxes", content, "Apply")) return;
         var boxes = new JsonObject();
         foreach (var name in PageBoxNames.Where(n => edited.Contains(n) && !removed.Contains(n)))
