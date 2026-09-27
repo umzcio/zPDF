@@ -55,7 +55,7 @@ public sealed partial class MainWindow : Window
         if (!_updatesStarted)
         {
             _updatesStarted = true;
-            _ = Updates.CheckInBackgroundAsync(pane);
+            _ = Updates.CheckInBackgroundAsync(this);
         }
         return pane;
     }
@@ -88,13 +88,26 @@ public sealed partial class MainWindow : Window
     private void RunHomeCommand(string command)
     {
         if (command == "newWindow") { App.OpenWindow(null); return; }
+        Utility().RunAppCommand(command);
+    }
+
+    private DocumentPane Utility()
+    {
         if (_utility is null)
         {
             _utility = new DocumentPane(this) { Visibility = Visibility.Collapsed, IsHitTestVisible = false };
             Grid.SetRow(_utility, 0);
         }
         Home.HostUtility(_utility);
-        _utility.RunAppCommand(command);
+        return _utility;
+    }
+
+    /// <summary>A pane on screen to show app dialogs from: the selected tab, or Home's hidden pane.</summary>
+    public DocumentPane DialogPane()
+    {
+        if (ActivePane is { } pane) return pane;
+        ShowHome();
+        return Utility();
     }
 
     public DocumentPane? FindTab(string path) =>
@@ -191,13 +204,24 @@ public sealed partial class MainWindow : Window
     {
         if (_closeConfirmed || !Panes.Any(p => p.HasUnsavedChanges)) return;
         args.Cancel = true;
-        foreach (var pane in Panes.Where(p => p.HasUnsavedChanges).ToList())
-        {
-            if (TabOf(pane) is { } tab) Tabs.SelectedItem = tab;
-            await Task.Yield();  // let the tab's content load so its dialog has a XamlRoot
-            if (!await pane.ConfirmCloseAsync()) return;
-        }
+        if (!await ConfirmCloseAllAsync()) return;
         _closeConfirmed = true;
         Close();
     }
+
+    /// <summary>Asks about each tab with unsaved changes, in turn; false if one was cancelled.</summary>
+    public async Task<bool> ConfirmCloseAllAsync()
+    {
+        foreach (var pane in Panes.Where(p => p.HasUnsavedChanges).ToList())
+        {
+            if (TabOf(pane) is { } tab) Tabs.SelectedItem = tab;
+            Activate();
+            await Task.Yield();  // let the tab's content load so its dialog has a XamlRoot
+            if (!await pane.ConfirmCloseAsync()) return false;
+        }
+        return true;
+    }
+
+    /// <summary>The files open in this window's tabs, in order (for reopening after an update).</summary>
+    public List<string> OpenFiles() => [.. Panes.Select(p => p.FilePath).OfType<string>().Where(File.Exists)];
 }

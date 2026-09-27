@@ -59,6 +59,9 @@ public sealed class AppSettings
     /// <summary>The All tools drawer is open (Mac sidebarVisible; on by default).</summary>
     public bool ToolsDrawerVisible { get; set; } = true;
     public DateTime LastUpdateCheck { get; set; }
+    /// <summary>The files open in each window when zPDF restarted to install an update.</summary>
+    public List<List<string>> RestoreSession { get; set; } = [];
+    public DateTime RestoreSessionSaved { get; set; }
     /// <summary>Saved batch actions: name → step title (and "title#n" option values) → value.</summary>
     public Dictionary<string, Dictionary<string, string>> SavedActions { get; set; } = [];
 

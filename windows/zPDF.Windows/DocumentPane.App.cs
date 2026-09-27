@@ -241,8 +241,6 @@ public sealed partial class DocumentPane
         }.ShowAsync() == ContentDialogResult.Primary;
 
     /// <summary>Before an update restarts zPDF: offer to save unsaved changes.</summary>
-    public Task<bool> PrepareToQuitAsync() => ConfirmDiscardAsync();
-
     // ---------------------------------------------------------------- About
 
     private async void About_Click(object sender, RoutedEventArgs e)

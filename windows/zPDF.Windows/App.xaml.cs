@@ -132,15 +132,52 @@ public partial class App : Application
         // `zPDF.exe file.pdf` (Open With, or a double-click once zPDF is the default).
         var file = Environment.GetCommandLineArgs().Skip(1)
             .FirstOrDefault(a => a.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && File.Exists(a));
+        if (file is null && RestoreSession()) return;
         OpenWindow(file is null ? null : Path.GetFullPath(file));
     }
 
     /// <summary>A new document window, optionally opening `path`.</summary>
-    public static void OpenWindow(string? path)
+    public static MainWindow OpenWindow(string? path)
     {
         var window = new MainWindow(path);
         Windows.Add(window);
         window.Closed += (_, _) => Windows.Remove(window);
         window.Activate();
+        return window;
+    }
+
+    public static bool IsOpen(MainWindow window) => Windows.Contains(window);
+
+    /// <summary>Before restarting for an update: asks about unsaved changes in every window and
+    /// remembers the open files. False if the user cancelled.</summary>
+    public static async Task<bool> PrepareToQuitAsync()
+    {
+        foreach (var window in Windows.ToList())
+            if (!await window.ConfirmCloseAllAsync()) return false;
+        var settings = AppSettings.Current;
+        settings.RestoreSession = [.. Windows.Select(w => w.OpenFiles()).Where(files => files.Count > 0)];
+        settings.RestoreSessionSaved = DateTime.UtcNow;
+        settings.Save();
+        return true;
+    }
+
+    /// <summary>After an update restart: reopens the windows and tabs that were open (once, and
+    /// only if the update just happened).</summary>
+    private static bool RestoreSession()
+    {
+        var settings = AppSettings.Current;
+        var session = settings.RestoreSession;
+        var fresh = DateTime.UtcNow - settings.RestoreSessionSaved < TimeSpan.FromMinutes(10);
+        if (session.Count == 0) return false;
+        settings.RestoreSession = [];
+        settings.Save();
+        var windows = fresh ? session.Select(files => files.Where(File.Exists).ToList()).Where(files => files.Count > 0).ToList() : [];
+        if (windows.Count == 0) return false;
+        foreach (var files in windows)
+        {
+            var window = OpenWindow(files[0]);
+            foreach (var path in files.Skip(1)) window.AddTab(path);
+        }
+        return true;
     }
 }

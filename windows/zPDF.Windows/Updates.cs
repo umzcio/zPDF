@@ -19,12 +19,13 @@ internal static class Updates
             ? new(new SimpleFileSource(new DirectoryInfo(local)))
             : new(new GithubSource(Repository, null, false));
 
-    public static async Task CheckInBackgroundAsync(DocumentPane window)
+    public static async Task CheckInBackgroundAsync(MainWindow host)
     {
         var settings = AppSettings.Current;
         if (_offered || DateTime.UtcNow - settings.LastUpdateCheck < TimeSpan.FromDays(1)) return;
         await Task.Delay(TimeSpan.FromSeconds(20));  // not during startup
-        await CheckAsync(window, quiet: true);
+        if (!App.IsOpen(host)) return;
+        await CheckAsync(host.DialogPane(), quiet: true);  // whichever tab (or Home) is showing now
     }
 
     public static async Task CheckAsync(DocumentPane window, bool quiet)
@@ -53,6 +54,7 @@ internal static class Updates
         var version = update.TargetFullRelease.Version.ToString();
         if (!await window.ConfirmAsync($"zPDF {version} is available", "Download it now? zPDF restarts to finish installing (you'll be asked to save changes first).", "Update")) return;
         await manager.DownloadUpdatesAsync(update);
-        if (await window.PrepareToQuitAsync()) manager.ApplyUpdatesAndRestart(update.TargetFullRelease);
+        // Every window's unsaved tabs are asked about; the open files reopen after the restart.
+        if (await App.PrepareToQuitAsync()) manager.ApplyUpdatesAndRestart(update.TargetFullRelease);
     }
 }
