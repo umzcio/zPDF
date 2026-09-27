@@ -64,6 +64,28 @@ public sealed partial class DocumentPane
                 Check("checkbox toggles back", _focusedToggle is { } again && IsChecked(LiveWidget(again).Field) == was);
             }
 
+            // Tab from a text field into a dropdown (this crashed WinUI when the dropdown opened
+            // itself), and Tab past the last field leaves the form.
+            var order = TabOrder();
+            var before2 = order.FindIndex(w => w.Field.Kind == "text" && order.IndexOf(w) + 1 < order.Count && order[order.IndexOf(w) + 1].Field.Kind == "combo");
+            if (before2 < 0) log.Add("SKIP text → dropdown — none in this document");
+            else
+            {
+                OpenEditor(order[before2], fromKeyboard: true);
+                await Task.Delay(300);
+                MoveToField(order[before2], 1);
+                await Task.Delay(600);
+                Check("tab into dropdown", _editing?.Field.Kind == "combo", $"editing {_editing?.Field.Name}");
+                CloseEditor(commit: false);
+            }
+            if (order.Count > 0)
+            {
+                MoveToField(order[^1], 1);
+                await Task.Delay(300);
+                Check("tab leaves form", _leftForm && _editing is null, $"leftForm={_leftForm} editing={_editing?.Field.Name}");
+                _leftForm = false;
+            }
+
             // Tabs: a second tab opens and closes; the same file isn't opened twice.
             var second = Host.AddTab(null);
             Check("new tab", Host.Panes.Count() == 2 && Host.ActivePane == second);

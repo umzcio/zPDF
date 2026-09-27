@@ -52,6 +52,7 @@ public sealed partial class DocumentPane : UserControl
         AttachmentList.ItemsSource = _attachments;
         LayerList.ItemsSource = _layers;
         Pages.ItemsSource = _slots;
+        PageScroller.LostFocus += (_, _) => _leftForm = false;
         PageScroller.AddHandler(PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(PageScroller_Wheel), handledEventsToo: true);
         // Ctrl with the main keyboard's =/+ and − keys (OEM keys have no XAML name). On the root,
         // not on the buttons: a button's tooltip can't display an OEM key and WinUI crashes.

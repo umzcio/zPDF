@@ -92,7 +92,15 @@ public sealed partial class DocumentPane
 
     private void InitializeWorkspace()
     {
-        StatusText.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => UpdateReadyText());
+        // Status messages are announced (a polite live region); empty, the text isn't there at all.
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetLiveSetting(StatusText, Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
+        StatusText.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
+        {
+            UpdateReadyText();
+            if (StatusText.Text.Length > 0)
+                Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.FromElement(StatusText)?
+                    .RaiseAutomationEvent(Microsoft.UI.Xaml.Automation.Peers.AutomationEvents.LiveRegionChanged);
+        });
         BuildToolList("");
         FillStaticPanels();
         UpdateReadyText();
@@ -167,7 +175,11 @@ public sealed partial class DocumentPane
     {
         if (_document is null || Tools.FirstOrDefault(t => t.Id == id) is not { } tool) return;
         _lastToolId = id;
+        var fromList = IsFocusWithin(ToolsDrawer);  // before the list collapses and focus moves on
         tool.Open();
+        // Opened from the list with the keyboard: continue in the tool's panel.
+        if (fromList && ToolPanelHost.Visibility == Visibility.Visible)
+            DispatcherQueue.TryEnqueue(() => BackToToolsButton.Focus(FocusState.Programmatic));
     }
 
     /// <summary>Esc in a tool panel goes back to the list of tools.</summary>
@@ -250,9 +262,6 @@ public sealed partial class DocumentPane
         ToolPanelHost.Visibility = ToolsDrawer.Visibility = Visibility.Visible;
         SetDrawerShown(true);
         if (alsoPanel is not null) ShowDocPanel(alsoPanel, toggle: false);
-        // Opened from the keyboard (focus in the list, now collapsed): continue in the panel.
-        if (FocusManager.GetFocusedElement(XamlRoot) is not UIElement { Visibility: Visibility.Visible } focused || IsFocusWithin(ToolsDrawer) || ReferenceEquals(focused, PageScroller))
-            DispatcherQueue.TryEnqueue(() => BackToToolsButton.Focus(FocusState.Programmatic));
     }
 
     private void ShowGenerated(string title, IEnumerable<UIElement> content, string? alsoPanel = null)
@@ -723,6 +732,7 @@ public sealed partial class DocumentPane
     private void UpdateReadyText()
     {
         ReadyText.Visibility = StatusText.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        StatusText.Visibility = StatusText.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         ReadyText.Text = _document is null ? "No document" : IsEdited ? "Unsaved changes" : "Ready";
         if (_sourcePath is { } path && File.Exists(path))
         {

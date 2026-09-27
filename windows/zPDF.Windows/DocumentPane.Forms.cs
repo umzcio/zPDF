@@ -157,7 +157,9 @@ public sealed partial class DocumentPane
 
     // ---------------------------------------------------------------- inline editor
 
-    private void OpenEditor(FormWidget widget)
+    /// <summary>`fromKeyboard`: reached with Tab, so a dropdown doesn't pop open by itself (opening
+    /// its popup while the Tab key is still being handled crashed WinUI); Alt+Down or F4 opens it.</summary>
+    private void OpenEditor(FormWidget widget, bool fromKeyboard = false)
     {
         CommitEditor();
         if (Info(widget.Page) is not { } info) return;
@@ -181,7 +183,19 @@ public sealed partial class DocumentPane
             };
             combo.DropDownClosed += (_, _) => CommitEditor();
             editor = combo;
-            DispatcherQueue.TryEnqueue(() => { combo.Focus(FocusState.Programmatic); combo.IsDropDownOpen = !widget.Field.Editable; });
+            // Tab / Shift+Tab move to the next field here too (the combo would take the key otherwise).
+            combo.PreviewKeyDown += (_, e) =>
+            {
+                if (e.Key != VirtualKey.Tab || combo.IsDropDownOpen || _editing != widget) return;
+                e.Handled = true;
+                var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+                DispatcherQueue.TryEnqueue(() => MoveToField(widget, shift ? -1 : 1));
+            };
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                combo.Focus(fromKeyboard ? FocusState.Keyboard : FocusState.Programmatic);
+                if (!fromKeyboard) combo.IsDropDownOpen = !widget.Field.Editable;
+            });
         }
         else
         {
@@ -225,7 +239,7 @@ public sealed partial class DocumentPane
             case VirtualKey.Tab:
                 var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
                     .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-                MoveToField(widget, shift ? -1 : 1);
+                DispatcherQueue.TryEnqueue(() => MoveToField(widget, shift ? -1 : 1));  // not while this box handles its key
                 e.Handled = true;
                 break;
         }
@@ -241,20 +255,23 @@ public sealed partial class DocumentPane
         var target = Math.Max(0, index) + step;
         if (target < 0 || target >= order.Count)
         {
-            // Past the last (or before the first) field: leave the form, so the keyboard isn't trapped.
+            // Past the last (or before the first) field: back to the page, and the next Tab goes on to
+            // the rest of the window instead of into the fields again (no keyboard trap).
             _focusedToggle = null;
             RefreshMarks();
             PageScroller.Focus(FocusState.Keyboard);
-            if (step > 0) FocusManager.TryMoveFocus(FocusNavigationDirection.Next, new FindNextElementOptions { SearchRoot = XamlRoot.Content });
+            // After the focus change settles (its LostFocus events would clear the flag).
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _leftForm = true);
             return;
         }
         var next = order[target];
         EnsureVisible(next);
         if (next.Field.Kind is "checkbox" or "radio") FocusToggle(next);
-        else OpenEditor(next);
+        else OpenEditor(next, fromKeyboard: true);
     }
 
     private FormWidget? _focusedToggle;
+    private bool _leftForm;  // Tab went past the last field; the next Tab leaves the page
 
     /// <summary>The same widget in the current field list (fields reload after each write).</summary>
     private FormWidget LiveWidget(FormWidget widget) =>
@@ -290,6 +307,7 @@ public sealed partial class DocumentPane
             return;
         }
         // Tab from the page itself goes into the document's form fields (from the current page).
+        if (e.Key == VirtualKey.Tab && _leftForm) { _leftForm = false; return; }  // just left the form: Tab moves on
         if (e.Key == VirtualKey.Tab && _focusedToggle is null && _editing is null && _document is not null
             && ReferenceEquals(FocusManager.GetFocusedElement(XamlRoot), PageScroller) && TabOrder() is { Count: > 0 } order)
         {
@@ -299,7 +317,7 @@ public sealed partial class DocumentPane
                 var first = order.FirstOrDefault(w => w.Page >= _page) ?? order[0];
                 EnsureVisible(first);
                 if (first.Field.Kind is "checkbox" or "radio") FocusToggle(first);
-                else OpenEditor(first);
+                else OpenEditor(first, fromKeyboard: true);
                 e.Handled = true;
                 return;
             }
