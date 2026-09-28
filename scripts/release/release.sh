@@ -6,6 +6,8 @@ set -euo pipefail
 #   scripts/release/release.sh 0.1.0
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 VERSION="${1:?usage: release.sh <version>}"
+# The disk image is made with create-dmg; fail now rather than after the build and tests.
+command -v create-dmg >/dev/null || { echo "error: create-dmg is required (brew install create-dmg)"; exit 1; }
 OUT="$ROOT/build/release"
 APP="$OUT/zPDF.app"
 DMG="$OUT/zPDF-$VERSION.dmg"

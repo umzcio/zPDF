@@ -5,6 +5,15 @@ item is built on the shared engine (`EngineSupport/`) or PDFium, tested
 headlessly over SSH, and UI-tested on Windows. `[x]` done and tested, `[~]`
 partial (note says what's missing), `[ ]` to do, `[!]` needs the owner.
 
+**Keeping in step.** Every Mac feature or fix that users can see needs a Windows
+counterpart. `scripts/parity_drift.py` lists Mac commits (`zPDF/`) since the marker
+below that didn't also change `windows/`; the pre-push hook and the Windows CI job show
+that list. Port each one (or add it here as `[ ]`), then run
+`python3 scripts/parity_drift.py --mark` and commit. Mark a commit `[mac-only]` in its
+message when there's nothing for Windows to do.
+
+Synced with the Mac app through: fc1cdd76abf4d8b03e1bd71a89f253c42b362cf1
+
 ## A. Viewing
 - [x] Open (picker, command line, drag-and-drop), continuous scroll, thumbnails
 - [x] Zoom (in/out, fit width, actual size), anchored on the reading position

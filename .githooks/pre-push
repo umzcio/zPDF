@@ -1,4 +1,6 @@
 #!/bin/sh
 set -eu
 cd "$(git rev-parse --show-toplevel)"
-exec python3 scripts/repo_privacy.py pre-push
+python3 scripts/repo_privacy.py pre-push
+# A reminder, never a block: Mac changes not yet brought to the Windows app.
+python3 scripts/parity_drift.py --hook || true

@@ -121,12 +121,19 @@ python scripts/test_transforms.py   # and the other scripts/test_*.py suites
 ## Releasing
 
 `scripts/release/release.sh <version>` runs the tests, builds a Developer ID
-app, notarizes and staples the app and disk image, and writes the signed
+app, packages the disk image with [create-dmg](https://github.com/create-dmg/create-dmg)
+(`brew install create-dmg`), notarizes and staples the app and disk image, and writes the signed
 Sparkle update feed (`appcast.xml`). Publishing — tag, GitHub release, feed
 commit — is a separate step the script prints. Notarization credentials stay
 in a gitignored local file.
 
 ## Contributing
+
+zPDF ships on macOS and Windows with the same features. A change users can see in
+the Mac app (`zPDF/`) also needs its Windows counterpart (`windows/`), in the same
+commit or listed in [windows/PARITY.md](windows/PARITY.md). `scripts/parity_drift.py`
+lists Mac changes Windows hasn't caught up with; the pre-push hook and the Windows CI
+job show it. Say `[mac-only]` in a commit message when there's nothing for Windows to do.
 
 Read [PRIVACY.md](PRIVACY.md) before adding files: local documents, planning
 notes, screenshots, test evidence, credentials and generated output are kept
