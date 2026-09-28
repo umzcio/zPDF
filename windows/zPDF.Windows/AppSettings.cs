@@ -54,6 +54,13 @@ public sealed class AppSettings
     /// <summary>The page layout new documents open in: "single", "continuous" or "facing".</summary>
     public string DefaultViewMode { get; set; } = "continuous";
     public bool HighlightFields { get; set; } = true;
+    /// <summary>What a visible digital signature shows on the left: "image" (my saved
+    /// signature), "name" or "none"; empty = my signature once there is one, else my name.</summary>
+    public string SignatureGraphic { get; set; } = "";
+    public bool SignatureShowLabel { get; set; } = true;
+    public bool SignatureShowDate { get; set; } = true;
+    public bool SignatureShowReason { get; set; } = true;
+    public bool SignatureShowLocation { get; set; } = true;
     public bool OpenInNewWindow { get; set; } = true;  // older setting (tabs replaced it)
     public bool OpenInTabs { get; set; } = true;
     /// <summary>The All tools drawer is open (Mac sidebarVisible; on by default).</summary>

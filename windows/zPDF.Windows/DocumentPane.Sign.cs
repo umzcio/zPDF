@@ -113,7 +113,8 @@ public sealed partial class DocumentPane
             picked = await File.ReadAllBytesAsync(file.Path);
             imagePreview.Source = new BitmapImage(new Uri(file.Path));
         };
-        var imagePanel = Stack(pick, imagePreview);
+        var removeBackground = new CheckBox { Content = "Remove the paper background", IsChecked = true };
+        var imagePanel = Stack(pick, removeBackground, imagePreview);
 
         var tabs = new SelectorBar();
         foreach (var t in new[] { "Type", "Draw", "Image" }) tabs.Items.Add(new SelectorBarItem { Text = t });
@@ -130,7 +131,7 @@ public sealed partial class DocumentPane
             {
                 1 when strokes.Count > 0 => SignatureArt.Drawn(strokes.Select(s => (IReadOnlyList<System.Drawing.PointF>)s.Select(p => new System.Drawing.PointF((float)p.X, (float)p.Y)).ToList()).ToList(),
                                                                System.Drawing.Color.FromArgb(10, 30, 110)),
-                2 when picked is not null => picked,
+                2 when picked is not null => removeBackground.IsChecked == true ? SignatureArt.RemoveBackground(picked) : picked,
                 0 when name.Text.Trim().Length > 0 => SignatureArt.Typed(name.Text.Trim(), font.SelectedItem as string ?? "Segoe Script", System.Drawing.Color.FromArgb(10, 30, 110)),
                 _ => throw new ArgumentException("Type, draw or choose a signature first."),
             };
@@ -138,6 +139,11 @@ public sealed partial class DocumentPane
         catch (ArgumentException error)
         {
             StatusText.Text = error.Message;
+            return null;
+        }
+        catch (Exception error) when (error is OutOfMemoryException or System.Runtime.InteropServices.ExternalException)
+        {
+            StatusText.Text = "That image couldn't be read. Try a PNG or JPEG.";  // GDI+ reports unreadable images this way
             return null;
         }
         if (keep.IsChecked == true)
@@ -307,9 +313,18 @@ public sealed partial class DocumentPane
         var permission = Choice("After certifying, allow", ["Form filling and signing", "Form filling, signing and comments", "No changes"]);
         var timestamp = new CheckBox { Content = "Add a trusted timestamp (needs the internet)" };
         var ltv = new CheckBox { Content = "Add long-term validation (keeps the signature verifiable after the certificate expires)" };
-        var content = certify ? Stack(password, reason, location, permission, visible, timestamp, ltv) : Stack(password, reason, location, visible, timestamp, ltv);
+        var appearance = SignatureAppearanceControls(id.Name, reason, location);
+        visible.Click += (_, _) => appearance.Panel.Visibility = visible.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        var content = certify ? Stack(password, reason, location, permission, visible, appearance.Panel, timestamp, ltv)
+                              : Stack(password, reason, location, visible, appearance.Panel, timestamp, ltv);
         if (!await AskAsync(certify ? "Certify Document" : "Sign with Digital ID", content, visible.IsChecked == true ? "Continue" : "Sign")) return;
         var options = new JsonObject { ["reason"] = reason.Text, ["location"] = location.Text };
+        if (visible.IsChecked == true)
+        {
+            // Only one dialog at a time: a new signature is made now, after the signing dialog.
+            if (await appearance.FinishAsync() is not { } look) return;
+            foreach (var (key, value) in look) options[key] = value?.DeepClone();
+        }
         if (certify) options["certify"] = permission.SelectedIndex switch { 1 => 3, 2 => 1, _ => 2 };
         if (timestamp.IsChecked == true) options["timestamp_url"] = "http://timestamp.digicert.com";
         // LTV fetches revocation data only when the person already chose to go online (timestamp).
@@ -322,6 +337,102 @@ public sealed partial class DocumentPane
             return;
         }
         await SignAsync(id, password.Password, options, page: null, rect: null);
+    }
+
+    /// <summary>The Appearance part of the signing dialog (as on the Mac): what shows on the
+    /// left (my saved signature, my name or nothing), which details show, and a preview.
+    /// FinishAsync makes a new signature if one is needed and returns the sign options.</summary>
+    private (StackPanel Panel, Func<Task<JsonObject?>> FinishAsync) SignatureAppearanceControls(string name, TextBox reason, TextBox location)
+    {
+        var settings = AppSettings.Current;
+        var savedPath = SavedSignaturePath("signature");
+        byte[]? saved = File.Exists(savedPath) ? File.ReadAllBytes(savedPath) : null;
+        var graphics = new[] { "image", "name", "none" };
+        var initial = settings.SignatureGraphic is "image" or "name" or "none" ? settings.SignatureGraphic : saved is not null ? "image" : "name";
+        var graphic = Choice("Show on the left", ["My signature", "My name", "Nothing"], Array.IndexOf(graphics, initial));
+        var makeNew = new CheckBox { Content = "Make a new signature (type, draw or import an image) after this", IsChecked = saved is null };
+        var label = new CheckBox { Content = "Show \u201cDigitally signed by\u201d", IsChecked = settings.SignatureShowLabel };
+        var date = new CheckBox { Content = "Show date", IsChecked = settings.SignatureShowDate };
+        var showReason = new CheckBox { Content = "Show reason", IsChecked = settings.SignatureShowReason };
+        var showLocation = new CheckBox { Content = "Show location", IsChecked = settings.SignatureShowLocation };
+
+        // Preview, laid out like the engine's appearance (graphic on the left 45%, details right).
+        var left = new Grid();
+        var details = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Spacing = 1 };
+        var box = new Grid { Width = 440, Height = 100, Background = new SolidColorBrush(Colors.White), Padding = new Thickness(8) };
+        box.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(45, GridUnitType.Star) });
+        box.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55, GridUnitType.Star) });
+        box.Children.Add(left);
+        Grid.SetColumn(details, 1);
+        box.Children.Add(details);
+        var preview = new Border { Child = box, BorderThickness = new Thickness(1), BorderBrush = new SolidColorBrush(Colors.Gray), HorizontalAlignment = HorizontalAlignment.Left };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(preview, "Signature appearance preview");
+        var note = new TextBlock { Text = "The box you draw next sets the size; the signature fills it the same way.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75 };
+
+        void Update()
+        {
+            var kind = graphics[Math.Max(0, graphic.SelectedIndex)];
+            makeNew.Visibility = kind == "image" ? Visibility.Visible : Visibility.Collapsed;
+            if (kind == "image" && saved is null) { makeNew.IsChecked = true; makeNew.IsEnabled = false; } else makeNew.IsEnabled = true;
+            box.ColumnDefinitions[0].Width = new GridLength(kind == "none" ? 0 : 45, GridUnitType.Star);
+            left.Children.Clear();
+            if (kind == "image" && saved is not null && makeNew.IsChecked != true)
+            {
+                var bitmap = new BitmapImage();
+                _ = bitmap.SetSourceAsync(new MemoryStream(saved).AsRandomAccessStream());
+                left.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Uniform });
+            }
+            else if (kind == "name" || kind == "image")
+            {
+                left.Children.Add(new Viewbox
+                {
+                    StretchDirection = StretchDirection.DownOnly,
+                    Child = new TextBlock { Text = kind == "image" ? "(your new signature)" : name, FontSize = 30, Foreground = new SolidColorBrush(Colors.Black), Opacity = kind == "image" ? 0.5 : 1 },
+                });
+            }
+            details.Children.Clear();
+            void Line(string text) => details.Children.Add(new TextBlock { Text = text, FontSize = 11, Foreground = new SolidColorBrush(Colors.Black), TextTrimming = TextTrimming.CharacterEllipsis });
+            Line(label.IsChecked == true ? $"Digitally signed by {name}" : name);
+            // The engine's date text: "%Y.%m.%d %H:%M:%S %z".
+            if (date.IsChecked == true) Line($"Date: {DateTime.Now:yyyy.MM.dd HH:mm:ss} {DateTime.Now.ToString("zzz").Replace(":", "")}");
+            if (showReason.IsChecked == true && reason.Text.Trim().Length > 0) Line($"Reason: {reason.Text.Trim()}");
+            if (showLocation.IsChecked == true && location.Text.Trim().Length > 0) Line($"Location: {location.Text.Trim()}");
+        }
+        graphic.SelectionChanged += (_, _) => Update();
+        foreach (var toggle in new[] { makeNew, label, date, showReason, showLocation }) toggle.Click += (_, _) => Update();
+        reason.TextChanged += (_, _) => Update();
+        location.TextChanged += (_, _) => Update();
+        Update();
+        var panel = Stack(new TextBlock { Text = "Appearance", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"], Margin = new Thickness(0, 8, 0, 0) },
+                          graphic, makeNew, label, date, showReason, showLocation, preview, note);
+
+        async Task<JsonObject?> Finish()
+        {
+            var kind = graphics[Math.Max(0, graphic.SelectedIndex)];
+            settings.SignatureGraphic = kind;
+            settings.SignatureShowLabel = label.IsChecked == true;
+            settings.SignatureShowDate = date.IsChecked == true;
+            settings.SignatureShowReason = showReason.IsChecked == true;
+            settings.SignatureShowLocation = showLocation.IsChecked == true;
+            settings.Save();
+            var look = new JsonObject
+            {
+                ["appearance"] = new JsonObject
+                {
+                    ["show_label"] = settings.SignatureShowLabel, ["show_date"] = settings.SignatureShowDate,
+                    ["show_reason"] = settings.SignatureShowReason, ["show_location"] = settings.SignatureShowLocation,
+                    ["show_name_left"] = kind != "none",
+                },
+            };
+            if (kind == "image")
+            {
+                var png = makeNew.IsChecked == true || saved is null ? await CreateSignatureAsync("signature") : saved;
+                if (png is null) return null;  // cancelled
+                look["image"] = Convert.ToBase64String(png);
+            }
+            return look;
+        }
+        return (panel, Finish);
     }
 
     /// <summary>Signs the current revision, then saves right away (a signature seals the

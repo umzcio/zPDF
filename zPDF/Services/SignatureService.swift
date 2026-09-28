@@ -128,6 +128,10 @@ struct SigningPreferences: Codable, Equatable {
     var showReasonInAppearance = true
     var showLocationInAppearance = true
     var showLabels = true
+    /// What a visible digital signature shows on the left: "image" (a saved signature),
+    /// "name" or "none". Optional so preference files from earlier versions still decode.
+    var appearanceGraphic: String?
+    var appearanceSignatureID: UUID?
 }
 
 /// Personal details used to suggest values for matching form fields.

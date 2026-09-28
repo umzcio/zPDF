@@ -38,6 +38,22 @@ final class FormsSignaturesTests: XCTestCase {
 
     // MARK: Protect
 
+    /// Preferences saved before the signature-appearance choice existed still load (a
+    /// missing non-optional key would reset every signing setting to its default).
+    func testSigningPreferencesFromEarlierVersionsStillDecode() throws {
+        let old = #"{"timestampEnabled":true,"timestampURL":"http://timestamp.sectigo.com","embedValidation":false,"fetchRevocation":false,"defaultReason":"Approved","defaultLocation":"Missoula","format":"pades","showDateInAppearance":false,"showReasonInAppearance":true,"showLocationInAppearance":true,"showLabels":false}"#
+        let prefs = try JSONDecoder().decode(SigningPreferences.self, from: Data(old.utf8))
+        XCTAssertEqual(prefs.timestampURL, "http://timestamp.sectigo.com")
+        XCTAssertEqual(prefs.defaultReason, "Approved")
+        XCTAssertFalse(prefs.showDateInAppearance)
+        XCTAssertNil(prefs.appearanceGraphic)
+        XCTAssertNil(prefs.appearanceSignatureID)
+        var updated = prefs
+        updated.appearanceGraphic = "image"
+        let again = try JSONDecoder().decode(SigningPreferences.self, from: JSONEncoder().encode(updated))
+        XCTAssertEqual(again.appearanceGraphic, "image")
+    }
+
     func testPasswordSecuritySaveReopenEditAndKeepSecurity() async throws {
         let url = try fixture("uscis-i9")
         let state = try makeState()

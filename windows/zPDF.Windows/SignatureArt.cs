@@ -75,6 +75,42 @@ internal static class SignatureArt
         return Png(Crop(bitmap));
     }
 
+    /// <summary>A photo or scan of a signature on paper: light paper becomes transparent (ink
+    /// keeps its colour, edges fade smoothly), trimmed to the ink, at most 1600 px wide.</summary>
+    public static byte[] RemoveBackground(byte[] image)
+    {
+        using var stream = new MemoryStream(image);
+        using var loaded = Image.FromStream(stream);
+        var scale = Math.Min(1.0, 1600.0 / Math.Max(loaded.Width, loaded.Height));
+        using var bitmap = new Bitmap(Math.Max(1, (int)(loaded.Width * scale)), Math.Max(1, (int)(loaded.Height * scale)), PixelFormat.Format32bppArgb);
+        using (var g = Graphics.FromImage(bitmap))
+        {
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.Clear(Color.White);  // transparent areas of the source count as paper
+            g.DrawImage(loaded, 0, 0, bitmap.Width, bitmap.Height);
+        }
+        var data = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+        try
+        {
+            var pixels = new byte[data.Stride * data.Height];
+            System.Runtime.InteropServices.Marshal.Copy(data.Scan0, pixels, 0, pixels.Length);
+            for (var y = 0; y < data.Height; y++)
+            {
+                for (var x = 0; x < data.Width; x++)
+                {
+                    var i = y * data.Stride + x * 4;  // B G R A
+                    var luminance = 0.114 * pixels[i] + 0.587 * pixels[i + 1] + 0.299 * pixels[i + 2];
+                    // Paper (>= 200) disappears; darker pixels keep more of their opacity.
+                    var alpha = Math.Clamp((200 - luminance) / 90.0, 0, 1);
+                    pixels[i + 3] = (byte)(alpha * 255);
+                }
+            }
+            System.Runtime.InteropServices.Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+        }
+        finally { bitmap.UnlockBits(data); }
+        return Png(Crop(bitmap));
+    }
+
     public static (int Width, int Height) Size(byte[] png)
     {
         using var stream = new MemoryStream(png);

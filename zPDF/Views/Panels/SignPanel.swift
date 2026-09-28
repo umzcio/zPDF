@@ -334,9 +334,24 @@ struct SignDocumentSheet: View {
     @State private var ltv = true
     @State private var error: String?
     @State private var working = false
+    @State private var creatingSignature = false
 
     private var service: SignatureService { appState.signatureService }
     private var identity: DigitalID? { service.digitalIDs.first { $0.id == identityID } }
+    private var savedSignatures: [SavedSignature] { service.signatures(of: .signature) }
+    private var chosenSignature: SavedSignature? { savedSignatures.first { $0.id == signatureImageID } }
+
+    /// The box as it looks on screen (width, height in points): a rotated page shows a
+    /// page-space box turned, and the engine draws the signature that way round.
+    private var screenBox: CGSize? {
+        guard let rect = target.rect ?? target.field.flatMap(fieldRect) else { return nil }
+        let rotation = ((tab.pdfDocument?.page(at: target.page)?.rotation ?? 0) % 360 + 360) % 360
+        return rotation == 90 || rotation == 270 ? CGSize(width: rect.height, height: rect.width) : rect.size
+    }
+
+    private func fieldRect(_ name: String) -> CGRect? {
+        tab.pdfDocument?.page(at: target.page)?.annotations.first { $0.fieldName == name }?.bounds
+    }
     private var isVisible: Bool { target.rect != nil || target.field != nil }
     private var alreadySigned: Bool { tab.protection.isSigned }
 
@@ -360,13 +375,24 @@ struct SignDocumentSheet: View {
                 if isVisible {
                     Section("Appearance") {
                         Picker("Show on the left", selection: $graphic) {
+                            Text("My signature").tag("image")
                             Text("My name").tag("name")
-                            if !service.signatures(of: .signature).isEmpty { Text("A saved signature").tag("image") }
                             Text("Nothing").tag("none")
                         }
                         if graphic == "image" {
-                            Picker("Signature", selection: $signatureImageID) {
-                                ForEach(service.signatures(of: .signature)) { Text($0.name).tag(Optional($0.id)) }
+                            LabeledContent("Signature") {
+                                HStack {
+                                    if savedSignatures.isEmpty {
+                                        Text("None yet").foregroundStyle(DesignTokens.Colors.mutedText)
+                                    } else {
+                                        Picker("Signature", selection: $signatureImageID) {
+                                            ForEach(savedSignatures) { Text($0.name).tag(Optional($0.id)) }
+                                        }
+                                        .labelsHidden()
+                                    }
+                                    Button(savedSignatures.isEmpty ? "Create…" : "New…") { creatingSignature = true }
+                                        .help("Type your name in a script font, draw it, or import an image of your real signature")
+                                }
                             }
                         }
                         Toggle("Show “Digitally signed by” label", isOn: $showLabels)
@@ -375,7 +401,8 @@ struct SignDocumentSheet: View {
                         Toggle("Show location", isOn: $showLocation)
                         SignaturePreview(name: identity?.name ?? "Your Name", reason: showReason ? reason : "",
                                          location: showLocation ? location : "", showDate: showDate, labels: showLabels,
-                                         graphic: graphic, image: service.signatures.first { $0.id == signatureImageID }?.image)
+                                         graphic: graphic == "image" && chosenSignature == nil ? "none" : graphic,
+                                         image: chosenSignature?.image, box: screenBox ?? CGSize(width: 220, height: 50))
                     }
                 }
                 Section {
@@ -404,7 +431,15 @@ struct SignDocumentSheet: View {
             Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
             Button(certify ? "Certify & Save" : "Sign & Save") { sign() }
                 .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
-                .disabled(identity == nil || password.isEmpty || working)
+                .disabled(identity == nil || password.isEmpty || working || (isVisible && graphic == "image" && chosenSignature == nil))
+                .help(isVisible && graphic == "image" && chosenSignature == nil ? "Create your signature first, or show your name instead" : "")
+        }
+        .sheet(isPresented: $creatingSignature) {
+            SignatureCaptureSheet(kind: .signature) { signature in
+                signatureImageID = signature.id
+                graphic = "image"
+            }
+            .environment(appState)
         }
         .onAppear {
             let prefs = service.preferences
@@ -417,7 +452,10 @@ struct SignDocumentSheet: View {
             showLabels = prefs.showLabels
             timestamp = prefs.timestampEnabled && !prefs.timestampURL.isEmpty
             ltv = prefs.embedValidation
-            signatureImageID = service.signatures(of: .signature).first?.id
+            // Last time's choice; a saved signature by default once there is one.
+            signatureImageID = prefs.appearanceSignatureID.flatMap { id in savedSignatures.first { $0.id == id }?.id } ?? savedSignatures.first?.id
+            graphic = prefs.appearanceGraphic ?? (savedSignatures.isEmpty ? "name" : "image")
+            if graphic == "image" && savedSignatures.isEmpty { graphic = "name" }
         }
     }
 
@@ -435,7 +473,11 @@ struct SignDocumentSheet: View {
         request.showLocation = showLocation
         request.showLabels = showLabels
         request.showNameLeft = graphic != "none"
-        if graphic == "image" { request.image = service.signatures.first { $0.id == signatureImageID }?.pngData }
+        if graphic == "image" { request.image = chosenSignature?.pngData }
+        if isVisible {
+            service.preferences.appearanceGraphic = graphic
+            service.preferences.appearanceSignatureID = graphic == "image" ? signatureImageID : service.preferences.appearanceSignatureID
+        }
         request.timestampURL = timestamp ? service.preferences.timestampURL : nil
         request.addLTV = ltv
         request.fetchRevocation = service.preferences.fetchRevocation
@@ -451,7 +493,8 @@ struct SignDocumentSheet: View {
     }
 }
 
-/// Approximation of the visible signature appearance the engine draws.
+/// The visible signature as the engine draws it (transforms/signatures.py `_appearance`):
+/// the same layout rules, in a box with the proportions it has on screen.
 private struct SignaturePreview: View {
     let name: String
     let reason: String
@@ -460,29 +503,67 @@ private struct SignaturePreview: View {
     let labels: Bool
     let graphic: String
     let image: NSImage?
+    /// The signature box on screen, in points.
+    let box: CGSize
+
+    private var lines: [String] {
+        var lines = [labels ? "Digitally signed by \(name)" : name]
+        if showDate { lines.append("Date: " + Self.engineDate.string(from: Date())) }
+        if !reason.isEmpty { lines.append("Reason: \(reason)") }
+        if !location.isEmpty { lines.append("Location: \(location)") }
+        return lines
+    }
+
+    /// The engine's default date text (signatures.py: "%Y.%m.%d %H:%M:%S %z").
+    private static let engineDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy.MM.dd HH:mm:ss Z"
+        return formatter
+    }()
+
+    private static func width(_ text: String) -> CGFloat {
+        (text as NSString).size(withAttributes: [.font: NSFont(name: "Helvetica", size: 1) ?? .systemFont(ofSize: 1)]).width
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
+        let w = max(box.width, 8), h = max(box.height, 8)
+        // Fit the preview in 440 x 170 points, keeping the box's shape.
+        let scale = min(440 / w, 170 / h)
+        Canvas { context, _ in
+            context.scaleBy(x: scale, y: scale)
+            let pad = min(4, h * 0.08)
+            let left = graphic == "none" ? 0 : w * 0.45
+            func text(_ string: String, size: CGFloat, x: CGFloat, baseline: CGFloat) {
+                let resolved = context.resolve(Text(string).font(.custom("Helvetica", size: size)).foregroundColor(.black))
+                context.draw(resolved, at: CGPoint(x: x, y: h - baseline), anchor: .bottomLeading)
+            }
             if graphic == "image", let image {
-                Image(nsImage: image).resizable().scaledToFit().frame(maxWidth: .infinity)
+                let boxW = left - 2 * pad, boxH = h - 2 * pad
+                let fit = min(boxW / max(image.size.width, 1), boxH / max(image.size.height, 1))
+                let size = CGSize(width: image.size.width * fit, height: image.size.height * fit)
+                context.draw(Image(nsImage: image), in: CGRect(x: pad + (boxW - size.width) / 2,
+                                                               y: pad + (boxH - size.height) / 2, width: size.width, height: size.height))
             } else if graphic == "name" {
-                Text(name).font(.system(size: 20)).lineLimit(1).minimumScaleFactor(0.3).frame(maxWidth: .infinity)
+                let size = max(min((left - 2 * pad) / max(Self.width(name), 0.01), h * 0.45), 4)
+                text(name, size: size, x: pad, baseline: (h - size) / 2 + size * 0.1)
             }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(labels ? "Digitally signed by \(name)" : name)
-                if showDate { Text("Date: \(Date().formatted(.dateTime.year().month(.twoDigits).day(.twoDigits).hour().minute()))") }
-                if !reason.isEmpty { Text("Reason: \(reason)") }
-                if !location.isEmpty { Text("Location: \(location)") }
+            let x = left + pad
+            let available = w - x - pad
+            var size = min((h - 2 * pad) / (CGFloat(max(lines.count, 1)) * 1.25), 11)
+            let widest = lines.map(Self.width).max() ?? 1
+            if widest * size > available { size = max(available / max(widest, 0.01), 3) }
+            var baseline = h - pad - size
+            for line in lines {
+                text(line, size: size, x: x, baseline: baseline)
+                baseline -= size * 1.25
             }
-            .font(.system(size: 8.5))
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .foregroundStyle(Color.black)
-        .padding(8)
-        .frame(height: 64)
+        .frame(width: w * scale, height: h * scale)
         .background(Color.white)
         .overlay(Rectangle().stroke(Color.gray.opacity(0.4)))
-        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Signature appearance preview")
     }
 }
