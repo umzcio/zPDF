@@ -3,6 +3,28 @@
     <channel>
         <title>zPDF</title>
         <item>
+            <title>0.1.7</title>
+            <pubDate>Mon, 28 Sep 2026 10:48:20 -0600</pubDate>
+            <link>https://github.com/umzcio/zPDF</link>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.1.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<meta charset="utf-8">
+<h2>zPDF 0.1.7</h2>
+<h3>Fixed</h3>
+<ul>
+<li><b>Signatures on rotated pages came out sideways.</b> On a page shown turned (for example a landscape form stored as portrait), a digital signature or a Fill &amp; Sign signature, initials or image was drawn as if the page weren't turned, so it appeared sideways and squeezed into the box. It now reads upright and fills the box you drew. To fix a signature already made, clear it in the Signatures panel and sign again.</li>
+</ul>
+<h3>Install or update</h3>
+<ul>
+<li><b>Already installed:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
+<li><b>New install:</b> download <code>zPDF-0.1.7.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
+</ul>
+<p>Requires macOS 15 or later on an Apple silicon Mac. For Windows, see the Windows release.</p>
+]]></description>
+            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.7/zPDF-0.1.7.dmg" length="67844302" type="application/octet-stream" sparkle:edSignature="faT1ykB7wjOuPmXLR4ohXboLNlYMexcAcQr3h199hsL1NPD03zyjE2dmbYXjtTOT4t4M+fgY7Rlg1yzLaVcuDQ=="/>
+        </item>
+        <item>
             <title>0.1.6</title>
             <pubDate>Sun, 27 Sep 2026 21:14:30 -0600</pubDate>
             <link>https://github.com/umzcio/zPDF</link>
@@ -61,34 +83,6 @@
 <p>Requires macOS 15 or later on an Apple silicon Mac.</p>
 ]]></description>
             <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.3/zPDF-0.1.3.dmg" length="93831648" type="application/octet-stream" sparkle:edSignature="K1IYsV/e8snPuaug4kFvU+YJsfN8Oo9ZJIrjH0G7pvuiNSn83R3HZk8RgR1e1nApy+m6tgUKmH8uzrYd+6rfBA=="/>
-        </item>
-        <item>
-            <title>0.1.2</title>
-            <pubDate>Fri, 25 Sep 2026 12:01:39 -0600</pubDate>
-            <link>https://github.com/umzcio/zPDF</link>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<meta charset="utf-8">
-<h2>zPDF 0.1.2</h2>
-<h3>New</h3>
-<ul>
-<li><b>Report a Bug / Send a Suggestion</b> (Help menu): tell the zPDF team what went wrong without leaving the app — no GitHub account needed. You can see exactly what&#x27;s sent. Your email (optional) stays private, screenshots are optional, and your PDFs, file names and document text are never sent.</li>
-<li>Error messages now have a <b>Report…</b> button that fills in the error for you.</li>
-</ul>
-<h3>Fixed</h3>
-<ul>
-<li><b>Signing with a certificate still failed on some PDFs</b> (for example, files made by web-to-PDF converters such as wkhtmltopdf). Signing and certificate encryption now work on them.</li>
-<li>Unexpected engine errors now include a short technical detail, so reports can be diagnosed quickly.</li>
-</ul>
-<h3>Install or update</h3>
-<ul>
-<li><b>Already installed:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
-<li><b>New install:</b> download <code>zPDF-0.1.2.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
-</ul>
-<p>Requires macOS 15 or later on an Apple silicon Mac.</p>
-]]></description>
-            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.2/zPDF-0.1.2.dmg" length="91934235" type="application/octet-stream" sparkle:edSignature="+jPUl0rFQ53Q+P28SVvhhaoXvPO+7yXKbzsrw3Vx/yqcd5qre+Zoo9Zn4oGPwere25nEIVT3CGpHJQmwkhwBBA=="/>
         </item>
     </channel>
 </rss>
