@@ -41,6 +41,23 @@ final class CanvasInteractionTests: XCTestCase {
 
     private func pdfView(_ state: AppState) throws -> PDFView { try XCTUnwrap(state.pdfViewStore.pdfView) }
 
+    /// Opening a tool can open a panel beside the page, which moves and resizes the PDF view;
+    /// events computed before that settles land in the wrong place. Waits until the view's
+    /// frame in the window is unchanged for a few consecutive checks.
+    private func settleLayout(_ state: AppState) async throws {
+        let view = try pdfView(state)
+        var last = CGRect.null
+        var stable = 0
+        for _ in 0..<100 {
+            view.window?.layoutIfNeeded()
+            let frame = view.convert(view.bounds, to: nil)
+            stable = frame == last ? stable + 1 : 0
+            if stable >= 3 { return }
+            last = frame
+            try await Task.sleep(for: .milliseconds(30))
+        }
+    }
+
     /// Window coordinates of a point in page space.
     private func windowPoint(_ state: AppState, page index: Int, _ point: CGPoint) throws -> NSPoint {
         let view = try pdfView(state)
@@ -147,8 +164,9 @@ final class CanvasInteractionTests: XCTestCase {
     func testDraggingShapeAndPenToolsCreatesSavedAnnotations() async throws {
         let (state, tab, url, directory) = try await launch("uscis-i9")
         defer { try? FileManager.default.removeItem(at: directory) }
-        state.openTool(.comment)
+        state.openTool(.comment)  // opens the Comments panel beside the page
         state.toggleArmedAnnotationTool(.rectangle)
+        try await settleLayout(state)
         try drag(state, from: CGPoint(x: 100, y: 100), to: CGPoint(x: 220, y: 170))
         try await settle(tab)
         XCTAssertEqual(annotations(tab, type: "Square").count, 1, "a rectangle drag creates one Square")
@@ -176,6 +194,7 @@ final class CanvasInteractionTests: XCTestCase {
         let box = target.bounds(for: page).insetBy(dx: -2, dy: -2)
         state.openTool(.redact)
         state.contentEditing.activate(.redact)
+        try await settleLayout(state)
         try drag(state, from: CGPoint(x: box.minX, y: box.minY), to: CGPoint(x: box.maxX, y: box.maxY), steps: 8)
         try await settle(tab)
         XCTAssertEqual(annotations(tab, type: "Redact").count, 1, "an area drag creates one redaction mark")
@@ -201,6 +220,7 @@ final class CanvasInteractionTests: XCTestCase {
         // Page content loads asynchronously on first hover/click.
         _ = state.contentEditing.content(for: page)
         for _ in 0..<200 where state.contentEditing.content(for: page) == nil { try await Task.sleep(for: .milliseconds(50)) }
+        try await settleLayout(state)
         try click(state, CGPoint(x: box.midX, y: box.midY))
         for _ in 0..<100 where !state.contentEditing.isEditingText { try await Task.sleep(for: .milliseconds(30)) }
         XCTAssertTrue(state.contentEditing.isEditingText, "clicking text opens the inline editor")
@@ -227,12 +247,14 @@ final class CanvasInteractionTests: XCTestCase {
         let before = annotations(tab, type: "Widget").count
         state.openTool(.prepareForm)
         state.signatureService.arm(.field(.text))
+        try await settleLayout(state)
         try drag(state, from: CGPoint(x: 72, y: 500), to: CGPoint(x: 272, y: 522))
         for _ in 0..<200 where annotations(tab, type: "Widget").count == before { try await Task.sleep(for: .milliseconds(50)) }
         try await TestSupport.settled(tab)
         XCTAssertEqual(annotations(tab, type: "Widget").count, before + 1, "a field drag creates one widget")
         state.openTool(.fillAndSign)
         state.signatureService.arm(.check)
+        try await settleLayout(state)
         let beforeMarks = tab.pdfDocument?.page(at: 0)?.annotations.count ?? 0
         try click(state, CGPoint(x: 400, y: 600))
         for _ in 0..<200 where (tab.pdfDocument?.page(at: 0)?.annotations.count ?? 0) == beforeMarks {
@@ -254,6 +276,7 @@ final class CanvasInteractionTests: XCTestCase {
         let session = state.features.measure
         session.kind = .distance
         try await Task.sleep(for: .milliseconds(200)) // overlay picks up the tool on the next render
+        try await settleLayout(state)
         try click(state, CGPoint(x: 100, y: 100))
         try click(state, CGPoint(x: 172, y: 100))
         try await settle(tab)

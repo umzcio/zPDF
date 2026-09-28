@@ -1,0 +1,18 @@
+<meta charset="utf-8">
+<h2>zPDF 0.1.6</h2>
+<p>zPDF now has a Windows version with the same tools, and the Mac and Windows apps share version numbers from this release on (so this one skips 0.1.4 and 0.1.5).</p>
+<h3>Fixed</h3>
+<ul>
+<li><b>Comments on one page appeared on other pages</b> in PDFs where several pages share one annotation list. Each page now gets its own before an edit.</li>
+<li><b>Barcode fields were drawn mirrored.</b> They now scan correctly.</li>
+<li><b>Extract, Split and Delete Pages</b> kept hidden references to the removed pages (form fields, bookmarks, links, tags), so a one-page extract could still carry the whole document. Removed pages are now really gone, and files are as small as they should be.</li>
+<li><b>Split by File Size</b> made parts about twice the chosen limit. Parts now fit.</li>
+<li><b>Moving or scaling an image</b> that sits inside a clipping frame cut it off at its old position. The frame now moves with it.</li>
+<li><b>Replace Text</b> made letters vanish when the document's font didn't include them. It now falls back to a font that has them.</li>
+</ul>
+<h3>Install or update</h3>
+<ul>
+<li><b>Already installed:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
+<li><b>New install:</b> download <code>zPDF-0.1.6.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
+</ul>
+<p>Requires macOS 15 or later on an Apple silicon Mac. For Windows, see the Windows release.</p>
