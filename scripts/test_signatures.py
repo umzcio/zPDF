@@ -195,6 +195,38 @@ class SignatureTests(Base):
             self.assertIn("/N", widget.AP)
             self.assertEqual(pdf.Root.AcroForm.SigFlags, 3)
 
+    def test_visible_signature_reads_upright_on_rotated_pages(self):
+        """On a page with /Rotate the box the user draws is wide on screen but tall in page
+        space; the appearance must look the same as on an unrotated page (not sideways,
+        squeezed or upside down)."""
+        import pypdfium2 as pdfium
+        from PIL import ImageChops, ImageStat
+        crops = {}
+        for rotate in (0, 90, 180, 270):
+            src = blank_pdf(self.tmp / f"r{rotate}.pdf", rotate=rotate)
+            # A box 300 wide and 60 tall as seen on screen.
+            rect = [100, 100, 400, 160] if rotate in (0, 180) else [100, 100, 160, 400]
+            out, _ = self.run_ops(src, [{"op": "sign", "identity": self.ident(), "page": 0, "rect": rect,
+                                         "date_text": "2026.01.01"}], name=f"signed-r{rotate}.pdf")
+            document = pdfium.PdfDocument(str(out))
+            document.init_forms()
+            image = document[0].render(scale=2, may_draw_forms=True).to_pil().convert("L")
+            document.close()
+            dark = image.point(lambda v: 255 if v < 128 else 0).getbbox()
+            self.assertIsNotNone(dark, f"rotate {rotate}: nothing drawn")
+            width, height = (dark[2] - dark[0]) / 2, (dark[3] - dark[1]) / 2
+            # Upright, the name and details span the box's 300-point screen width; drawn
+            # sideways they're squeezed into its 60-point page-space width.
+            self.assertGreater(width, 240, f"rotate {rotate}: signature ink is {width}x{height} on screen (sideways)")
+            self.assertLess(height, 60, f"rotate {rotate}: signature ink is {width}x{height} on screen")
+            crops[rotate] = image.crop(dark)
+        for rotate in (90, 180, 270):
+            self.assertLessEqual(abs(crops[rotate].width - crops[0].width), 4, f"rotate {rotate}")
+            self.assertLessEqual(abs(crops[rotate].height - crops[0].height), 4, f"rotate {rotate}")
+            same = crops[rotate].resize(crops[0].size)
+            difference = ImageStat.Stat(ImageChops.difference(same, crops[0])).mean[0]
+            self.assertLess(difference, 12, f"rotate {rotate}: looks different from the unrotated page (upside down?)")
+
     def test_signing_object_stream_and_linearized_pdfs(self):
         """Browser/Office/Docs exports use object streams, xref streams and often
         linearization; pikepdf lists unused object numbers there as None."""

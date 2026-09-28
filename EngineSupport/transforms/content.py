@@ -86,6 +86,34 @@ def fmt(*values):
     return " ".join(f"{v:.4f}".rstrip("0").rstrip(".") if isinstance(v, float) else str(v) for v in values)
 
 
+def page_rotation(page_obj):
+    """The page's /Rotate (it can be inherited from the page tree), normalised to 0/90/180/270."""
+    node, seen = page_obj, 0
+    while node is not None and seen < 64:
+        if "/Rotate" in node:
+            try:
+                return int(node.Rotate) % 360 // 90 * 90
+            except (TypeError, ValueError):
+                return 0
+        node = node.get("/Parent")
+        seen += 1
+    return 0
+
+
+def upright_box(rotation, width, height):
+    """The size a page-space box appears on screen when the page is shown with /Rotate."""
+    return (height, width) if rotation in (90, 270) else (width, height)
+
+
+def upright_cm(rotation, box_w, box_h):
+    """A `cm` that turns a drawing made upright in screen terms into the page-space box
+    [0 0 box_w box_h] of a page shown with /Rotate (which turns content clockwise), so
+    appearances drawn in a box the user placed read upright. Done inside the stream rather
+    than with /Matrix, which PDFKit doesn't apply to annotation appearances."""
+    return {90: f"0 1 -1 0 {fmt(float(box_w))} 0 cm", 180: f"-1 0 0 -1 {fmt(float(box_w), float(box_h))} cm",
+            270: f"0 -1 1 0 0 {fmt(float(box_h))} cm"}.get(rotation, "")
+
+
 # ---------------------------------------------------------------- resources
 
 def resources(page):

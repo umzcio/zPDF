@@ -361,6 +361,32 @@ class FillSignTests(Base):
             self.assertFalse(any(a.Subtype == "/Stamp" for a in pdf.pages[0].get("/Annots", [])))
 
 
+    def test_image_stamp_upright_on_rotated_pages(self):
+        """Fill & Sign signatures on a page shown rotated come out upright on screen."""
+        import base64, io
+        from PIL import Image
+        image = Image.new("RGBA", (200, 60), (0, 0, 0, 0))
+        for x in range(20, 180):
+            for y in range(25, 35):
+                image.putpixel((x, y), (0, 0, 0, 255))
+        buffer = io.BytesIO()
+        image.save(buffer, "PNG")
+        for rotate in (0, 90, 180, 270):
+            src = blank_pdf(self.tmp / f"r{rotate}.pdf", rotate=rotate)
+            # A box 200 wide and 60 tall as seen on screen.
+            rect = [100, 100, 300, 160] if rotate in (0, 180) else [100, 100, 160, 300]
+            out, _ = self.run_ops(src, [{"op": "place_image_stamp", "page": 0, "rect": rect,
+                                         "image": base64.b64encode(buffer.getvalue()).decode()}], name=f"s{rotate}.pdf")
+            document = pdfium.PdfDocument(str(out))
+            rendered = document[0].render(scale=1).to_pil().convert("L")
+            document.close()
+            ink = rendered.point(lambda v: 255 if v < 128 else 0).getbbox()
+            self.assertIsNotNone(ink, f"rotate {rotate}: nothing drawn")
+            width, height = ink[2] - ink[0], ink[3] - ink[1]
+            self.assertGreater(width, 4 * height, f"rotate {rotate}: stamp is {width}x{height} on screen (sideways)")
+            self.assertGreater(width, 140, f"rotate {rotate}: stamp is {width}x{height} on screen (squeezed)")
+
+
 class SecurityTests(Base):
     def test_password_encrypt_permissions_and_remove(self):
         src = self.fixture("uscis-i9.pdf")

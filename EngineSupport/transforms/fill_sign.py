@@ -14,7 +14,7 @@ from pikepdf import Name
 
 from engine.errors import require
 from transforms import op
-from transforms.content import fmt, image_xobject
+from transforms.content import fmt, image_xobject, page_rotation, upright_box, upright_cm
 
 
 def _rect(page, rect):
@@ -49,13 +49,16 @@ def place_image_stamp(ctx, page, rect, image, name="Signature", kind="signature"
     path.write_bytes(data)
     xobject, pw, ph = image_xobject(pdf, path)
     box = _rect(pdf.pages[page], rect)
-    width, height = box[2] - box[0], box[3] - box[1]
+    box_w, box_h = box[2] - box[0], box[3] - box[1]
+    # Fit the image to the box as it looks on screen; on a rotated page, turn it into page space.
+    rotation = page_rotation(pdf.pages[page].obj)
+    width, height = upright_box(rotation, box_w, box_h)
     scale = min(width / pw, height / ph)
     dw, dh = pw * scale, ph * scale
     x, y = (width - dw) / 2, (height - dh) / 2
-    ap = pikepdf.Stream(pdf, f"q {fmt(dw, 0, 0, dh, x, y)} cm /Im1 Do Q".encode())
+    ap = pikepdf.Stream(pdf, f"q {upright_cm(rotation, box_w, box_h)} {fmt(dw, 0, 0, dh, x, y)} cm /Im1 Do Q".encode())
     ap.Type, ap.Subtype = Name.XObject, Name.Form
-    ap.BBox = pikepdf.Array([0, 0, width, height])
+    ap.BBox = pikepdf.Array([0, 0, box_w, box_h])
     ap.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Im1=xobject))
     annot = pikepdf.Dictionary(
         Type=Name.Annot, Subtype=Name.Stamp, Rect=pikepdf.Array(box),

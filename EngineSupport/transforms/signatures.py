@@ -116,10 +116,13 @@ def _docmdp_level(pdf):
 
 # ------------------------------------------------------------- appearance
 
-def _appearance(ctx, width, height, info, image_path=None, style=None):
-    """Acrobat-style visible signature: image or large name left, details right."""
+def _appearance(ctx, width, height, info, image_path=None, style=None, rotation=0):
+    """Acrobat-style visible signature: image or large name left, details right.
+    `width` x `height` is the box as seen on screen; on a page shown with /Rotate the
+    drawing is turned into the page-space box inside the stream (not with /Matrix, which
+    PDFKit doesn't apply to widget appearances)."""
     from transforms.fonts import EmbeddedFont
-    from transforms.content import fmt, image_xobject
+    from transforms.content import fmt, image_xobject, upright_box, upright_cm
     style = style or {}
     pdf = ctx.pdf
     font = EmbeddedFont(pdf, style.get("font"))
@@ -167,9 +170,12 @@ def _appearance(ctx, width, height, info, image_path=None, style=None):
         y -= size * 1.25
     ops.append("ET")
     font.finish()
+    box_w, box_h = upright_box(rotation, width, height)
+    if rotation:
+        ops = [f"q {upright_cm(rotation, box_w, box_h)}"] + ops + ["Q"]
     stream = pikepdf.Stream(pdf, "\n".join(ops).encode())
     stream.Type, stream.Subtype = Name.XObject, Name.Form
-    stream.BBox = pikepdf.Array([0, 0, width, height])
+    stream.BBox = pikepdf.Array([0, 0, box_w, box_h])
     stream.Resources = resources
     return pdf.make_indirect(stream)
 
@@ -273,6 +279,11 @@ def sign(ctx, identity, field=None, page=None, rect=None, name=None, reason="", 
             "date_text": date_text or now.strftime("%Y.%m.%d %H:%M:%S %z")}
     field_obj, widget, page_index, box = _prepare_field(ctx, field, page, rect)
     width, height = box[2] - box[0], box[3] - box[1]
+    # On a rotated page, draw the appearance the way the box looks on screen (wide boxes
+    # drawn by the user are tall in page space) and let /Matrix turn it into page space.
+    from transforms.content import page_rotation, upright_box
+    rotation = page_rotation(pdf.pages[page_index].obj)
+    width, height = upright_box(rotation, width, height)
     options = dict(appearance or {})
     if width > 0 and height > 0:
         info.update({k: options.get(k, d) for k, d in (("show_label", True), ("show_date", True),
@@ -283,7 +294,7 @@ def sign(ctx, identity, field=None, page=None, rect=None, name=None, reason="", 
             info_display = info
         if not options.get("show_location", True):
             info_display = dict(info_display, location="")
-        ap = _appearance(ctx, width, height, info_display, _write_image(ctx, image), options)
+        ap = _appearance(ctx, width, height, info_display, _write_image(ctx, image), options, rotation)
         widget.AP = pikepdf.Dictionary(N=ap)
     else:
         blank = pikepdf.Stream(pdf, b"")
