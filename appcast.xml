@@ -3,6 +3,34 @@
     <channel>
         <title>zPDF</title>
         <item>
+            <title>0.1.6</title>
+            <pubDate>Sun, 27 Sep 2026 21:14:30 -0600</pubDate>
+            <link>https://github.com/umzcio/zPDF</link>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<meta charset="utf-8">
+<h2>zPDF 0.1.6</h2>
+<p>zPDF now has a Windows version with the same tools, and the Mac and Windows apps share version numbers from this release on (so this one skips 0.1.4 and 0.1.5).</p>
+<h3>Fixed</h3>
+<ul>
+<li><b>Comments on one page appeared on other pages</b> in PDFs where several pages share one annotation list. Each page now gets its own before an edit.</li>
+<li><b>Barcode fields were drawn mirrored.</b> They now scan correctly.</li>
+<li><b>Extract, Split and Delete Pages</b> kept hidden references to the removed pages (form fields, bookmarks, links, tags), so a one-page extract could still carry the whole document. Removed pages are now really gone, and files are as small as they should be.</li>
+<li><b>Split by File Size</b> made parts about twice the chosen limit. Parts now fit.</li>
+<li><b>Moving or scaling an image</b> that sits inside a clipping frame cut it off at its old position. The frame now moves with it.</li>
+<li><b>Replace Text</b> made letters vanish when the document's font didn't include them. It now falls back to a font that has them.</li>
+</ul>
+<h3>Install or update</h3>
+<ul>
+<li><b>Already installed:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
+<li><b>New install:</b> download <code>zPDF-0.1.6.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
+</ul>
+<p>Requires macOS 15 or later on an Apple silicon Mac. For Windows, see the Windows release.</p>
+]]></description>
+            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.6/zPDF-0.1.6.dmg" length="67834597" type="application/octet-stream" sparkle:edSignature="cxs6lyW1jUyKftF1Fs3irlNoa9j1GWo6uZ3eWvAWEALbKVqRBjw/2WfsbMm1KQFqHn602kC5Kqvp3iX/DD/ECg=="/>
+        </item>
+        <item>
             <title>0.1.3</title>
             <pubDate>Fri, 25 Sep 2026 19:14:00 -0600</pubDate>
             <link>https://github.com/umzcio/zPDF</link>
@@ -61,34 +89,6 @@
 <p>Requires macOS 15 or later on an Apple silicon Mac.</p>
 ]]></description>
             <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.2/zPDF-0.1.2.dmg" length="91934235" type="application/octet-stream" sparkle:edSignature="+jPUl0rFQ53Q+P28SVvhhaoXvPO+7yXKbzsrw3Vx/yqcd5qre+Zoo9Zn4oGPwere25nEIVT3CGpHJQmwkhwBBA=="/>
-        </item>
-        <item>
-            <title>0.1.1</title>
-            <pubDate>Fri, 25 Sep 2026 10:25:01 -0600</pubDate>
-            <link>https://github.com/umzcio/zPDF</link>
-            <sparkle:version>2</sparkle:version>
-            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<meta charset="utf-8">
-<h2>zPDF 0.1.1</h2>
-<p>A fix release for testers of 0.1.0.</p>
-<h3>Fixed</h3>
-<ul>
-<li><b>Signing with a certificate failed</b> (&quot;The PDF engine could not complete this operation&quot;) on most PDFs exported from web browsers, Microsoft Office, Google Docs and design tools. Signing now works on those files, and so does encrypting a PDF for specific certificate recipients.</li>
-<li><b>Better conversions to Word, Excel, PowerPoint, HTML, Markdown, RTF, XML and EPUB:</b></li>
-<li>Labels inside drawings are no longer mistaken for tables, which dropped or scrambled words.</li>
-<li>Map scale bars stay with their map.</li>
-<li>Paragraphs that continue into the next column are kept together.</li>
-<li>Words hyphenated at a line break are joined back up in reading-order formats.</li>
-</ul>
-<h3>Install or update</h3>
-<ul>
-<li><b>Already on 0.1.0:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
-<li><b>New install:</b> download <code>zPDF-0.1.1.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
-</ul>
-<p>Requires macOS 15 or later on an Apple silicon Mac.</p>
-]]></description>
-            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.1/zPDF-0.1.1.dmg" length="91483797" type="application/octet-stream" sparkle:edSignature="qxzMlxRs4/7FS0JVdTfYYud7XVcumj0RCoeYvNbxQi+enzJaI1CiHIYL85tQ+kAbg6OUeT3FQqhXXVrTzaWzBg=="/>
         </item>
     </channel>
 </rss>
