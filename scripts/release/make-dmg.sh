@@ -15,16 +15,17 @@ rm -rf "$STAGE" "$DMG"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ICON=()
 [ -f "$APP/Contents/Resources/AppIcon.icns" ] && ICON=(--volicon "$APP/Contents/Resources/AppIcon.icns")
+# (Arrays may be empty: macOS bash 3.2 with set -u needs the ${x[@]+...} form.)
 # --skip-jenkins only when there's no GUI session to lay out the Finder window (CI, SSH).
 LAYOUT=()
 [ -n "${ZPDF_DMG_HEADLESS:-}" ] && LAYOUT=(--skip-jenkins)
 create-dmg \
-  --volname "zPDF $VERSION" "${ICON[@]}" \
+  --volname "zPDF $VERSION" ${ICON[@]+"${ICON[@]}"} \
   --window-pos 200 120 --window-size 540 360 --icon-size 112 --text-size 13 \
   --icon "zPDF.app" 140 170 --hide-extension "zPDF.app" \
   --app-drop-link 400 170 \
   --codesign "$IDENTITY" \
-  --no-internet-enable "${LAYOUT[@]}" \
+  --no-internet-enable ${LAYOUT[@]+"${LAYOUT[@]}"} \
   "$DMG" "$STAGE"
 rm -rf "$STAGE"
 echo "==> Done: $DMG"
