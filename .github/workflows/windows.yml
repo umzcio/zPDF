@@ -1,0 +1,54 @@
+# The Windows app: build, headless self-test, UI test, and the Mac → Windows parity reminder.
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  parity:
+    name: Parity with the Mac app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Warnings and a summary, never a failure: see windows/PARITY.md.
+      - run: python3 scripts/parity_drift.py --github
+
+  build:
+    name: Build and test (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/cache@v4
+        with:
+          path: windows/build/downloads
+          key: engine-runtime-${{ hashFiles('windows/scripts/prepare_runtime.py', 'windows/runtime-wheels.json') }}
+      - name: Engine runtime (pinned, checksummed)
+        run: python windows/scripts/prepare_runtime.py
+      - name: Build
+        run: dotnet build windows/zPDF.Windows/zPDF.Windows.csproj -c Release -p:Platform=x64
+      - name: Self-test (headless)
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem windows/zPDF.Windows/bin -Recurse -Filter zPDF.exe | Select-Object -First 1).FullName
+          $p = Start-Process $exe -ArgumentList '--selftest', "$PWD/zPDFTests/Fixtures/uscis-i9.pdf", "$env:RUNNER_TEMP/selftest" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "self-test failed ($($p.ExitCode))" }
+      - name: UI test
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem windows/zPDF.Windows/bin -Recurse -Filter zPDF.exe | Select-Object -First 1).FullName
+          $log = "$env:RUNNER_TEMP/uitest.log"
+          $p = Start-Process $exe -ArgumentList '--uitest', "$PWD/zPDFTests/Fixtures/uscis-i9.pdf", $log -PassThru
+          if (-not $p.WaitForExit(300000)) { $p.Kill(); throw 'UI test timed out' }
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "UI test: $($p.ExitCode) failure(s)" }
