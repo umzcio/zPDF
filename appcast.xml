@@ -3,6 +3,29 @@
     <channel>
         <title>zPDF</title>
         <item>
+            <title>0.1.8</title>
+            <pubDate>Mon, 28 Sep 2026 17:47:42 -0600</pubDate>
+            <link>https://github.com/umzcio/zPDF</link>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.1.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<meta charset="utf-8">
+<h2>zPDF 0.1.8</h2>
+<h3>New</h3>
+<ul>
+<li><b>Your own signature on digital signatures.</b> When you sign with a digital ID, choose what appears on the left of the signature box: <b>My signature</b>, <b>My name</b> or <b>Nothing</b>. Choose <b>Create…</b> to type your name in a script font, draw it with the trackpad or mouse, or import a photo or scan of your real signature (the paper background is removed). zPDF remembers your choice.</li>
+<li><b>A true preview</b> of the signature box, in the shape of the box you drew.</li>
+</ul>
+<h3>Install or update</h3>
+<ul>
+<li><b>Already installed:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
+<li><b>New install:</b> download <code>zPDF-0.1.8.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
+</ul>
+<p>Requires macOS 15 or later on an Apple silicon Mac. For Windows, see the Windows release.</p>
+]]></description>
+            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.8/zPDF-0.1.8.dmg" length="67878806" type="application/octet-stream" sparkle:edSignature="lFSRu2RW0vSFBPytjPzS1uBWuzL6yr1tt2/5OzDetjyoSyUrjyV/lMM6/KElOH3+PHo5Kcaw2jtr5pHV4ghHCg=="/>
+        </item>
+        <item>
             <title>0.1.7</title>
             <pubDate>Mon, 28 Sep 2026 10:48:20 -0600</pubDate>
             <link>https://github.com/umzcio/zPDF</link>
@@ -51,38 +74,6 @@
 <p>Requires macOS 15 or later on an Apple silicon Mac. For Windows, see the Windows release.</p>
 ]]></description>
             <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.6/zPDF-0.1.6.dmg" length="67834597" type="application/octet-stream" sparkle:edSignature="cxs6lyW1jUyKftF1Fs3irlNoa9j1GWo6uZ3eWvAWEALbKVqRBjw/2WfsbMm1KQFqHn602kC5Kqvp3iX/DD/ECg=="/>
-        </item>
-        <item>
-            <title>0.1.3</title>
-            <pubDate>Fri, 25 Sep 2026 19:14:00 -0600</pubDate>
-            <link>https://github.com/umzcio/zPDF</link>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<meta charset="utf-8">
-<h2>zPDF 0.1.3</h2>
-<h3>New</h3>
-<ul>
-<li><b>Bring Forward / Send Backward</b> (Edit panel): move an object one step up or down past the object it overlaps, alongside Bring to Front / Send to Back.</li>
-<li><b>Distribute Horizontally / Vertically</b>: space three or more selected objects evenly.</li>
-<li><b>Barcodes stay current</b>: barcode fields regenerate automatically when you save, so they always match the form data.</li>
-<li><b>Better automatic tagging on forms</b>: numbered and bulleted lists on forms (side-by-side columns, spaced-out options) are tagged as proper lists, and stray numbered labels are no longer tagged as one-item lists.</li>
-</ul>
-<h3>Fixed</h3>
-<ul>
-<li><b>Hundreds of damaged or unusual real-world PDFs</b> no longer cause &ldquo;unexpected error&rdquo; failures. Edits now either work or explain that part of the file is damaged — the document can still be viewed and printed.</li>
-<li>PDFs with a malformed comment or annotation are no longer opened read-only.</li>
-<li>Fonts with non-English names no longer break Reduce File Size, PDF/A or the Fonts list.</li>
-<li>A crafted image in a PDF can no longer make an edit hang for minutes.</li>
-</ul>
-<h3>Install or update</h3>
-<ul>
-<li><b>Already installed:</b> choose <b>zPDF ▸ Check for Updates…</b>.</li>
-<li><b>New install:</b> download <code>zPDF-0.1.3.dmg</code>, open it, and drag <b>zPDF</b> to <b>Applications</b>.</li>
-</ul>
-<p>Requires macOS 15 or later on an Apple silicon Mac.</p>
-]]></description>
-            <enclosure url="https://github.com/umzcio/zPDF/releases/download/v0.1.3/zPDF-0.1.3.dmg" length="93831648" type="application/octet-stream" sparkle:edSignature="K1IYsV/e8snPuaug4kFvU+YJsfN8Oo9ZJIrjH0G7pvuiNSn83R3HZk8RgR1e1nApy+m6tgUKmH8uzrYd+6rfBA=="/>
         </item>
     </channel>
 </rss>
